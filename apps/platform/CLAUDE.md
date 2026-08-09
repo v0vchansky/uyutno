@@ -31,5 +31,6 @@
 - [ADR 0011](../../docs/adr/0011-linter-i-formatter-eslint-prettier.md) — линтер и форматтер (ESLint 10 flat config + Prettier 3).
 - [ADR 0012](../../docs/adr/0012-git-hooks-husky.md) — git-хуки (husky + lint-staged, pre-commit).
 - [ADR 0013](../../docs/adr/0013-transpilyator-swc.md) — транспилятор (SWC вместо Babel).
+- [Гайдлайн интерфейса](../../docs/ui/guidelines.md) — правила по UI (шкала отступов, типографика, цвет, компоновка); токены темы — в [`src/client/theme-uyutno.css`](./src/client/theme-uyutno.css).
 
 Как поднять и запустить локально — [`README.md`](./README.md).

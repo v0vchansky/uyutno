@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Nunito:wght@700&display=swap" />
+<style>
+  body { margin: 0; background: oklch(97% 0 0); }
+  a { color: oklch(61% 0.18 44); }
+  a:hover { color: oklch(55% 0.18 44); }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }
+</style>
+</helmet>
+
+<div style="font-family:'Inter',system-ui,sans-serif;color:oklch(24% 0 0);max-width:920px;margin:0 auto;padding:56px 32px 96px;display:flex;flex-direction:column;gap:48px;-webkit-font-smoothing:antialiased">
+
+  <header style="display:flex;flex-direction:column;gap:12px">
+    <div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">
+      <div style="position:relative;width:26px;height:20px"><div style="position:absolute;left:0;top:0;width:17px;height:17px;border-radius:5px;background:oklch(61% 0.18 44);transform:rotate(-8deg)"></div><div style="position:absolute;left:10px;top:1px;width:16px;height:16px;border-radius:5px;background:oklch(61% 0.18 44);opacity:0.45;transform:rotate(7deg)"></div></div>
+      <span style="font-family:'Nunito',system-ui,sans-serif;transform:translateY(-1.5px);font-size:21px;font-weight:700;letter-spacing:-0.02em;line-height:1">уютно</span>
+    </div>
+    <h1 style="margin:0;font-size:32px;font-weight:600;letter-spacing:-0.03em">Гайдлайн интерфейса</h1>
+    <p style="margin:0;max-width:620px;font-size:16px;line-height:1.6;color:oklch(48% 0 0);text-wrap:pretty">Документ описывает решения, которые уже приняты, чтобы их не приходилось принимать заново на каждом экране. Всё, что здесь зафиксировано, лежит в токенах HeroUI — правила и код не должны расходиться.</p>
+  </header>
+
+  <section style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.02em">Отступы</h2>
+      <p style="margin:0;max-width:620px;font-size:15px;line-height:1.6;color:oklch(48% 0 0);text-wrap:pretty">Восемь значений, кратных четырём. Других в интерфейсе быть не должно: если нужное расстояние не попадает в шкалу, почти всегда неверна структура, а не число.</p>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:1px;background:oklch(91% 0 0);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgb(0 0 0 / 0.06)">
+      <div style="display:grid;grid-template-columns:64px 1fr 300px;gap:16px;padding:10px 16px;background:oklch(96% 0 0);font-size:12px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:oklch(50% 0 0)"><span>px</span><span>масштаб</span><span>где</span></div>
+      <div style="display:grid;grid-template-columns:64px 1fr 300px;gap:16px;align-items:center;padding:10px 16px;background:oklch(100% 0 0);font-size:14px"><code>4</code><div style="height:14px;width:4px;background:oklch(61% 0.18 44);border-radius:2px"></div><span style="color:oklch(48% 0 0)">иконка и текст внутри кнопки</span></div>
+      <div style="display:grid;grid-template-columns:64px 1fr 300px;gap:16px;align-items:center;padding:10px 16px;background:oklch(100% 0 0);font-size:14px"><code>8</code><div style="height:14px;width:8px;background:oklch(61% 0.18 44);border-radius:2px"></div><span style="color:oklch(48% 0 0)">соседние кнопки, чипы, лейбл и поле</span></div>
+      <div style="display:grid;grid-template-columns:64px 1fr 300px;gap:16px;align-items:center;padding:10px 16px;background:oklch(100% 0 0);font-size:14px"><code>12</code><div style="height:14px;width:12px;background:oklch(61% 0.18 44);border-radius:2px"></div><span style="color:oklch(48% 0 0)">горизонтальный padding поля, плотные списки</span></div>
+      <div style="display:grid;grid-template-columns:64px 1fr 300px;gap:16px;align-items:center;padding:10px 16px;background:oklch(100% 0 0);font-size:14px"><code>16</code><div style="height:14px;width:16px;background:oklch(61% 0.18 44);border-radius:2px"></div><span style="color:oklch(48% 0 0)">поля формы между собой, карточки в сетке</span></div>
+      <div style="display:grid;grid-template-columns:64px 1fr 300px;gap:16px;align-items:center;padding:10px 16px;background:oklch(100% 0 0);font-size:14px"><code>24</code><div style="height:14px;width:24px;background:oklch(61% 0.18 44);border-radius:2px"></div><span style="color:oklch(48% 0 0)">padding карточки, блоки внутри карточки</span></div>
+      <div style="display:grid;grid-template-columns:64px 1fr 300px;gap:16px;align-items:center;padding:10px 16px;background:oklch(100% 0 0);font-size:14px"><code>32</code><div style="height:14px;width:32px;background:oklch(61% 0.18 44);border-radius:2px"></div><span style="color:oklch(48% 0 0)">боковые поля страницы, заголовок и контент</span></div>
+      <div style="display:grid;grid-template-columns:64px 1fr 300px;gap:16px;align-items:center;padding:10px 16px;background:oklch(100% 0 0);font-size:14px"><code>48</code><div style="height:14px;width:48px;background:oklch(61% 0.18 44);border-radius:2px"></div><span style="color:oklch(48% 0 0)">секции лендинга между собой</span></div>
+      <div style="display:grid;grid-template-columns:64px 1fr 300px;gap:16px;align-items:center;padding:10px 16px;background:oklch(100% 0 0);font-size:14px"><code>64</code><div style="height:14px;width:64px;background:oklch(61% 0.18 44);border-radius:2px"></div><span style="color:oklch(48% 0 0)">крупные смысловые разделы, отбивка перед подвалом</span></div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;padding:20px 24px;border-radius:12px;background:oklch(100% 0 0);box-shadow:0 1px 3px rgb(0 0 0 / 0.06)">
+      <div style="font-size:14px;font-weight:600">Два исключения</div>
+      <p style="margin:0;font-size:14px;line-height:1.6;color:oklch(48% 0 0);text-wrap:pretty"><strong style="font-weight:500;color:oklch(24% 0 0)">6px</strong> — между лейблом и полем ввода и между полем и подсказкой под ним: 8px там визуально рвёт пару. <strong style="font-weight:500;color:oklch(24% 0 0)">2px</strong> — между иконками в панели инструментов, где кнопки уже имеют внутренний padding.</p>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;padding:20px 24px;border-radius:12px;background:oklch(100% 0 0);box-shadow:0 1px 3px rgb(0 0 0 / 0.06)">
+      <div style="font-size:14px;font-weight:600">Отступы задаются контейнером, не элементами</div>
+      <p style="margin:0;font-size:14px;line-height:1.6;color:oklch(48% 0 0);text-wrap:pretty">Группа однотипных элементов — это <code>flex</code> или <code>grid</code> с <code>gap</code>. Не <code>margin-bottom</code> у каждого и не пустые <code>div</code>. Тогда при удалении или перестановке элемента ритм не ломается.</p>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.02em">Текст</h2>
+      <p style="margin:0;max-width:620px;font-size:15px;line-height:1.6;color:oklch(48% 0 0);text-wrap:pretty">Inter для всего интерфейса, Nunito 700 — только в логотипе. Ниже вся шкала; промежуточных размеров нет.</p>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:1px;background:oklch(91% 0 0);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgb(0 0 0 / 0.06)">
+      <div style="display:grid;grid-template-columns:1fr 190px;gap:16px;align-items:baseline;padding:16px;background:oklch(100% 0 0)"><span style="font-size:44px;font-weight:600;letter-spacing:-0.03em;line-height:1.1">Заголовок страницы</span><span style="font-size:13px;color:oklch(50% 0 0)">44 / 600 / −0.03em</span></div>
+      <div style="display:grid;grid-template-columns:1fr 190px;gap:16px;align-items:baseline;padding:16px;background:oklch(100% 0 0)"><span style="font-size:28px;font-weight:600;letter-spacing:-0.02em">Заголовок секции</span><span style="font-size:13px;color:oklch(50% 0 0)">28 / 600 / −0.02em</span></div>
+      <div style="display:grid;grid-template-columns:1fr 190px;gap:16px;align-items:baseline;padding:16px;background:oklch(100% 0 0)"><span style="font-size:22px;font-weight:600;letter-spacing:-0.02em">Заголовок карточки</span><span style="font-size:13px;color:oklch(50% 0 0)">22 / 600</span></div>
+      <div style="display:grid;grid-template-columns:1fr 190px;gap:16px;align-items:baseline;padding:16px;background:oklch(100% 0 0)"><span style="font-size:17px;font-weight:600">Подзаголовок</span><span style="font-size:13px;color:oklch(50% 0 0)">17 / 600</span></div>
+      <div style="display:grid;grid-template-columns:1fr 190px;gap:16px;align-items:baseline;padding:16px;background:oklch(100% 0 0)"><span style="font-size:16px;line-height:1.6">Крупный текст — вводные абзацы</span><span style="font-size:13px;color:oklch(50% 0 0)">16 / 400 / 1.6</span></div>
+      <div style="display:grid;grid-template-columns:1fr 190px;gap:16px;align-items:baseline;padding:16px;background:oklch(100% 0 0)"><span style="font-size:14px;line-height:1.55">Основной текст интерфейса, лейблы полей</span><span style="font-size:13px;color:oklch(50% 0 0)">14 / 400 или 500</span></div>
+      <div style="display:grid;grid-template-columns:1fr 190px;gap:16px;align-items:baseline;padding:16px;background:oklch(100% 0 0)"><span style="font-size:13px;color:oklch(48% 0 0)">Второстепенное: подписи, метаданные</span><span style="font-size:13px;color:oklch(50% 0 0)">13 / 400</span></div>
+      <div style="display:grid;grid-template-columns:1fr 190px;gap:16px;align-items:baseline;padding:16px;background:oklch(100% 0 0)"><span style="font-size:12px;color:oklch(48% 0 0)">Подсказки под полями, правовые строки</span><span style="font-size:13px;color:oklch(50% 0 0)">12 / 400</span></div>
+      <div style="display:grid;grid-template-columns:1fr 190px;gap:16px;align-items:baseline;padding:16px;background:oklch(100% 0 0)"><span style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:oklch(50% 0 0)">Заголовок группы в панели</span><span style="font-size:13px;color:oklch(50% 0 0)">11 / 600 / 0.06em</span></div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;padding:20px 24px;border-radius:12px;background:oklch(100% 0 0);box-shadow:0 1px 3px rgb(0 0 0 / 0.06)">
+      <div style="font-size:14px;font-weight:600">Правила</div>
+      <p style="margin:0;font-size:14px;line-height:1.6;color:oklch(48% 0 0);text-wrap:pretty">Веса только 400, 500 и 600 — жирнее не бывает. Отрицательный трекинг начинается с 22px и растёт с кеглем. Строка текста не шире 620px. Абзацам — <code>text-wrap: pretty</code>, заголовкам — <code>text-wrap: balance</code>.</p>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.02em">Цвет</h2>
+      <p style="margin:0;max-width:620px;font-size:15px;line-height:1.6;color:oklch(48% 0 0);text-wrap:pretty">Нейтрали чисто серые, без подтона. Единственный цвет в интерфейсе — терракота, и она означает действие. Всё остальное цветное на экране должно принадлежать мебели и рендерам, а не UI.</p>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(150px, 1fr));gap:12px">
+      <div style="background:oklch(100% 0 0);border-radius:12px;padding:14px;box-shadow:0 1px 3px rgb(0 0 0 / 0.06)"><div style="height:52px;border-radius:8px;background:oklch(61% 0.18 44);margin-bottom:10px"></div><div style="font-size:13px;font-weight:500">--accent</div><div style="font-size:12px;color:oklch(50% 0 0)">#D65400</div></div>
+      <div style="background:oklch(100% 0 0);border-radius:12px;padding:14px;box-shadow:0 1px 3px rgb(0 0 0 / 0.06)"><div style="height:52px;border-radius:8px;background:oklch(24% 0 0);margin-bottom:10px"></div><div style="font-size:13px;font-weight:500">--foreground</div><div style="font-size:12px;color:oklch(50% 0 0)">#3D3D3D</div></div>
+      <div style="background:oklch(100% 0 0);border-radius:12px;padding:14px;box-shadow:0 1px 3px rgb(0 0 0 / 0.06)"><div style="height:52px;border-radius:8px;background:oklch(54% 0 0);margin-bottom:10px"></div><div style="font-size:13px;font-weight:500">--muted</div><div style="font-size:12px;color:oklch(50% 0 0)">#838383</div></div>
+      <div style="background:oklch(100% 0 0);border-radius:12px;padding:14px;box-shadow:0 1px 3px rgb(0 0 0 / 0.06)"><div style="height:52px;border-radius:8px;background:oklch(97% 0 0);box-shadow:inset 0 0 0 1px oklch(91% 0 0);margin-bottom:10px"></div><div style="font-size:13px;font-weight:500">--background</div><div style="font-size:12px;color:oklch(50% 0 0)">#F7F7F7</div></div>
+      <div style="background:oklch(100% 0 0);border-radius:12px;padding:14px;box-shadow:0 1px 3px rgb(0 0 0 / 0.06)"><div style="height:52px;border-radius:8px;background:oklch(96% 0 0);margin-bottom:10px"></div><div style="font-size:13px;font-weight:500">--default</div><div style="font-size:12px;color:oklch(50% 0 0)">#F3F3F3</div></div>
+      <div style="background:oklch(100% 0 0);border-radius:12px;padding:14px;box-shadow:0 1px 3px rgb(0 0 0 / 0.06)"><div style="height:52px;border-radius:8px;background:oklch(91% 0 0);margin-bottom:10px"></div><div style="font-size:13px;font-weight:500">--border</div><div style="font-size:12px;color:oklch(50% 0 0)">#E4E4E4</div></div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;padding:20px 24px;border-radius:12px;background:oklch(100% 0 0);box-shadow:0 1px 3px rgb(0 0 0 / 0.06)">
+      <div style="font-size:14px;font-weight:600">Где допустим акцент</div>
+      <p style="margin:0;font-size:14px;line-height:1.6;color:oklch(48% 0 0);text-wrap:pretty">Главная кнопка экрана, кольцо фокуса, активный инструмент, включённый переключатель, ссылка-действие. На одном экране одна главная кнопка. Вторичные действия — на <code>--default</code>, третичные — просто текстом.</p>
+      <p style="margin:0;font-size:14px;line-height:1.6;color:oklch(48% 0 0);text-wrap:pretty">Контраст терракоты с белым текстом — 4.1:1. Этого хватает для текста от 15px и полужирного от 14px, поэтому мелких надписей на акцентном фоне быть не должно.</p>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.02em">Форма и глубина</h2>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:16px">
+      <div style="background:oklch(100% 0 0);border-radius:12px;padding:20px 24px;box-shadow:0 1px 3px rgb(0 0 0 / 0.06);display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:14px;font-weight:600">Радиусы</div>
+        <div style="display:flex;align-items:flex-end;gap:12px">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:44px;height:44px;border-radius:8px;background:oklch(94% 0 0)"></div><span style="font-size:12px;color:oklch(50% 0 0)">8</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:44px;height:44px;border-radius:12px;background:oklch(94% 0 0)"></div><span style="font-size:12px;color:oklch(50% 0 0)">12</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:44px;height:44px;border-radius:24px;background:oklch(94% 0 0)"></div><span style="font-size:12px;color:oklch(50% 0 0)">24</span></div>
+        </div>
+        <p style="margin:0;font-size:13px;line-height:1.55;color:oklch(48% 0 0);text-wrap:pretty">8 — мелкие плитки и иконки. 12 — кнопки, поля, плашки. 24 — карточки и секции. Из <code>--radius: 0.5rem</code> HeroUI выводит всю шкалу.</p>
+      </div>
+
+      <div style="background:oklch(100% 0 0);border-radius:12px;padding:20px 24px;box-shadow:0 1px 3px rgb(0 0 0 / 0.06);display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:14px;font-weight:600">Тени</div>
+        <div style="display:flex;gap:12px">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:56px;height:44px;border-radius:12px;background:oklch(100% 0 0);box-shadow:0 2px 4px 0 rgb(0 0 0 / 0.04), 0 1px 2px 0 rgb(0 0 0 / 0.06), 0 0 1px 0 rgb(0 0 0 / 0.06)"></div><span style="font-size:12px;color:oklch(50% 0 0)">карточка</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:56px;height:44px;border-radius:12px;background:oklch(100% 0 0);box-shadow:0 2px 8px rgb(0 0 0 / 0.10)"></div><span style="font-size:12px;color:oklch(50% 0 0)">над холстом</span></div>
+        </div>
+        <p style="margin:0;font-size:13px;line-height:1.55;color:oklch(48% 0 0);text-wrap:pretty">Две тени на весь продукт. Первая — у карточек и полей, вторая — у плавающих панелей редактора. Тени нейтральные, без тёплого подтона.</p>
+      </div>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.02em">Элементы управления</h2>
+      <p style="margin:0;max-width:620px;font-size:15px;line-height:1.6;color:oklch(48% 0 0);text-wrap:pretty">Три высоты: 36px в плотных панелях, 40px по умолчанию, 44–52px для главного действия на экране входа и лендинге. На сенсорных экранах ничего ниже 44px.</p>
+    </div>
+
+    <div style="background:oklch(100% 0 0);border-radius:12px;padding:24px;box-shadow:0 1px 3px rgb(0 0 0 / 0.06);display:flex;flex-direction:column;gap:20px">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px">
+        <button type="button" style="height:40px;padding:0 20px;border:0;border-radius:12px;background:oklch(61% 0.18 44);color:oklch(100% 0 0);font:inherit;font-size:14px;font-weight:500;cursor:pointer" style-hover="background:oklch(55% 0.18 44)">Главное действие</button>
+        <button type="button" style="height:40px;padding:0 20px;border:0;border-radius:12px;background:oklch(96% 0 0);color:oklch(24% 0 0);font:inherit;font-size:14px;font-weight:500;cursor:pointer" style-hover="background:oklch(93% 0 0)">Вторичное</button>
+        <button type="button" style="height:40px;padding:0 12px;border:0;border-radius:12px;background:none;color:oklch(24% 0 0);font:inherit;font-size:14px;cursor:pointer" style-hover="background:oklch(96% 0 0)">Третичное</button>
+        <span style="font-size:13px;color:oklch(50% 0 0)">одна главная кнопка на экран</span>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end">
+        <label style="display:flex;flex-direction:column;gap:6px;width:220px"><span style="font-size:14px;font-weight:500">Обычное поле</span><input placeholder="Плейсхолдер" style="min-height:40px;box-sizing:border-box;width:100%;padding:8px 12px;border:1px solid transparent;border-radius:12px;background:oklch(100% 0 0);font:inherit;font-size:14px;color:oklch(24% 0 0);outline:none;transition:box-shadow 150ms ease;box-shadow:0 2px 4px 0 rgb(0 0 0 / 0.04), 0 1px 2px 0 rgb(0 0 0 / 0.06), 0 0 1px 0 rgb(0 0 0 / 0.06)" style-focus="box-shadow:0 0 0 2px oklch(61% 0.18 44)" /></label>
+        <label style="display:flex;flex-direction:column;gap:6px;width:220px"><span style="font-size:14px;font-weight:500">В фокусе</span><input value="name@example.ru" style="min-height:40px;box-sizing:border-box;width:100%;padding:8px 12px;border:1px solid transparent;border-radius:12px;background:oklch(100% 0 0);font:inherit;font-size:14px;color:oklch(24% 0 0);outline:none;box-shadow:0 0 0 2px oklch(61% 0.18 44)" /></label>
+        <label style="display:flex;flex-direction:column;gap:6px;width:220px"><span style="font-size:14px;font-weight:500">С ошибкой</span><input value="name@" style="min-height:40px;box-sizing:border-box;width:100%;padding:8px 12px;border:1px solid transparent;border-radius:12px;background:oklch(100% 0 0);font:inherit;font-size:14px;color:oklch(24% 0 0);outline:none;box-shadow:0 0 0 2px oklch(55% 0.16 27)" /><span style="font-size:12px;color:oklch(48% 0.16 27)">Проверьте адрес</span></label>
+      </div>
+
+      <p style="margin:0;font-size:14px;line-height:1.6;color:oklch(48% 0 0);max-width:620px;text-wrap:pretty">Поля берут геометрию из HeroUI: прозрачная рамка, тень вместо обводки, радиус <code>--field-radius</code>. В фокусе — кольцо 2px акцентом, при ошибке — то же кольцо красным и текст под полем. Валидация срабатывает на отправке формы, а не на каждом нажатии клавиши.</p>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.02em">Компоновка</h2>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;gap:16px;padding:18px 24px;border-radius:12px;background:oklch(100% 0 0);box-shadow:0 1px 3px rgb(0 0 0 / 0.06);font-size:14px;line-height:1.6"><span style="width:150px;flex-shrink:0;font-weight:500">Лендинг</span><span style="color:oklch(48% 0 0)">контент до 1200px, боковые поля 32px (16px на мобильном), секции через 48px</span></div>
+      <div style="display:flex;gap:16px;padding:18px 24px;border-radius:12px;background:oklch(100% 0 0);box-shadow:0 1px 3px rgb(0 0 0 / 0.06);font-size:14px;line-height:1.6"><span style="width:150px;flex-shrink:0;font-weight:500">Формы</span><span style="color:oklch(48% 0 0)">колонка 360px по центру, карточка с padding 24px, поля через 16px</span></div>
+      <div style="display:flex;gap:16px;padding:18px 24px;border-radius:12px;background:oklch(100% 0 0);box-shadow:0 1px 3px rgb(0 0 0 / 0.06);font-size:14px;line-height:1.6"><span style="width:150px;flex-shrink:0;font-weight:500">Редактор</span><span style="color:oklch(48% 0 0)">рейл 60px, боковые панели по 264px, холст занимает остаток; панели не сворачиваются</span></div>
+      <div style="display:flex;gap:16px;padding:18px 24px;border-radius:12px;background:oklch(100% 0 0);box-shadow:0 1px 3px rgb(0 0 0 / 0.06);font-size:14px;line-height:1.6"><span style="width:150px;flex-shrink:0;font-weight:500">Мобильный</span><span style="color:oklch(48% 0 0)">адаптивно всё, кроме редактора: он открывается только на компьютере, на телефоне — заглушка со ссылкой на примеры</span></div>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.02em">Текст интерфейса</h2>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:1px;background:oklch(91% 0 0);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgb(0 0 0 / 0.06)">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:16px 24px;background:oklch(96% 0 0);font-size:12px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:oklch(50% 0 0)"><span>так</span><span>не так</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:16px 24px;background:oklch(100% 0 0);font-size:14px;line-height:1.55"><span>Собрать планировку</span><span style="color:oklch(52% 0 0)">Начать бесплатно прямо сейчас</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:16px 24px;background:oklch(100% 0 0);font-size:14px;line-height:1.55"><span>Проверьте адрес</span><span style="color:oklch(52% 0 0)">Упс! Что-то пошло не так 😕</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:16px 24px;background:oklch(100% 0 0);font-size:14px;line-height:1.55"><span>Ссылка действует час</span><span style="color:oklch(52% 0 0)">Ссылка будет действительна в течение 60 минут</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:16px 24px;background:oklch(100% 0 0);font-size:14px;line-height:1.55"><span>Редактор работает на компьютере</span><span style="color:oklch(52% 0 0)">К сожалению, мы пока не поддерживаем мобильные устройства</span></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;padding:20px 24px;border-radius:12px;background:oklch(100% 0 0);box-shadow:0 1px 3px rgb(0 0 0 / 0.06)">
+      <p style="margin:0;font-size:14px;line-height:1.6;color:oklch(48% 0 0);text-wrap:pretty">Обращаемся на «вы», без заглавной. Кнопка — глагол и объект: что произойдёт по нажатию. Ошибка говорит, что делать, а не извиняется. Эмодзи и восклицательные знаки не используем. Единицы всегда с пробелом: 210 × 92 см, 20,3 м².</p>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:16px;padding:24px 28px;border-radius:12px;background:oklch(100% 0 0);box-shadow:0 1px 3px rgb(0 0 0 / 0.06)">
+    <h2 style="margin:0;font-size:18px;font-weight:600;letter-spacing:-0.02em">Если сомневаетесь</h2>
+    <p style="margin:0;font-size:14px;line-height:1.7;color:oklch(48% 0 0);max-width:620px;text-wrap:pretty">Возьмите значение из шкалы, а не среднее между двумя. Уберите элемент, прежде чем добавить новый. Цвет — последний инструмент: сначала размер, вес и расстояние. Экран должен читаться, если выключить цвет вовсе.</p>
+  </section>
+</div>
+</x-dc>
+</body>
+</html>

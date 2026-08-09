@@ -1,0 +1,78 @@
+/*
+ * Тема uyutno.
+ * Подключается в apps/platform/src/client/global.css ПОСЛЕ @heroui/styles:
+ *
+ *   @import 'tailwindcss';
+ *   @import '@heroui/styles';
+ *   @import './theme-uyutno.css';
+ *
+ * Имена переменных — из @heroui/styles/themes/default/variables.css.
+ * Меняются только значения: нейтрали обнулены по хроме (чистый серый),
+ * акцент — терракота из логотипа.
+ */
+
+:root,
+.light,
+.default,
+[data-theme='light'],
+[data-theme='default'] {
+  /* Акцент */
+  --accent: oklch(61% 0.18 44);
+  --accent-foreground: oklch(100% 0 0);
+  --focus: oklch(61% 0.18 44);
+
+  /* Фон и текст */
+  --background: oklch(97% 0 0);
+  --foreground: oklch(24% 0 0);
+  --muted: oklch(54% 0 0);
+
+  /* Поверхности */
+  --surface: oklch(100% 0 0);
+  --surface-foreground: oklch(24% 0 0);
+  --surface-secondary: oklch(96.5% 0 0);
+  --surface-secondary-foreground: oklch(24% 0 0);
+  --surface-tertiary: oklch(94% 0 0);
+  --surface-tertiary-foreground: oklch(24% 0 0);
+  --overlay: oklch(100% 0 0);
+  --overlay-foreground: oklch(24% 0 0);
+
+  /* Нейтральная кнопка и сегменты */
+  --default: oklch(96% 0 0);
+  --default-foreground: oklch(24% 0 0);
+  --segment: oklch(100% 0 0);
+  --segment-foreground: oklch(24% 0 0);
+
+  /* Линии */
+  --border: oklch(91% 0 0);
+  --separator: oklch(93% 0 0);
+
+  /* Поля ввода */
+  --field-background: oklch(100% 0 0);
+  --field-foreground: oklch(24% 0 0);
+  --field-placeholder: oklch(54% 0 0);
+  --field-border: transparent;
+
+  /* Тени нейтральные, без тёплого подтона */
+  --surface-shadow: 0 2px 4px 0 rgb(0 0 0 / 0.04), 0 1px 2px 0 rgb(0 0 0 / 0.06), 0 0 1px 0 rgb(0 0 0 / 0.06);
+  --field-shadow: 0 2px 4px 0 rgb(0 0 0 / 0.04), 0 1px 2px 0 rgb(0 0 0 / 0.06), 0 0 1px 0 rgb(0 0 0 / 0.06);
+
+  /* Скругления: --radius задаёт всю шкалу, --radius-3xl = --radius * 3 = 24px */
+  --radius: 0.5rem;
+  --field-radius: 0.75rem;
+}
+
+/*
+ * Кнопки.
+ * В HeroUI .button захардкожен rounded-3xl (= --radius * 3 = 24px).
+ * Карточки остаются на 24px, а кнопки нужны прямоугольнее,
+ * поэтому радиус кнопки переопределяется точечно.
+ */
+@layer components {
+  .button {
+    border-radius: 0.75rem; /* 12px — кнопки в шапке и формах */
+  }
+
+  .button[data-size='lg'] {
+    border-radius: 0.875rem; /* 14px — крупные CTA */
+  }
+}

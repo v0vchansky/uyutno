@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="132" height="32" viewBox="0 0 132 32" role="img" aria-label="уютно">
+  <rect x="1" y="4" width="20" height="20" rx="6" transform="rotate(-8 11 14)" fill="#D65400"></rect>
+  <rect x="12" y="5" width="19" height="19" rx="6" transform="rotate(7 21.5 14.5)" fill="#D65400" fill-opacity="0.45"></rect>
+  <text x="40" y="21.5" font-family="Nunito, system-ui, sans-serif" font-weight="700" font-size="24" letter-spacing="-0.5" fill="#3D3D3D">уютно</text>
+</svg>

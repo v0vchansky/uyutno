@@ -78,7 +78,14 @@ const clientBoundaryConfigs = clientModuleBoundaries.map(({ files, forbidden }) 
 
 export default tseslint.config(
   {
-    ignores: ['**/dist/**', '**/build/**', '**/node_modules/**', '**/.tsbuildinfo', '**/coverage/**'],
+    ignores: [
+      '**/dist/**',
+      '**/build/**',
+      '**/node_modules/**',
+      '**/.tsbuildinfo',
+      '**/coverage/**',
+      'docs/ui/handoffs/**',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
