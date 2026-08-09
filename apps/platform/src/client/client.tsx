@@ -5,15 +5,17 @@ import './global.css';
 import { hydrateRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router';
 
-import { Application } from '@app/application';
+import { Application, createRegistry } from '@app/application';
 
 const container = document.getElementById('root');
 
 if (container) {
+  const registry = createRegistry();
+
   hydrateRoot(
     container,
     <BrowserRouter>
-      <Application />
+      <Application registry={registry} />
     </BrowserRouter>,
   );
 }

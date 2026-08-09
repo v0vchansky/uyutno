@@ -3,15 +3,17 @@ import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { StaticRouter } from 'react-router';
 
-import { Application, Document } from '../../../client/application';
+import { Application, createRegistry, Document } from '../../../client/application';
 
 export const pageMiddleware = (cssHref: string, jsPath: string) => {
   return (request: Request, response: Response): void => {
+    const registry = createRegistry();
+
     const html = renderToString(
       createElement(Document, {
         cssHref,
         jsPath,
-        children: createElement(StaticRouter, { location: request.url }, createElement(Application)),
+        children: createElement(StaticRouter, { location: request.url }, createElement(Application, { registry })),
       }),
     );
 

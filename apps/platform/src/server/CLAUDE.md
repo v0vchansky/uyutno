@@ -50,7 +50,7 @@ export const createGetProjectController =
 **Обработка ошибок — через типизированные исключения, никаких `try/catch` в контроллерах.** Централизованный error-middleware в модуле `application` ловит все исключения и маппит их в HTTP-ответы. Репозитории и сервисы просто бросают понятные ошибки, контроллеры пишутся линейно.
 
 ```ts
-// core/errors.ts — базовые типы ошибок, живут в модуле core
+// common/errors.ts — базовые типы ошибок, живут в модуле common
 export class AppError extends Error { ... }
 export class NotFoundError extends AppError { ... }         // → 404
 export class ValidationError extends AppError { ... }       // → 400
@@ -79,7 +79,8 @@ export const createGetProjectController =
 ```
 
 Error-middleware в `application`:
-- Знает про типы `AppError` из `core`, маппит в статусы (`NotFoundError` → 404, `ValidationError` → 400, и т.п.).
+
+- Знает про типы `AppError` из `common`, маппит в статусы (`NotFoundError` → 404, `ValidationError` → 400, и т.п.).
 - Всё остальное (в том числе pg/Kysely-ошибки) — `500 Internal server error`, полный стек — в логгер.
 - Не логгирует юзер-фейсинг ошибки (`4xx`) как ошибки — только `5xx`.
 
@@ -104,8 +105,8 @@ Error-middleware в `application`:
 
 ## Именование
 
-| Что | Формат |
-|-----|--------|
-| Файлы кода (controllers, services, repositories, lib) | `camelCase.ts` |
-| Классы | `PascalCase` |
-| Папки модулей | `kebab-case` или `camelCase` |
+| Что                                                   | Формат                       |
+| ----------------------------------------------------- | ---------------------------- |
+| Файлы кода (controllers, services, repositories, lib) | `camelCase.ts`               |
+| Классы                                                | `PascalCase`                 |
+| Папки модулей                                         | `kebab-case` или `camelCase` |

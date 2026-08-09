@@ -38,8 +38,6 @@ const clientModuleBoundaries = [
       '@app/landing/*',
       '@app/project',
       '@app/project/*',
-      '@app/common',
-      '@app/common/*',
       '@app/planner',
       '@app/planner/*',
     ],

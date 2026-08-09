@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { pageMiddleware } from '@server/application';
+import { errorMiddleware, pageMiddleware } from '@server/application';
 
 const PORT = 4000;
 const STATIC_URL = '/static';
@@ -31,6 +31,8 @@ const jsFile = fs.readdirSync(staticPath).find(f => f.endsWith('.js'));
 const jsPath = `${STATIC_URL}/${jsFile}`;
 
 app.get('/{*splat}', pageMiddleware(cssHref, jsPath));
+
+app.use(errorMiddleware);
 
 app.listen(PORT, () => {
   console.log(`uyutno platform запущена: http://localhost:${PORT}`);
