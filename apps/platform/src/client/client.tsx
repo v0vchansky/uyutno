@@ -1,3 +1,4 @@
+import '@fontsource-variable/inter';
 import './global.css';
 
 import { hydrateRoot } from 'react-dom/client';
