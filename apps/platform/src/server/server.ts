@@ -1,13 +1,16 @@
 import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { pageMiddleware } from '@server/application';
 
 const PORT = 4000;
 const STATIC_URL = '/static';
 
-const CLIENT_DIST = path.resolve(process.cwd(), 'apps/platform/dist/client');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const staticPath = path.resolve(__dirname, '../../dist/client');
+const publicPath = path.resolve(__dirname, '../../public');
 
 const app = express();
 
@@ -18,17 +21,17 @@ app.get('/api/v1/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
-app.use(STATIC_URL, express.static(CLIENT_DIST));
+app.use(STATIC_URL, express.static(staticPath));
+app.use(express.static(publicPath));
 
-const cssFile = fs.existsSync(CLIENT_DIST) ? fs.readdirSync(CLIENT_DIST).find(f => f.endsWith('.css')) : undefined;
-const jsFile = fs.existsSync(CLIENT_DIST) ? fs.readdirSync(CLIENT_DIST).find(f => f.endsWith('.js')) : undefined;
-
+const cssFile = fs.readdirSync(staticPath).find(f => f.endsWith('.css'));
 const cssHref = cssFile ? `${STATIC_URL}/${cssFile}` : '';
-const jsPath = jsFile ? `${STATIC_URL}/${jsFile}` : `${STATIC_URL}/bundle.js`;
+
+const jsFile = fs.readdirSync(staticPath).find(f => f.endsWith('.js'));
+const jsPath = `${STATIC_URL}/${jsFile}`;
 
 app.get('/{*splat}', pageMiddleware(cssHref, jsPath));
 
 app.listen(PORT, () => {
-   
   console.log(`uyutno platform запущена: http://localhost:${PORT}`);
 });
