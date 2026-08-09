@@ -39,3 +39,14 @@ ADR нужен, когда решение:
 ## Индекс
 
 - [0001 — Фиксируем архитектурные решения через ADR](./0001-fiksiruem-arhitekturnye-resheniya-cherez-adr.md)
+- [0002 — Монорепа на pnpm workspaces с apps/ и packages/](./0002-monorepa-na-pnpm-workspaces.md)
+- [0003 — Стек фронтенда: Express + React SSR на Webpack, HeroUI/Tailwind, голый Three.js](./0003-stek-frontenda.md)
+- [0004 — Стек бэкенда: REST на Express, Kysely + pg, миграции через dbmate, валидация через Zod](./0004-stek-bekenda.md)
+- [0005 — Модель аутентификации: server-side sessions в cookie, email/пароль + Yandex ID + VK ID, argon2id](./0005-model-autentifikatsii.md)
+- [0006 — Схема БД для v0: auth-таблицы и projects (без содержимого сцены)](./0006-shema-bd-v0.md)
+- [0007 — Архитектура проекта: модульная раскладка, граф импортов, registry-паттерн](./0007-arhitektura-proekta-moduli.md)
+- [0008 — SSR-стратегия v0: рендерим только шелл, данные — всегда на клиенте](./0008-ssr-render-shella-bez-danniyh.md)
+- [0009 — Frontend UI-стек: Tailwind CSS v4, HeroUI v3, React 19](./0009-frontend-ui-stek-tailwind-v4-heroui-v3.md)
+- [0010 — Path aliases: `@app/*` для клиента, `@server/*` для сервера](./0010-path-aliases-app-server.md)
+- [0011 — Линтер и форматтер: ESLint 10 (flat config) + Prettier 3](./0011-linter-i-formatter-eslint-prettier.md)
+- [0012 — Git-хуки: lefthook + lint-staged, pre-commit с ESLint / Prettier / tsc](./0012-git-hooks-lefthook.md)
