@@ -83,6 +83,28 @@
 | 0002 | TASK | [Вёрстка лендинга](0002-TASK-landing-markup.md)             | [x]    | 0004                               | 6f2b956 (прямой коммит в main) |
 | 0003 | TASK | [Реальные скриншоты](0003-TASK-landing-real-screenshots.md) | [ ]    | 0002; готовый редактор с каталогом | —                              |
 
+### 0005 · Аутентификация · [ ]
+
+| #    | Тип  | Название                                                                                                     | Статус | Зависит от | PR  |
+| ---- | ---- | ------------------------------------------------------------------------------------------------------------ | ------ | ---------- | --- |
+| 0006 | TASK | [Инфра БД: pg + Kysely + dbmate + кодоген типов](0006-TASK-db-infra.md)                                      | [ ]    | —          | —   |
+| 0007 | TASK | [Миграции: users, sessions, oauth_accounts, password_reset_tokens](0007-TASK-auth-migrations.md)             | [ ]    | 0006       | —   |
+| 0008 | TASK | [Registry + error-middleware + core/errors](0008-TASK-registry-and-error-middleware.md)                      | [ ]    | —          | —   |
+| 0009 | TASK | [Настроить внешний SMTP-провайдер](0009-TASK-smtp-provider.md)                                               | [ ]    | —          | —   |
+| 0010 | TASK | [Регистрация OAuth-приложений Yandex ID + VK ID](0010-TASK-oauth-apps.md)                                    | [ ]    | —          | —   |
+| 0011 | TASK | [auth-модуль: AuthService, session middleware, /auth/me, гарды, axios-interceptor](0011-TASK-auth-module.md) | [ ]    | 0007, 0008 | —   |
+| 0012 | TASK | [`/login` — форма + POST /auth/login](0012-TASK-login-page.md)                                               | [ ]    | 0011       | —   |
+| 0013 | TASK | [`/register` — форма + POST /auth/register](0013-TASK-register-page.md)                                      | [ ]    | 0011, 0018 | —   |
+| 0014 | TASK | [`/forgot-password` + `/reset-password`](0014-TASK-password-reset.md)                                        | [ ]    | 0011, 0009 | —   |
+| 0015 | TASK | [OAuth Yandex ID + VK ID](0015-TASK-oauth-flow.md)                                                           | [ ]    | 0011, 0010 | —   |
+
+### 0016 · Доделки к релизу · [ ]
+
+| #    | Тип  | Название                                                                                 | Статус | Зависит от | PR  |
+| ---- | ---- | ---------------------------------------------------------------------------------------- | ------ | ---------- | --- |
+| 0017 | TASK | [Страницы /terms и /privacy](0017-TASK-terms-and-privacy-pages.md)                       | [ ]    | 0004       | —   |
+| 0018 | TASK | [Подключить /terms и /privacy во всём сайте](0018-TASK-terms-and-privacy-integration.md) | [ ]    | 0017       | —   |
+
 ### Без эпика
 
 | #    | Тип  | Название                                                         | Статус | Зависит от | PR                             |
