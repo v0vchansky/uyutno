@@ -89,11 +89,29 @@ export const getSomethingQuery = createQuery({
 
 - Co-location: `foo.ts` + `foo.test.ts` лежат рядом. Никаких `__tests__/`.
 
+## Типизация компонентов
+
+Все React-компоненты типизируются как `React.FC` (или `React.FC<Props>`, если есть пропсы). Единый визуальный маркер «это компонент», отличает от обычных функций. Импорт — `import type React from 'react'`: только тип, без runtime-стоимости.
+
+```tsx
+import type React from 'react';
+
+export const HomePage: React.FC = () => { ... };
+
+interface Props {
+  userId: string;
+}
+
+export const UserCard: React.FC<Props> = ({ userId }) => { ... };
+```
+
+Правила про раскладку типов и констант (без `types.ts` / `constants.ts`, циклические `import type` — норма) — общие для клиента и сервера, см. [`../../CLAUDE.md`](../../CLAUDE.md).
+
 ## Именование
 
-| Что | Формат |
-|-----|--------|
-| Компоненты, страницы | `PascalCase.tsx` |
-| Хуки | `useCamelCase.ts` |
-| Утилиты, API | `camelCase.ts` |
-| Папки модулей | `kebab-case` или `camelCase` |
+| Что                  | Формат                       |
+| -------------------- | ---------------------------- |
+| Компоненты, страницы | `PascalCase.tsx`             |
+| Хуки                 | `useCamelCase.ts`            |
+| Утилиты, API         | `camelCase.ts`               |
+| Папки модулей        | `kebab-case` или `camelCase` |
