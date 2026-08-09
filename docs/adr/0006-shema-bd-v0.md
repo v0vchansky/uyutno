@@ -5,7 +5,7 @@
 
 ## Решение
 
-Минимальный набор для Этапа 1 (регистрация, вход, пустой `/project/:id`): `users`, `sessions`, `oauth_accounts`, `password_reset_tokens`, `projects` (только оболочка — id, владелец, имя, timestamps).
+Минимальный набор таблиц под auth-модель ADR 0005 и оболочку проекта: `users`, `sessions`, `oauth_accounts`, `password_reset_tokens`, `projects` (только оболочка — id, владелец, имя, timestamps). Все пять — одной пачкой миграций до старта работы над фичами, чтобы дальше только наращивать. Реализация OAuth и password reset в коде — по плану v0 (см. `docs/product/release-v0.md`), таблицы заводим сразу.
 
 За пределами ADR (отдельные ADR по факту):
 - Хранение содержимого сцены — перед стартом редактора.
