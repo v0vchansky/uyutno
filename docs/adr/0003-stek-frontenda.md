@@ -5,16 +5,16 @@
 
 ## Решение
 
-- **Runtime и сборка:** Express + React SSR через Webpack (двух-битная сборка client + server).
+- **Runtime и сборка:** Express + React SSR через Webpack, мажор **5** (двух-битная сборка client + server).
 - **UI-библиотека:** React последней стабильной major-версии.
 - **Роутинг:** `react-router` последней стабильной major-версии.
 - **UI-kit и стайлинг:** HeroUI поверх Tailwind CSS (конкретные версии — ADR 0009).
-- **Данные с сервера:** TanStack Query (React Query).
+- **Данные с сервера:** TanStack Query (React Query), мажор **5**.
 - **Локальное состояние:** штатные хуки React (`useState`, `useReducer`, `useContext`), без внешнего state-manager'а.
-- **Формы:** `react-hook-form` + `@hookform/resolvers/zod` (те же Zod-схемы валидируют `req.body` на сервере — см. ADR 0004).
-- **3D:** голый Three.js, без обёрток. Инициализация внутри React-компонента через `ref` на `<canvas>` и `useEffect` с явным `dispose()` в cleanup.
-- **Тесты:** Jest.
-- **Язык:** TypeScript с общим корневым `tsconfig`.
+- **Формы:** `react-hook-form` (мажор **7**) + `@hookform/resolvers/zod` (те же Zod-схемы валидируют `req.body` на сервере — см. ADR 0004).
+- **3D:** голый Three.js, без обёрток, версия **0.185.x** (three ведёт semver в диапазоне 0.x — фиксируем на минор, обновление минора может ломать API). Инициализация внутри React-компонента через `ref` на `<canvas>` и `useEffect` с явным `dispose()` в cleanup.
+- **Тесты:** Jest, мажор **30**.
+- **Язык:** TypeScript, мажор **7**, с общим корневым `tsconfig`.
 
 ## Почему
 

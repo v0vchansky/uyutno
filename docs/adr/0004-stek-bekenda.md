@@ -6,9 +6,9 @@
 ## Решение
 
 - **API-стиль:** REST, доменные роуты `/api/v1/<domain>`, JSON-payloads, стандартные HTTP-статусы.
-- **PostgreSQL:** Kysely (типобезопасный query builder) поверх `pg` (node-postgres). Схема БД — TS-типы, запросы — SQL-подобный chain API, без code-gen.
+- **PostgreSQL:** Kysely (типобезопасный query builder) поверх `pg` (node-postgres, мажор **8**). Схема БД — TS-типы, запросы — SQL-подобный chain API, без code-gen.
 - **Миграции:** dbmate. Файлы в `apps/platform/db/migrations/<timestamp>_<name>.sql` с секциями `-- migrate:up` и `-- migrate:down`. Состояние — в таблице `schema_migrations`. Ручные `ALTER TABLE` на проде запрещены — любое изменение схемы едет миграцией, вместе с кодом в одном PR.
-- **Валидация входных данных:** Zod. Схемы объявляются один раз и переиспользуются на сервере (`req.body`/`req.query`/`req.params`) и клиенте (валидация форм, типизация ответов).
+- **Валидация входных данных:** Zod, мажор **4**. Схемы объявляются один раз и переиспользуются на сервере (`req.body`/`req.query`/`req.params`) и клиенте (валидация форм, типизация ответов).
 
 ## Почему
 
