@@ -29,6 +29,7 @@ pnpm-debug.log*
 .parcel-cache/
 .eslintcache
 *.tsbuildinfo
+*.tsbuildinfo-*
 
 # Покрытие тестами
 coverage/

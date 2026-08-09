@@ -1,0 +1,2 @@
+TERM=dumb pnpm exec lint-staged
+pnpm typecheck

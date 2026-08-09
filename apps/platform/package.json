@@ -1,0 +1,46 @@
+{
+  "name": "platform",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "cross-env NODE_ENV=development concurrently -n client,server -c cyan,magenta \"pnpm dev:client\" \"pnpm dev:server\"",
+    "dev:client": "webpack --config webpack/webpack.client.js --watch",
+    "dev:server": "pnpm build:server && concurrently -k \"webpack --watch --config webpack/webpack.server.js\" \"nodemon --watch dist/server/server.js --exec node dist/server/server.js\"",
+    "build": "pnpm build:client && pnpm build:server",
+    "build:client": "cross-env NODE_ENV=production webpack --config webpack/webpack.client.js",
+    "build:server": "webpack --config webpack/webpack.server.js",
+    "start": "node dist/server/server.js",
+    "typecheck": "tsc -p src/client/tsconfig.json --incremental && tsc -p src/server/tsconfig.json --incremental"
+  },
+  "dependencies": {
+    "@heroui/react": "^3.2.4",
+    "@heroui/styles": "^3.2.4",
+    "express": "^5.2.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router": "^8.3.0"
+  },
+  "devDependencies": {
+    "@swc/core": "^1.15.47",
+    "@swc/helpers": "^0.5.23",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/express": "^5.0.6",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "concurrently": "^10.0.4",
+    "cross-env": "^10.1.0",
+    "css-loader": "^7.1.4",
+    "mini-css-extract-plugin": "^2.10.2",
+    "nodemon": "^3.1.14",
+    "postcss": "^8.5.26",
+    "postcss-import": "^16.1.1",
+    "postcss-loader": "^8.2.1",
+    "swc-loader": "^0.2.7",
+    "tailwindcss": "^4.3.3",
+    "tsconfig-paths-webpack-plugin": "^4.2.0",
+    "webpack": "^5.109.2",
+    "webpack-cli": "^7.2.2",
+    "webpack-node-externals": "^3.0.0"
+  }
+}

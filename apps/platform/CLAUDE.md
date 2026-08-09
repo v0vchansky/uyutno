@@ -21,6 +21,7 @@
 - [ADR 0009](../../docs/adr/0009-frontend-ui-stek-tailwind-v4-heroui-v3.md) — версии UI-стека (Tailwind v4, HeroUI v3, React 19).
 - [ADR 0010](../../docs/adr/0010-path-aliases-app-server.md) — path aliases `@app/*` / `@server/*`.
 - [ADR 0011](../../docs/adr/0011-linter-i-formatter-eslint-prettier.md) — линтер и форматтер (ESLint 10 flat config + Prettier 3).
-- [ADR 0012](../../docs/adr/0012-git-hooks-lefthook.md) — git-хуки (lefthook + lint-staged, pre-commit).
+- [ADR 0012](../../docs/adr/0012-git-hooks-husky.md) — git-хуки (husky + lint-staged, pre-commit).
+- [ADR 0013](../../docs/adr/0013-transpilyator-swc.md) — транспилятор (SWC вместо Babel).
 
 Как поднять и запустить локально — [`README.md`](./README.md).

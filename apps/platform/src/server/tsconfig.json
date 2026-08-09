@@ -1,0 +1,15 @@
+{
+  "extends": "../../../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["dom", "dom.iterable", "es2022"],
+    "jsx": "react-jsx",
+    "types": ["node"],
+    "paths": {
+      "@server/*": ["./*"],
+      "@app/*": ["../client/*"]
+    },
+    "noEmit": true,
+    "tsBuildInfoFile": "../../.tsbuildinfo-server"
+  },
+  "include": ["./**/*.ts", "./**/*.tsx", "../shared/**/*.ts", "../client/**/*.ts", "../client/**/*.tsx"]
+}
