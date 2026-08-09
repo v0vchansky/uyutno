@@ -22,7 +22,7 @@ pnpm install
 docker compose -f infra/dev/docker-compose.yml up -d
 
 # миграции схемы
-pnpm --filter platform db:migrate
+pnpm --filter platform db:up
 
 # dev-сервер
 pnpm --filter platform dev
@@ -41,3 +41,18 @@ pnpm --filter platform dev
 - Конфиг: [`infra/dev/docker-compose.yml`](../../infra/dev/docker-compose.yml).
 - Данные — в docker-volume. Полный сброс: `docker compose -f infra/dev/docker-compose.yml down -v`.
 - В проде PostgreSQL живёт на сервере (bash + systemd, без докера). Докер — только инструмент dev-среды.
+- Строка подключения по умолчанию — `postgres://uyutno:uyutno@localhost:5432/uyutno` (соответствует docker-compose). Переопределяется через `DATABASE_URL`.
+
+## Миграции и типы БД
+
+Миграции — через [dbmate](https://github.com/amacneil/dbmate), файлы в [`db/migrations/`](./db/migrations/). Типы TS-схемы генерируются [`kysely-codegen`](https://github.com/RobinBlomberg/kysely-codegen) в [`src/server/postgres/db.generated.ts`](./src/server/postgres/db.generated.ts) — файл коммитится в репу.
+
+| Команда                             | Что делает                                             |
+| ----------------------------------- | ------------------------------------------------------ |
+| `pnpm --filter platform db:new`     | создать новую миграцию (`<timestamp>_<name>.sql`)      |
+| `pnpm --filter platform db:up`      | накатить все pending-миграции                          |
+| `pnpm --filter platform db:down`    | откатить последнюю применённую миграцию                |
+| `pnpm --filter platform db:status`  | показать список миграций и их состояние                |
+| `pnpm --filter platform db:codegen` | перегенерировать `db.generated.ts` из текущей схемы БД |
+
+После любого изменения схемы миграцией нужно прогнать `db:codegen` и закоммитить обновлённый `db.generated.ts` в одном PR с миграцией.

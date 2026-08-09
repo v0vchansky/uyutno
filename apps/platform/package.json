@@ -11,7 +11,12 @@
     "build:client": "cross-env NODE_ENV=production webpack --config webpack/webpack.client.js",
     "build:server": "webpack --config webpack/webpack.server.js",
     "start": "node dist/server/server.js",
-    "typecheck": "tsc -p src/client/tsconfig.json --incremental && tsc -p src/server/tsconfig.json --incremental"
+    "typecheck": "tsc -p src/client/tsconfig.json --incremental && tsc -p src/server/tsconfig.json --incremental",
+    "db:new": "dbmate --migrations-dir db/migrations --url \"${DATABASE_URL:-postgres://uyutno:uyutno@localhost:5432/uyutno?sslmode=disable}\" new",
+    "db:up": "dbmate --migrations-dir db/migrations --no-dump-schema --url \"${DATABASE_URL:-postgres://uyutno:uyutno@localhost:5432/uyutno?sslmode=disable}\" up",
+    "db:down": "dbmate --migrations-dir db/migrations --no-dump-schema --url \"${DATABASE_URL:-postgres://uyutno:uyutno@localhost:5432/uyutno?sslmode=disable}\" down",
+    "db:status": "dbmate --migrations-dir db/migrations --url \"${DATABASE_URL:-postgres://uyutno:uyutno@localhost:5432/uyutno?sslmode=disable}\" status",
+    "db:codegen": "kysely-codegen --dialect postgres --out-file src/server/postgres/db.generated.ts --exclude-pattern 'public.schema_migrations' --url \"${DATABASE_URL:-postgres://uyutno:uyutno@localhost:5432/uyutno}\""
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",
@@ -19,7 +24,9 @@
     "@heroui/react": "^3.2.4",
     "@heroui/styles": "^3.2.4",
     "express": "^5.2.1",
+    "kysely": "^0.29.4",
     "lucide-react": "^1.31.0",
+    "pg": "^8.23.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router": "^8.3.0"
@@ -29,11 +36,14 @@
     "@swc/helpers": "^0.5.23",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/express": "^5.0.6",
+    "@types/pg": "^8.21.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "concurrently": "^10.0.4",
     "cross-env": "^10.1.0",
     "css-loader": "^7.1.4",
+    "dbmate": "^2.35.0",
+    "kysely-codegen": "^0.20.0",
     "mini-css-extract-plugin": "^2.10.2",
     "nodemon": "^3.1.14",
     "postcss": "^8.5.26",

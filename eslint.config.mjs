@@ -165,5 +165,11 @@ export default tseslint.config(
     },
   },
   ...clientBoundaryConfigs,
+  {
+    files: ['**/*.generated.ts'],
+    rules: {
+      '@typescript-eslint/no-empty-object-type': 'off',
+    },
+  },
   prettier,
 );
