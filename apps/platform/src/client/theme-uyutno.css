@@ -69,10 +69,21 @@
  */
 @layer components {
   .button {
-    border-radius: 0.75rem; /* 12px — кнопки в шапке и формах */
+    border-radius: 0.75rem; /* 12px — базовый радиус для кнопок в шапке и формах */
   }
 
-  .button[data-size='lg'] {
-    border-radius: 0.875rem; /* 14px — крупные CTA */
+  /* Крупные CTA — 52px десктоп / 48px мобилка, 16px текст, 14px радиус. */
+  .button[data-size='xl'] {
+    height: 48px;
+    padding-inline: 1.5rem;
+    font-size: 1rem;
+    line-height: 1;
+    border-radius: 0.875rem;
+  }
+
+  @media (min-width: 768px) {
+    .button[data-size='xl'] {
+      height: 52px;
+    }
   }
 }
