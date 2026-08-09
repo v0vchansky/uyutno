@@ -1,10 +1,10 @@
 # 0007 · TASK · Миграции: users, sessions, oauth_accounts, password_reset_tokens
 
-- Статус: [ ]
+- Статус: [x]
 - Эпик: 0005
 - Зависит от: 0006
 - Спека: docs/adr/0006-shema-bd-v0.md
-- PR: —
+- PR: f0bb679 (прямой коммит в main)
 
 ## Описание
 
