@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Nunito:wght@700&display=swap" />
+<style>
+  body { margin: 0; background: oklch(97% 0 0); }
+  a { color: oklch(24% 0 0); }
+  a:hover { color: oklch(61% 0.18 44); }
+</style>
+</helmet>
+
+<div style="display:flex;flex-direction:column;height:100vh;overflow:hidden;background:oklch(96.5% 0 0);color:oklch(24% 0 0);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased">
+
+  <header style="display:flex;align-items:center;gap:12px;padding:10px 16px;background:oklch(100% 0 0);border-bottom:1px solid oklch(93% 0 0);flex-shrink:0">
+    <a href="/projects" style="display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 12px 0 8px;border-radius:12px;font-size:14px;text-decoration:none" style-hover="background:oklch(96.5% 0 0)">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3.5 5.5 8l4.5 4.5"></path></svg>
+      Проекты
+    </a>
+    <div style="width:1px;height:22px;background:oklch(92% 0 0)"></div>
+    <div style="display:flex;align-items:center;gap:8px;min-width:0">
+      <span style="font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Двушка на Полежаевской</span>
+      <span style="font-size:12px;color:oklch(58% 0 0);white-space:nowrap">{{ saveLabel }}</span>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:2px;margin-left:8px">
+      <button type="button" title="Отменить" style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border:0;border-radius:12px;background:none;color:oklch(24% 0 0);cursor:pointer" style-hover="background:oklch(96.5% 0 0)"><svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4 2.5 7.5 6 11"></path><path d="M2.5 7.5H10a3.5 3.5 0 0 1 0 7H8"></path></svg></button>
+      <button type="button" title="Повторить" style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border:0;border-radius:12px;background:none;color:oklch(70% 0 0);cursor:pointer" style-hover="background:oklch(96.5% 0 0)"><svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4l3.5 3.5L10 11"></path><path d="M13.5 7.5H6a3.5 3.5 0 0 0 0 7h2"></path></svg></button>
+    </div>
+
+    <div style="flex:1"></div>
+
+    <div style="display:flex;padding:3px;border-radius:12px;background:oklch(96% 0 0);gap:2px">
+      <button type="button" onClick="{{ show2d }}" style="{{ btn2dStyle }}">2D</button>
+      <button type="button" onClick="{{ show3d }}" style="{{ btn3dStyle }}">3D</button>
+    </div>
+
+    <div style="flex:1"></div>
+
+    <div style="display:flex;align-items:center;gap:2px">
+      <button type="button" title="Скриншот" style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border:0;border-radius:12px;background:none;color:oklch(24% 0 0);cursor:pointer" style-hover="background:oklch(96.5% 0 0)"><svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5.5h2.5l1-1.5h5l1 1.5H14v8H2z"></path><circle cx="8" cy="9" r="2.5"></circle></svg></button>
+      <button type="button" title="Настройки проекта" style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border:0;border-radius:12px;background:none;color:oklch(24% 0 0);cursor:pointer" style-hover="background:oklch(96.5% 0 0)"><svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.25"></circle><path d="M8 1.5v1.8M8 12.7v1.8M14.5 8h-1.8M3.3 8H1.5M12.6 3.4l-1.3 1.3M4.7 11.3l-1.3 1.3M12.6 12.6l-1.3-1.3M4.7 4.7 3.4 3.4"></path></svg></button>
+      <a href="/share" style="display:inline-flex;align-items:center;height:36px;padding:0 14px;border-radius:12px;font-size:14px;font-weight:500;text-decoration:none;background:oklch(96% 0 0)" style-hover="background:oklch(93% 0 0)">Поделиться</a>
+      <div style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;margin-left:6px;border-radius:9999px;background:oklch(61% 0.18 44);color:oklch(100% 0 0);font-size:13px;font-weight:600">В</div>
+    </div>
+  </header>
+
+  <div style="display:flex;flex:1;min-height:0">
+
+    <nav style="display:flex;flex-direction:column;align-items:center;gap:4px;width:60px;padding:10px 0;background:oklch(100% 0 0);border-right:1px solid oklch(93% 0 0);flex-shrink:0">
+      <sc-for list="{{ tools }}" as="tool" hint-placeholder-count="6">
+        <button type="button" title="{{ tool.label }}" onClick="{{ tool.select }}" style="{{ tool.style }}">
+          <span style="{{ tool.iconStyle }}"></span>
+          <span style="font-size:9px;line-height:1;letter-spacing:0.01em">{{ tool.label }}</span>
+        </button>
+      </sc-for>
+    </nav>
+
+    <aside style="width:264px;display:flex;flex-direction:column;background:oklch(100% 0 0);border-right:1px solid oklch(93% 0 0);flex-shrink:0">
+      <div style="padding:14px 16px 10px">
+        <div style="font-size:14px;font-weight:600;margin-bottom:10px">{{ panelTitle }}</div>
+        <div style="display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;border-radius:12px;background:oklch(96.5% 0 0)">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="oklch(58% 0 0)" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5 14 14"></path></svg>
+          <input placeholder="Поиск" value="{{ query }}" onChange="{{ onQuery }}" style="flex:1;min-width:0;border:0;background:none;outline:none;font:inherit;font-size:13px;color:oklch(24% 0 0)" />
+        </div>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 12px">
+        <sc-for list="{{ categories }}" as="cat" hint-placeholder-count="4">
+          <button type="button" onClick="{{ cat.select }}" style="{{ cat.style }}">{{ cat.label }}</button>
+        </sc-for>
+      </div>
+
+      <div style="flex:1;overflow-y:auto;padding:0 16px 16px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <sc-for list="{{ items }}" as="item" hint-placeholder-count="8">
+            <div style="cursor:grab">
+              <div style="position:relative;aspect-ratio:1;border-radius:12px;overflow:hidden;background:oklch(97% 0 0);margin-bottom:6px" style-hover="background:oklch(94.5% 0 0)">
+                <svg width="100%" height="100%" style="display:block" preserveAspectRatio="none" viewBox="0 0 100 100"><defs><pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="4" height="8" fill="oklch(94% 0 0)"></rect></pattern></defs><rect width="100" height="100" fill="url(#hatch)"></rect></svg>
+              </div>
+              <div style="font-size:12px;line-height:1.3">{{ item.name }}</div>
+              <div style="font-size:11px;color:oklch(56% 0 0);margin-top:2px">{{ item.size }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </aside>
+
+    <div style="position:relative;flex:1;min-width:0;background:oklch(97.5% 0 0)">
+      <svg width="100%" height="100%" style="display:block;position:absolute;inset:0" preserveAspectRatio="none" viewBox="0 0 400 300"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M10 0H0v10" fill="none" stroke="oklch(93.5% 0 0)" stroke-width="0.5"></path></pattern><pattern id="grid5" width="50" height="50" patternUnits="userSpaceOnUse"><rect width="50" height="50" fill="url(#grid)"></rect><path d="M50 0H0v50" fill="none" stroke="oklch(90% 0 0)" stroke-width="0.8"></path></pattern></defs><rect width="400" height="300" fill="url(#grid5)"></rect></svg>
+
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+        <div style="position:relative;width:min(58%, 620px);aspect-ratio:4/3;border-radius:8px;background:oklch(100% 0 0);box-shadow:0 1px 2px rgba(0,0,0,0.05);outline:5px solid oklch(30% 0 0);outline-offset:-2px">
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:oklch(60% 0 0)">
+            <span>{{ canvasLabel }}</span>
+          </div>
+          <span style="position:absolute;left:50%;top:-24px;transform:translateX(-50%);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:oklch(52% 0 0);background:oklch(97.5% 0 0);padding:0 6px">520 см</span>
+          <span style="position:absolute;top:50%;left:-46px;transform:translateY(-50%);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:oklch(52% 0 0);background:oklch(97.5% 0 0);padding:0 6px">390 см</span>
+        </div>
+      </div>
+
+      <div style="position:absolute;left:16px;bottom:16px;display:flex;align-items:center;gap:2px;padding:4px;border-radius:14px;background:oklch(100% 0 0);box-shadow:0 2px 8px rgba(0,0,0,0.10)">
+        <button type="button" onClick="{{ zoomOut }}" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border:0;border-radius:10px;background:none;color:oklch(24% 0 0);font-size:18px;line-height:1;cursor:pointer" style-hover="background:oklch(96.5% 0 0)">−</button>
+        <span style="min-width:48px;text-align:center;font-size:13px;font-variant-numeric:tabular-nums">{{ zoomLabel }}</span>
+        <button type="button" onClick="{{ zoomIn }}" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border:0;border-radius:10px;background:none;color:oklch(24% 0 0);font-size:18px;line-height:1;cursor:pointer" style-hover="background:oklch(96.5% 0 0)">+</button>
+      </div>
+
+      <div style="position:absolute;right:16px;bottom:16px;display:flex;align-items:center;gap:10px;padding:8px 14px;border-radius:12px;background:oklch(100% 0 0);box-shadow:0 2px 8px rgba(0,0,0,0.10);font-size:12px;color:oklch(50% 0 0)">
+        <span>Площадь 20,3 м²</span>
+        <span style="width:1px;height:14px;background:oklch(92% 0 0)"></span>
+        <span>Предметов 6</span>
+      </div>
+    </div>
+
+    <aside style="width:264px;display:flex;flex-direction:column;background:oklch(100% 0 0);border-left:1px solid oklch(93% 0 0);flex-shrink:0">
+      <div style="padding:14px 16px;border-bottom:1px solid oklch(94% 0 0)">
+        <div style="font-size:14px;font-weight:600;margin-bottom:2px">Диван «Осло»</div>
+        <div style="font-size:12px;color:oklch(56% 0 0)">Гостиная · трёхместный</div>
+      </div>
+
+      <div style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:18px">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:oklch(58% 0 0)">Размеры</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <label style="display:flex;flex-direction:column;gap:5px"><span style="font-size:12px;color:oklch(52% 0 0)">Ширина</span><input value="210" style="height:36px;padding:0 10px;border:0;border-radius:12px;background:oklch(96.5% 0 0);font:inherit;font-size:13px;color:oklch(24% 0 0);outline:none;width:100%;box-sizing:border-box" style-focus="box-shadow:0 0 0 2px oklch(61% 0.18 44)" /></label>
+            <label style="display:flex;flex-direction:column;gap:5px"><span style="font-size:12px;color:oklch(52% 0 0)">Глубина</span><input value="92" style="height:36px;padding:0 10px;border:0;border-radius:12px;background:oklch(96.5% 0 0);font:inherit;font-size:13px;color:oklch(24% 0 0);outline:none;width:100%;box-sizing:border-box" style-focus="box-shadow:0 0 0 2px oklch(61% 0.18 44)" /></label>
+          </div>
+          <label style="display:flex;flex-direction:column;gap:5px"><span style="font-size:12px;color:oklch(52% 0 0)">Поворот</span><input value="90°" style="height:36px;padding:0 10px;border:0;border-radius:12px;background:oklch(96.5% 0 0);font:inherit;font-size:13px;color:oklch(24% 0 0);outline:none;width:100%;box-sizing:border-box" style-focus="box-shadow:0 0 0 2px oklch(61% 0.18 44)" /></label>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:oklch(58% 0 0)">Материал</div>
+          <div style="display:flex;gap:8px">
+            <sc-for list="{{ swatches }}" as="sw" hint-placeholder-count="4">
+              <button type="button" title="{{ sw.name }}" onClick="{{ sw.select }}" style="{{ sw.style }}"></button>
+            </sc-for>
+          </div>
+          <div style="font-size:12px;color:oklch(52% 0 0)">{{ swatchName }}</div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:oklch(58% 0 0)">Положение</div>
+          <label style="display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;cursor:pointer">
+            <span>Привязка к стенам</span>
+            <button type="button" onClick="{{ toggleSnap }}" style="{{ snapStyle }}"><span style="{{ snapKnobStyle }}"></span></button>
+          </label>
+        </div>
+      </div>
+
+      <div style="padding:12px 16px;border-top:1px solid oklch(94% 0 0);display:flex;gap:8px">
+        <button type="button" style="flex:1;height:38px;border:0;border-radius:12px;background:oklch(96% 0 0);color:oklch(24% 0 0);font:inherit;font-size:13px;font-weight:500;cursor:pointer" style-hover="background:oklch(93% 0 0)">Дублировать</button>
+        <button type="button" title="Удалить" style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border:0;border-radius:12px;background:oklch(96% 0 0);color:oklch(45% 0.14 27);cursor:pointer" style-hover="background:oklch(93% 0 0)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"></path></svg></button>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  state = { tool: 'furniture', view: '2D', cat: 'Гостиная', query: '', zoom: 100, swatch: 0, snap: true };
+
+  toolBtn(active) {
+    return 'display:flex;flex-direction:column;align-items:center;gap:5px;width:52px;padding:8px 0 7px;border:0;border-radius:14px;cursor:pointer;font:inherit;'
+      + (active
+        ? 'background:oklch(95% 0.028 44);color:oklch(52% 0.18 44);'
+        : 'background:none;color:oklch(40% 0 0);');
+  }
+
+  icon(shape, active) {
+    const c = active ? 'oklch(52% 0.18 44)' : 'oklch(40% 0 0)';
+    const base = `display:block;width:20px;height:20px;background:${c};`;
+    const masks = {
+      cursor: "polygon(0 0, 0 78%, 26% 60%, 44% 100%, 62% 90%, 44% 52%, 74% 46%)",
+      wall: "polygon(0 32%, 100% 32%, 100% 68%, 0 68%)",
+      door: "polygon(6% 100%, 6% 12%, 62% 0, 62% 88%, 100% 88%, 100% 100%)",
+      furniture: "polygon(0 42%, 14% 42%, 14% 26%, 86% 26%, 86% 42%, 100% 42%, 100% 80%, 84% 80%, 84% 68%, 16% 68%, 16% 80%, 0 80%)",
+      decor: "polygon(50% 0, 62% 34%, 100% 38%, 72% 62%, 82% 100%, 50% 78%, 18% 100%, 28% 62%, 0 38%, 38% 34%)",
+      measure: "polygon(0 30%, 100% 30%, 100% 70%, 0 70%)",
+    };
+    return base + `clip-path:${masks[shape]};`;
+  }
+
+  renderVals() {
+    const s = this.state;
+    const view2d = s.view === '2D';
+    const seg = on => 'min-width:52px;height:30px;border:0;border-radius:9px;font:inherit;font-size:13px;font-weight:500;cursor:pointer;'
+      + (on ? 'background:oklch(100% 0 0);color:oklch(24% 0 0);box-shadow:0 1px 2px rgba(0,0,0,0.12);' : 'background:none;color:oklch(50% 0 0);');
+
+    const toolDefs = [
+      ['select', 'Выбор', 'cursor'],
+      ['wall', 'Стены', 'wall'],
+      ['door', 'Двери', 'door'],
+      ['furniture', 'Мебель', 'furniture'],
+      ['decor', 'Декор', 'decor'],
+      ['measure', 'Замер', 'measure'],
+    ];
+    const tools = toolDefs.map(([id, label, shape]) => {
+      const active = s.tool === id;
+      return { id, label, style: this.toolBtn(active), iconStyle: this.icon(shape, active), select: () => this.setState({ tool: id }) };
+    });
+
+    const cats = ['Гостиная', 'Кухня', 'Спальня', 'Хранение'];
+    const categories = cats.map(label => {
+      const active = s.cat === label;
+      return {
+        label,
+        select: () => this.setState({ cat: label }),
+        style: 'height:30px;padding:0 12px;border:0;border-radius:10px;font:inherit;font-size:12px;cursor:pointer;'
+          + (active ? 'background:oklch(30% 0 0);color:oklch(100% 0 0);' : 'background:oklch(96.5% 0 0);color:oklch(38% 0 0);'),
+      };
+    });
+
+    const catalog = {
+      'Гостиная': [['Диван «Осло»', '210 × 92'], ['Кресло «Берген»', '78 × 80'], ['Журнальный стол', '110 × 60'], ['Тумба ТВ', '160 × 40'], ['Стеллаж', '80 × 32'], ['Торшер', '40 × 40']],
+      'Кухня': [['Гарнитур прямой', '300 × 60'], ['Остров', '180 × 90'], ['Стол обеденный', '140 × 80'], ['Стул «Тон»', '45 × 50'], ['Холодильник', '60 × 65'], ['Барный стул', '40 × 40']],
+      'Спальня': [['Кровать 160', '166 × 210'], ['Тумба прикроватная', '45 × 40'], ['Комод', '120 × 45'], ['Пуф', '50 × 50'], ['Зеркало', '60 × 4'], ['Кресло для чтения', '75 × 78']],
+      'Хранение': [['Шкаф-купе', '200 × 60'], ['Гардеробная', '120 × 60'], ['Стеллаж открытый', '90 × 35'], ['Комод высокий', '80 × 45'], ['Обувница', '80 × 30'], ['Антресоль', '100 × 55']],
+    };
+    const q = s.query.trim().toLowerCase();
+    const items = (catalog[s.cat] || []).filter(([n]) => !q || n.toLowerCase().includes(q)).map(([name, size]) => ({ name, size: size + ' см' }));
+
+    const swatchDefs = [
+      ['Лён серый', 'oklch(72% 0 0)'],
+      ['Терракота', 'oklch(61% 0.18 44)'],
+      ['Хвойный', 'oklch(45% 0.075 162)'],
+      ['Графит', 'oklch(30% 0 0)'],
+    ];
+    const swatches = swatchDefs.map(([name, color], i) => ({
+      name,
+      select: () => this.setState({ swatch: i }),
+      style: `width:34px;height:34px;border:0;border-radius:11px;background:${color};cursor:pointer;`
+        + (s.swatch === i ? 'box-shadow:0 0 0 2px oklch(100% 0 0), 0 0 0 4px oklch(30% 0 0);' : ''),
+    }));
+
+    return {
+      tools, categories, items, swatches,
+      swatchName: swatchDefs[s.swatch][0],
+      panelTitle: s.tool === 'furniture' ? 'Каталог мебели' : s.tool === 'decor' ? 'Декор' : 'Каталог',
+      query: s.query,
+      onQuery: e => this.setState({ query: e.target.value }),
+      show2d: () => this.setState({ view: '2D' }),
+      show3d: () => this.setState({ view: '3D' }),
+      btn2dStyle: seg(view2d),
+      btn3dStyle: seg(!view2d),
+      canvasLabel: view2d ? 'план комнаты — 2D' : 'вид комнаты — 3D',
+      saveLabel: 'Сохранено',
+      zoomLabel: s.zoom + '%',
+      zoomIn: () => this.setState(p => ({ zoom: Math.min(400, p.zoom + 25) })),
+      zoomOut: () => this.setState(p => ({ zoom: Math.max(25, p.zoom - 25) })),
+      toggleSnap: () => this.setState(p => ({ snap: !p.snap })),
+      snapStyle: `position:relative;width:40px;height:24px;border:0;border-radius:9999px;cursor:pointer;transition:background 140ms ease;background:${s.snap ? 'oklch(61% 0.18 44)' : 'oklch(88% 0 0)'};`,
+      snapKnobStyle: `position:absolute;top:3px;left:${s.snap ? '19px' : '3px'};width:18px;height:18px;border-radius:9999px;background:oklch(100% 0 0);transition:left 140ms ease;box-shadow:0 1px 2px rgba(0,0,0,0.25);`,
+    };
+  }
+}
+</script>
+</body>
+</html>
