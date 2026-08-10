@@ -1,6 +1,6 @@
 # 0011 · TASK · auth-модуль: AuthService, session middleware, /auth/me, гарды, axios-interceptor
 
-- Статус: [ ]
+- Статус: [x]
 - Эпик: 0005
 - Зависит от: 0007, 0008
 - Спека: docs/product/features/auth.md#гарды-и-редиректы-from-поведение
@@ -41,15 +41,15 @@
 
 ## Приёмка
 
-- [ ] `GET /api/v1/auth/me` возвращает `null` без cookie и объект пользователя при валидной сессии.
-- [ ] Session middleware подгружает `req.user` и продлевает `last_activity_at` + `expires_at` при активности.
-- [ ] `requireAuth` для API возвращает `401`; для SSR-страницы редиректит на `/login?from=…`.
-- [ ] `redirectIfAuthenticated` уводит залогиненного пользователя с `/login`/`/register`/`/forgot-password`/`/reset-password` на `/projects`.
-- [ ] `normalizeFromParam` пропускает относительные пути и отбрасывает всё остальное (open redirect protection); покрыт unit-тестами.
-- [ ] Клиентский `AuthService` инициализируется значением из SSR без дополнительного запроса при первой загрузке.
-- [ ] Axios-interceptor превращает `401` на `/api/v1/*` в клиентский редирект на `/login?from=…`; на auth-экранах не редиректит (нет цикла).
-- [ ] Cookie `session_id` устанавливается с `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`, `Max-Age` ≈ 30 дней.
-- [ ] ESLint-правила из ADR 0007 не нарушены (в частности, `auth` не импортирует `common`).
+- [x] `GET /api/v1/auth/me` возвращает `null` без cookie и объект пользователя при валидной сессии.
+- [x] Session middleware подгружает `req.user` и продлевает `last_activity_at` + `expires_at` при активности.
+- [x] `requireAuth` для API возвращает `401`; для SSR-страницы редиректит на `/login?from=…`.
+- [x] `redirectIfAuthenticated` уводит залогиненного пользователя с `/login`/`/register`/`/forgot-password`/`/reset-password` на `/projects`.
+- [x] `normalizeFromParam` пропускает относительные пути и отбрасывает всё остальное (open redirect protection); покрыт unit-тестами.
+- [x] Клиентский `AuthService` инициализируется значением из SSR без дополнительного запроса при первой загрузке.
+- [x] Axios-interceptor превращает `401` на `/api/v1/*` в клиентский редирект на `/login?from=…`; на auth-экранах не редиректит (нет цикла).
+- [x] Cookie `session_id` устанавливается с `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`, `Max-Age` ≈ 30 дней.
+- [x] ESLint-правила из ADR 0007 не нарушены (в частности, `auth` не импортирует `common`).
 
 ## Заметки
 
