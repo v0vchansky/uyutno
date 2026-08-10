@@ -10,6 +10,7 @@ interface SignInParams {
   provider: OAuthProviderId;
   providerUserId: string;
   email: string | null;
+  displayName: string | null;
 }
 
 export class OAuthManager {
@@ -38,7 +39,11 @@ export class OAuthManager {
       return { kind: 'email-taken' };
     }
 
-    const user = await this.usersRepository.create({ email: params.email, passwordHash: null });
+    const user = await this.usersRepository.create({
+      email: params.email,
+      passwordHash: null,
+      displayName: params.displayName,
+    });
     await this.oauthAccountsRepository.create({
       userId: user.id,
       provider: params.provider,

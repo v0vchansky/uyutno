@@ -17,6 +17,9 @@ interface YandexUserInfoResponse {
   id?: unknown;
   default_email?: unknown;
   emails?: unknown;
+  display_name?: unknown;
+  first_name?: unknown;
+  login?: unknown;
 }
 
 export class YandexProvider implements OAuthProvider {
@@ -82,7 +85,8 @@ export class YandexProvider implements OAuthProvider {
     }
 
     const email = extractEmail(payload);
-    return { providerUserId: payload.id, email };
+    const displayName = extractDisplayName(payload);
+    return { providerUserId: payload.id, email, displayName };
   }
 }
 
@@ -96,3 +100,15 @@ const extractEmail = (payload: YandexUserInfoResponse): string | null => {
   }
   return null;
 };
+
+const trimOrNull = (value: unknown): string | null => {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+export const extractDisplayName = (payload: {
+  display_name?: unknown;
+  first_name?: unknown;
+  login?: unknown;
+}): string | null => trimOrNull(payload.display_name) ?? trimOrNull(payload.first_name) ?? trimOrNull(payload.login);

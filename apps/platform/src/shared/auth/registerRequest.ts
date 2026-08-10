@@ -4,6 +4,7 @@ import { EMAIL_MAX_LENGTH } from './loginRequest';
 
 export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_REGISTER_MAX_LENGTH = 128;
+export const DISPLAY_NAME_MAX_LENGTH = 64;
 
 const passwordRules = z
   .string()
@@ -16,6 +17,7 @@ const passwordRules = z
 export const registerRequestSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(EMAIL_MAX_LENGTH),
   password: passwordRules,
+  displayName: z.string().trim().min(1).max(DISPLAY_NAME_MAX_LENGTH),
 });
 
 export type RegisterRequest = z.infer<typeof registerRequestSchema>;

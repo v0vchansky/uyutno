@@ -45,6 +45,7 @@ export const createOAuthCallbackController =
       provider: provider.id,
       providerUserId: profile.providerUserId,
       email: profile.email,
+      displayName: profile.displayName,
     });
 
     if (result.kind === 'session') {

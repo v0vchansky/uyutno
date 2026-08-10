@@ -5,6 +5,7 @@ import type { LoginRequest, RegisterRequest } from '../../../shared/auth';
 export interface User {
   id: string;
   email: string;
+  displayName: string | null;
 }
 
 interface GetMeResponse {

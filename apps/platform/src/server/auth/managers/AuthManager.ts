@@ -10,13 +10,18 @@ import { hashPassword, verifyPassword } from '../lib/passwords';
 export interface CurrentUser {
   id: string;
   email: string;
+  displayName: string | null;
 }
 
 const INVALID_CREDENTIALS_MESSAGE = 'Неверная почта или пароль';
 export const EMAIL_TAKEN_MESSAGE = 'Этот email уже зарегистрирован';
 export const EMAIL_TAKEN_CODE = 'email_taken';
 
-const toCurrentUser = (user: UserRow): CurrentUser => ({ id: user.id, email: user.email });
+const toCurrentUser = (user: UserRow): CurrentUser => ({
+  id: user.id,
+  email: user.email,
+  displayName: user.displayName,
+});
 
 export class AuthManager {
   constructor(
@@ -45,14 +50,14 @@ export class AuthManager {
     return toCurrentUser(user);
   }
 
-  async registerUser(email: string, password: string): Promise<CurrentUser> {
+  async registerUser(email: string, password: string, displayName: string): Promise<CurrentUser> {
     const existing = await this.usersRepository.findByEmail(email);
     if (existing) {
       throw new ConflictError(EMAIL_TAKEN_MESSAGE, EMAIL_TAKEN_CODE);
     }
 
     const passwordHash = await hashPassword(password);
-    const user = await this.usersRepository.create({ email, passwordHash });
+    const user = await this.usersRepository.create({ email, passwordHash, displayName });
     return toCurrentUser(user);
   }
 

@@ -8,6 +8,7 @@ import { OAuthManager } from './OAuthManager';
 const buildUser = (overrides: Partial<UserRow> = {}): UserRow => ({
   id: '01900000-0000-7000-8000-000000000001',
   email: 'user@example.com',
+  displayName: null,
   passwordHash: null,
   emailVerifiedAt: null,
   createdAt: new Date(),
@@ -36,8 +37,16 @@ const buildFakes = (options: { existingLink?: OAuthAccountRow | null; userByEmai
   const users: UsersRepository = {
     findByEmail: async () => options.userByEmail ?? null,
     findById: async () => null,
-    create: async ({ email, passwordHash }: { email: string; passwordHash: string | null }) => {
-      const user = buildUser({ id: `user-${email}`, email, passwordHash });
+    create: async ({
+      email,
+      passwordHash,
+      displayName,
+    }: {
+      email: string;
+      passwordHash: string | null;
+      displayName: string | null;
+    }) => {
+      const user = buildUser({ id: `user-${email}`, email, passwordHash, displayName });
       created.user = user;
       return user;
     },
@@ -89,6 +98,7 @@ describe('OAuthManager.signInOrRegister', () => {
       provider: 'yandex',
       providerUserId: 'yandex-42',
       email: 'someone@example.com',
+      displayName: 'Аня',
     });
 
     expect(result).toEqual({ kind: 'session', sessionId: 'session-user-existing', userId: 'user-existing' });
@@ -104,13 +114,29 @@ describe('OAuthManager.signInOrRegister', () => {
       provider: 'yandex',
       providerUserId: 'yandex-777',
       email: 'new@example.com',
+      displayName: 'Аня',
     });
 
     expect(result.kind).toBe('session');
     expect(fakes.created.user?.email).toBe('new@example.com');
     expect(fakes.created.user?.passwordHash).toBeNull();
+    expect(fakes.created.user?.displayName).toBe('Аня');
     expect(fakes.created.link?.provider).toBe('yandex');
     expect(fakes.created.link?.providerUserId).toBe('yandex-777');
+  });
+
+  it('пробрасывает displayName=null для нового пользователя, если провайдер не вернул имя', async () => {
+    const fakes = buildFakes({ existingLink: null, userByEmail: null });
+    const manager = new OAuthManager(fakes.users, fakes.oauthAccounts, fakes.sessions);
+
+    await manager.signInOrRegister({
+      provider: 'yandex',
+      providerUserId: 'yandex-noname',
+      email: 'noname@example.com',
+      displayName: null,
+    });
+
+    expect(fakes.created.user?.displayName).toBeNull();
   });
 
   it('возвращает email-taken, если email занят локальным юзером', async () => {
@@ -122,6 +148,7 @@ describe('OAuthManager.signInOrRegister', () => {
       provider: 'yandex',
       providerUserId: 'yandex-1',
       email: 'taken@example.com',
+      displayName: 'Аня',
     });
 
     expect(result).toEqual({ kind: 'email-taken' });
@@ -137,6 +164,7 @@ describe('OAuthManager.signInOrRegister', () => {
       provider: 'yandex',
       providerUserId: 'yandex-no-email',
       email: null,
+      displayName: null,
     });
 
     expect(result).toEqual({ kind: 'no-email' });

@@ -15,8 +15,8 @@ export const createRegisterController =
       throw new ValidationError('Неверный формат запроса');
     }
 
-    const { email, password } = parsed.data;
-    const user = await authManager.registerUser(email, password);
+    const { email, password, displayName } = parsed.data;
+    const user = await authManager.registerUser(email, password, displayName);
     const session = await sessionManager.issueSession(user.id);
     setSessionCookie(res, session.id);
     res.status(200).json({ user });

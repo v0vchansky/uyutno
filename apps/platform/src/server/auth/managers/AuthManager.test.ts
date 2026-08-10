@@ -8,6 +8,7 @@ import type { SessionManager } from './SessionManager';
 const buildUser = (overrides: Partial<UserRow> = {}): UserRow => ({
   id: '01900000-0000-7000-8000-000000000001',
   email: 'user@example.com',
+  displayName: null,
   passwordHash: null,
   emailVerifiedAt: null,
   createdAt: new Date(),
@@ -30,7 +31,7 @@ describe('AuthManager.verifyCredentials', () => {
 
     const result = await manager.verifyCredentials('user@example.com', 'correct-horse-battery-staple');
 
-    expect(result).toEqual({ id: user.id, email: user.email });
+    expect(result).toEqual({ id: user.id, email: user.email, displayName: user.displayName });
   });
 
   it('бросает UnauthorizedError, когда юзер не найден', async () => {
@@ -55,20 +56,29 @@ describe('AuthManager.registerUser', () => {
     let stored: UserRow | null = null;
     return {
       findByEmail: async () => stored,
-      create: async ({ email, passwordHash }: { email: string; passwordHash: string | null }) => {
-        stored = buildUser({ email, passwordHash });
+      create: async ({
+        email,
+        passwordHash,
+        displayName,
+      }: {
+        email: string;
+        passwordHash: string | null;
+        displayName: string | null;
+      }) => {
+        stored = buildUser({ email, passwordHash, displayName });
         return stored;
       },
     } as unknown as UsersRepository;
   };
 
-  it('создаёт пользователя и хеширует пароль', async () => {
+  it('создаёт пользователя, хеширует пароль и сохраняет displayName', async () => {
     const repository = buildCreatingRepository();
     const manager = new AuthManager(repository, noopSessionManager);
 
-    const user = await manager.registerUser('new@example.com', 'letmein42');
+    const user = await manager.registerUser('new@example.com', 'letmein42', 'Аня');
 
     expect(user.email).toBe('new@example.com');
+    expect(user.displayName).toBe('Аня');
     const stored = await repository.findByEmail('new@example.com');
     expect(stored?.passwordHash).toBeTruthy();
     expect(stored?.passwordHash).not.toBe('letmein42');
@@ -78,7 +88,7 @@ describe('AuthManager.registerUser', () => {
   it('бросает ConflictError с кодом email_taken, если email уже занят', async () => {
     const manager = new AuthManager(buildUsersRepository(buildUser()), noopSessionManager);
 
-    const error = await manager.registerUser('user@example.com', 'letmein42').catch(err => err);
+    const error = await manager.registerUser('user@example.com', 'letmein42', 'Аня').catch(err => err);
 
     expect(error).toBeInstanceOf(ConflictError);
     expect((error as ConflictError).code).toBe(EMAIL_TAKEN_CODE);

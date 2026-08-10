@@ -13,10 +13,17 @@ const NAV_ITEMS: ReadonlyArray<{ href: string; label: string }> = [
 
 const HOME_ONLY_NAV_PATHS = new Set<string>(['/']);
 
+const displayNameOrEmailFallback = (user: { displayName: string | null; email: string }): string => {
+  if (user.displayName && user.displayName.length > 0) return user.displayName;
+  const at = user.email.indexOf('@');
+  return at > 0 ? user.email.slice(0, at) : user.email;
+};
+
 export const PublicHeader: React.FC = () => {
   const { pathname } = useLocation();
   const { authManager } = useRegistry();
-  const isAuthenticated = Boolean(authManager.getCurrentUser());
+  const currentUser = authManager.getCurrentUser();
+  const isAuthenticated = currentUser !== null;
   const showNav = HOME_ONLY_NAV_PATHS.has(pathname);
   const showLogin = !isAuthenticated && pathname !== '/login';
   const showRegister = !isAuthenticated && pathname !== '/register';
@@ -43,11 +50,19 @@ export const PublicHeader: React.FC = () => {
         {showNav ? <span className='flex-1 lg:hidden' /> : null}
 
         <div className='flex items-center gap-2'>
-          {isAuthenticated ? (
-            <Link to='/projects' className='button button--lg button--primary'>
-              <span className='md:hidden'>Кабинет</span>
-              <span className='hidden md:inline'>В личный кабинет</span>
-            </Link>
+          {isAuthenticated && currentUser ? (
+            <>
+              <span
+                className='max-w-[120px] truncate text-[14px] text-[color:var(--foreground-secondary)] md:max-w-[200px]'
+                title={displayNameOrEmailFallback(currentUser)}
+              >
+                {displayNameOrEmailFallback(currentUser)}
+              </span>
+              <Link to='/projects' className='button button--lg button--primary'>
+                <span className='md:hidden'>Кабинет</span>
+                <span className='hidden md:inline'>В личный кабинет</span>
+              </Link>
+            </>
           ) : (
             <>
               {showLogin ? (

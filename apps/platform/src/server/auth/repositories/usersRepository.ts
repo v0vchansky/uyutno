@@ -6,6 +6,7 @@ import type { Database } from '@server/postgres';
 export interface UserRow {
   id: string;
   email: string;
+  displayName: string | null;
   passwordHash: string | null;
   emailVerifiedAt: Date | null;
   createdAt: Date;
@@ -17,6 +18,7 @@ const normalizeEmail = (email: string): string => email.trim().toLowerCase();
 const mapRow = (row: {
   id: string;
   email: string;
+  display_name: string | null;
   password_hash: string | null;
   email_verified_at: Date | null;
   created_at: Date;
@@ -24,6 +26,7 @@ const mapRow = (row: {
 }): UserRow => ({
   id: row.id,
   email: row.email,
+  displayName: row.display_name,
   passwordHash: row.password_hash,
   emailVerifiedAt: row.email_verified_at,
   createdAt: row.created_at,
@@ -49,13 +52,14 @@ export class UsersRepository {
     return row ? mapRow(row) : null;
   }
 
-  async create(params: { email: string; passwordHash: string | null }): Promise<UserRow> {
+  async create(params: { email: string; passwordHash: string | null; displayName: string | null }): Promise<UserRow> {
     const row = await this.db
       .insertInto('users')
       .values({
         id: uuidv7(),
         email: normalizeEmail(params.email),
         password_hash: params.passwordHash,
+        display_name: params.displayName,
       })
       .returningAll()
       .executeTakeFirstOrThrow();

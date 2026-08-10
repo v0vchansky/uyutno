@@ -3,6 +3,7 @@ export type OAuthProviderId = 'yandex' | 'vk';
 export interface OAuthProfile {
   providerUserId: string;
   email: string | null;
+  displayName: string | null;
 }
 
 export interface OAuthProvider {

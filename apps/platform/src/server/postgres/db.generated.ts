@@ -37,6 +37,7 @@ export interface Sessions {
 
 export interface Users {
   created_at: Generated<Timestamp>;
+  display_name: string | null;
   email: string;
   email_verified_at: Timestamp | null;
   id: string;

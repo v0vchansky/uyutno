@@ -7,13 +7,19 @@ import { Link, useLocation, useNavigate } from 'react-router';
 import { buildAuthUrl, normalizeFromParam } from '@app/auth';
 import { PRIVACY_URL, PublicLayout, TERMS_URL, useRegistry } from '@app/common';
 
+import { DISPLAY_NAME_MAX_LENGTH } from '../../../../shared/auth';
 import { Route } from '../../../../shared/router/routes';
 
 type FormStatus = 'idle' | 'submitting';
 
+type DisplayNameErrorKind = 'empty';
 type EmailErrorKind = 'invalid' | 'taken';
 type PasswordErrorKind = 'too-short' | 'weak';
 type GeneralErrorKind = 'rate-limited' | 'unknown';
+
+const DISPLAY_NAME_ERROR_MESSAGES: Record<DisplayNameErrorKind, string> = {
+  empty: 'Укажите, как к вам обращаться',
+};
 
 const EMAIL_ERROR_MESSAGES: Record<EmailErrorKind, string> = {
   invalid: 'Введите корректный email',
@@ -33,6 +39,8 @@ const GENERAL_ERROR_MESSAGES: Record<GeneralErrorKind, string> = {
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const EMAIL_MAX_LENGTH = 254;
 const PASSWORD_MIN_LENGTH = 8;
+
+const validateDisplayName = (raw: string): DisplayNameErrorKind | null => (raw.trim().length === 0 ? 'empty' : null);
 
 const validateEmail = (raw: string): EmailErrorKind | null => {
   const value = raw.trim();
@@ -65,11 +73,14 @@ export const RegisterPage: React.FC = () => {
   const { authManager } = useRegistry();
   const from = useFromParam();
 
+  const displayNameInputRef = useRef<HTMLInputElement>(null);
   const emailInputRef = useRef<HTMLInputElement>(null);
 
+  const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [status, setStatus] = useState<FormStatus>('idle');
+  const [displayNameError, setDisplayNameError] = useState<DisplayNameErrorKind | null>(null);
   const [emailError, setEmailError] = useState<EmailErrorKind | null>(null);
   const [passwordError, setPasswordError] = useState<PasswordErrorKind | null>(null);
   const [generalError, setGeneralError] = useState<GeneralErrorKind | null>(null);
@@ -78,21 +89,29 @@ export const RegisterPage: React.FC = () => {
     event.preventDefault();
     if (status === 'submitting') return;
 
+    setDisplayNameError(null);
     setEmailError(null);
     setPasswordError(null);
     setGeneralError(null);
 
+    const displayNameIssue = validateDisplayName(displayName);
     const emailIssue = validateEmail(email);
     const passwordIssue = validatePassword(password);
-    if (emailIssue || passwordIssue) {
+    if (displayNameIssue || emailIssue || passwordIssue) {
+      setDisplayNameError(displayNameIssue);
       setEmailError(emailIssue);
       setPasswordError(passwordIssue);
+      if (displayNameIssue) displayNameInputRef.current?.focus();
       return;
     }
 
     setStatus('submitting');
     try {
-      await authManager.register({ email: email.trim().toLowerCase(), password });
+      await authManager.register({
+        email: email.trim().toLowerCase(),
+        password,
+        displayName: displayName.trim(),
+      });
       navigate(from ?? Route.Projects, { replace: true });
     } catch (error) {
       const response = axios.isAxiosError(error) ? error.response : undefined;
@@ -137,6 +156,24 @@ export const RegisterPage: React.FC = () => {
               <Form className='flex flex-col gap-4' onSubmit={handleSubmit} validationBehavior='aria'>
                 <TextField
                   autoFocus
+                  isRequired
+                  name='displayName'
+                  type='text'
+                  value={displayName}
+                  onChange={value => {
+                    setDisplayName(value);
+                    if (displayNameError) setDisplayNameError(null);
+                  }}
+                  isDisabled={isSubmitting}
+                  isInvalid={displayNameError !== null}
+                  maxLength={DISPLAY_NAME_MAX_LENGTH}
+                >
+                  <Label>Как вас зовут</Label>
+                  <Input ref={displayNameInputRef} autoComplete='given-name' placeholder='Например, Владимир' />
+                  <FieldError>{displayNameError ? DISPLAY_NAME_ERROR_MESSAGES[displayNameError] : null}</FieldError>
+                </TextField>
+
+                <TextField
                   isRequired
                   name='email'
                   type='email'
