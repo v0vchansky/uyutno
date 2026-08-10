@@ -1,4 +1,4 @@
-# 0010 · TASK · Регистрация OAuth-приложений Yandex ID + VK ID
+# 0010 · TASK · Регистрация OAuth-приложения Yandex ID
 
 - Статус: [ ]
 - Эпик: 0005
@@ -8,28 +8,29 @@
 
 ## Описание
 
-Внешняя работа — зарегистрировать приложения на стороне Yandex ID и VK ID, получить `client_id` и `client_secret`, настроить redirect URI. Без этих кредов задача 0015 (OAuth-flow в коде) заблокирована.
+Внешняя работа — зарегистрировать приложение на стороне Yandex ID, получить `client_id` и `client_secret`, настроить redirect URI. Без этих кредов задача 0015 (OAuth-flow Yandex ID) заблокирована.
+
+VK ID вынесен в отдельные задачи 0021 (регистрация приложения) и 0022 (сам flow) — здесь про VK ничего не делаем.
 
 Скоуп:
 
-- **Yandex ID (Yandex OAuth):** зарегистрировать приложение в кабинете, указать redirect URI `https://<домен>/auth/callback/yandex` (и локальный `http://localhost:<port>/auth/callback/yandex` для dev), выбрать scopes для получения email и уникального `provider_user_id`, сохранить креды.
-- **VK ID:** зарегистрировать приложение в кабинете VK, аналогично redirect URI `https://<домен>/auth/callback/vk` и локальный вариант, scopes для email и `provider_user_id`, сохранить креды.
-- Секреты в `process.env`: `YANDEX_OAUTH_CLIENT_ID`, `YANDEX_OAUTH_CLIENT_SECRET`, `VK_OAUTH_CLIENT_ID`, `VK_OAUTH_CLIENT_SECRET`. Дев-значения — из тестовых приложений на localhost (если провайдеры такое позволяют) или пустые с фича-флагом «OAuth в dev выключен».
-- Актуальные URL-эндпоинтов провайдеров (authorize / token / userinfo), scope-строки и особенности провайдеров (например, у VK email возвращается отдельным полем в access_token response) — зафиксировать в комментарии к задаче или коротким разделом в `docs/product/features/auth.md`.
-- Иконки Yandex ID и VK ID: заменить монограммы в макете на официальные SVG из брендбуков (см. `docs/ui/handoffs/auth/README.md`, «Assets» — «Иконки Yandex ID и VK ID … Перед релизом взять официальные SVG»). SVG-ассеты положить в `apps/platform/public/` или `src/client/common/`.
+- Зарегистрировать приложение в кабинете Yandex OAuth, указать redirect URI `https://<домен>/auth/callback/yandex` (и локальный `http://localhost:<port>/auth/callback/yandex` для dev), выбрать scopes для получения email и уникального `provider_user_id`, сохранить креды.
+- Секреты в `process.env`: `YANDEX_OAUTH_CLIENT_ID`, `YANDEX_OAUTH_CLIENT_SECRET`. Дев-значения — из тестового приложения на localhost (если провайдер такое позволяет) или пустые с фича-флагом «OAuth в dev выключен».
+- Актуальные URL-эндпоинтов провайдера (authorize / token / userinfo), scope-строки и особенности — зафиксировать в комментарии к задаче или коротким разделом в `docs/product/features/auth.md`.
+- Иконка Yandex ID: заменить монограмму в макете на официальный SVG из брендбука (см. `docs/ui/handoffs/auth/README.md`, «Assets» — «Иконки Yandex ID и VK ID … Перед релизом взять официальные SVG»). SVG-ассет положить в `apps/platform/public/` или `src/client/common/`. VK-иконка — в 0021.
 
 Вне скоупа:
 
 - Сам код OAuth-flow (в 0015).
+- Всё, что касается VK ID (в 0021 / 0022).
 - Настройка домена и SSL — отдельно, вне auth-эпика.
 
 ## Приёмка
 
 - [ ] Приложение Yandex ID зарегистрировано, redirect URI (prod + dev) добавлены, креды выданы.
-- [ ] Приложение VK ID зарегистрировано аналогично.
 - [ ] Креды сохранены в prod-`process.env`, инструкция по локальному запуску — в `apps/platform/README.md`.
-- [ ] Официальные SVG-иконки Yandex ID и VK ID добавлены в проект и готовы к использованию в 0015.
-- [ ] URL-эндпоинтов и особенности провайдеров зафиксированы в спеке фичи (`docs/product/features/auth.md`) или в комментарии к задаче.
+- [ ] Официальный SVG-иконки Yandex ID добавлен в проект и готов к использованию в 0015.
+- [ ] URL-эндпоинтов и особенности провайдера зафиксированы в спеке фичи (`docs/product/features/auth.md`) или в комментарии к задаче.
 
 ## Заметки
 
