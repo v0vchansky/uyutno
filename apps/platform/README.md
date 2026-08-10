@@ -67,3 +67,7 @@ pnpm --filter platform dev
 | `pnpm --filter platform test -- --watch` | watch-mode, перезапуск на изменения |
 
 Type-check тестов идёт отдельно через `pnpm --filter platform typecheck` — jest типы не проверяет.
+
+## Ручная проверка и тестовые данные
+
+Тестовые учётки для локального прогона (login, гарды, `/auth/me`) — в [`docs/testing.md`](../../docs/testing.md).
