@@ -1,11 +1,11 @@
 import type { Request, Response } from 'express';
 
-import { UnauthorizedError } from '@server/common';
+import { ConflictError, UnauthorizedError } from '@server/common';
 
 import type { UserRow, UsersRepository } from '../repositories/usersRepository';
 import type { SessionManager } from './SessionManager';
 import { SESSION_COOKIE_NAME, clearSessionCookie } from '../lib/cookies';
-import { verifyPassword } from '../lib/passwords';
+import { hashPassword, verifyPassword } from '../lib/passwords';
 
 export interface CurrentUser {
   id: string;
@@ -13,6 +13,8 @@ export interface CurrentUser {
 }
 
 const INVALID_CREDENTIALS_MESSAGE = 'Неверная почта или пароль';
+export const EMAIL_TAKEN_MESSAGE = 'Этот email уже зарегистрирован';
+export const EMAIL_TAKEN_CODE = 'email_taken';
 
 const toCurrentUser = (user: UserRow): CurrentUser => ({ id: user.id, email: user.email });
 
@@ -40,6 +42,17 @@ export class AuthManager {
     }
 
     await this.sessionManager.touchSession(sessionId);
+    return toCurrentUser(user);
+  }
+
+  async registerUser(email: string, password: string): Promise<CurrentUser> {
+    const existing = await this.usersRepository.findByEmail(email);
+    if (existing) {
+      throw new ConflictError(EMAIL_TAKEN_MESSAGE, EMAIL_TAKEN_CODE);
+    }
+
+    const passwordHash = await hashPassword(password);
+    const user = await this.usersRepository.create({ email, passwordHash });
     return toCurrentUser(user);
   }
 

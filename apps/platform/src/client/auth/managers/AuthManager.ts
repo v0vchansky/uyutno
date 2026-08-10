@@ -1,6 +1,6 @@
 import { api } from '@app/common';
 
-import type { LoginRequest } from '../../../shared/auth';
+import type { LoginRequest, RegisterRequest } from '../../../shared/auth';
 
 export interface User {
   id: string;
@@ -12,6 +12,10 @@ interface GetMeResponse {
 }
 
 interface LoginResponse {
+  user: User;
+}
+
+interface RegisterResponse {
   user: User;
 }
 
@@ -38,8 +42,10 @@ export class AuthManager {
     return data.user;
   }
 
-  async register(): Promise<never> {
-    throw new Error('AuthManager.register: not implemented (task 0013)');
+  async register(payload: RegisterRequest): Promise<User> {
+    const { data } = await api.post<RegisterResponse>('/auth/register', payload);
+    this.currentUser = data.user;
+    return data.user;
   }
 
   async logout(): Promise<never> {

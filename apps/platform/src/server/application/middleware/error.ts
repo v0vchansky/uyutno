@@ -5,7 +5,9 @@ import { AppError } from '../../common';
 export const errorMiddleware = (err: unknown, req: Request, res: Response, _next: NextFunction): void => {
   if (err instanceof AppError) {
     console.info(`[${err.status}] ${req.method} ${req.originalUrl} — ${err.message}`);
-    res.status(err.status).json({ error: err.message });
+    const body: { error: string; code?: string } = { error: err.message };
+    if (err.code) body.code = err.code;
+    res.status(err.status).json(body);
     return;
   }
 

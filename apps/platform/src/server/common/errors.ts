@@ -1,10 +1,12 @@
 export class AppError extends Error {
   public readonly status: number;
+  public readonly code?: string;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, code?: string) {
     super(message);
     this.name = this.constructor.name;
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -33,8 +35,8 @@ export class NotFoundError extends AppError {
 }
 
 export class ConflictError extends AppError {
-  constructor(message = 'Conflict') {
-    super(message, 409);
+  constructor(message = 'Conflict', code?: string) {
+    super(message, 409, code);
   }
 }
 
