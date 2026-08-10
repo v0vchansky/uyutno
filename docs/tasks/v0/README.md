@@ -91,12 +91,12 @@
 | 0007 | TASK | [Миграции: users, sessions, oauth_accounts, password_reset_tokens](0007-TASK-auth-migrations.md)                           | [x]    | 0006             | f0bb679 (прямой коммит в main) |
 | 0008 | TASK | [Registry + error-middleware + common/errors](0008-TASK-registry-and-error-middleware.md)                                  | [x]    | —                | —                              |
 | 0009 | TASK | [Настроить внешний SMTP-провайдер](0009-TASK-smtp-provider.md)                                                             | [ ]    | —                | —                              |
-| 0010 | TASK | [Регистрация OAuth-приложения Yandex ID](0010-TASK-oauth-apps.md)                                                          | [ ]    | —                | —                              |
+| 0010 | TASK | [Регистрация OAuth-приложения Yandex ID](0010-TASK-oauth-apps.md)                                                          | [x]    | —                | — (внешняя регистрация)        |
 | 0011 | TASK | [auth-модуль: AuthService, session middleware, /auth/me, гарды, axios-interceptor](0011-TASK-auth-module.md)               | [x]    | 0007, 0008       | —                              |
 | 0012 | TASK | [`/login` — форма + POST /auth/login](0012-TASK-login-page.md)                                                             | [x]    | 0011             | —                              |
 | 0013 | TASK | [`/register` — форма + POST /auth/register](0013-TASK-register-page.md)                                                    | [x]    | 0011, 0017       | —                              |
 | 0014 | TASK | [`/forgot-password` + `/reset-password`](0014-TASK-password-reset.md)                                                      | [ ]    | 0011, 0009       | —                              |
-| 0015 | TASK | [OAuth Yandex ID](0015-TASK-oauth-flow.md)                                                                                 | [ ]    | 0011, 0010       | —                              |
+| 0015 | TASK | [OAuth Yandex ID](0015-TASK-oauth-flow.md)                                                                                 | [x]    | 0011, 0010       | —                              |
 | 0020 | TASK | [Реакция клиента на состояние авторизации (шапка + гард auth-страниц)](0020-TASK-header-auth-state-and-auth-page-guard.md) | [x]    | 0011, 0012, 0013 | 1eedff8 (прямой коммит в main) |
 | 0021 | TASK | [Регистрация OAuth-приложения VK ID](0021-TASK-oauth-app-vk.md)                                                            | [ ]    | —                | —                              |
 | 0022 | TASK | [OAuth VK ID](0022-TASK-oauth-flow-vk.md)                                                                                  | [ ]    | 0015, 0021       | —                              |

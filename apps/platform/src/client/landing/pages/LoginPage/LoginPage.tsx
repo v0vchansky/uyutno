@@ -11,11 +11,13 @@ import { Route } from '../../../../shared/router/routes';
 
 type FormStatus = 'idle' | 'submitting';
 
-type FormErrorKind = 'invalid-credentials' | 'rate-limited' | 'unknown';
+type FormErrorKind = 'invalid-credentials' | 'rate-limited' | 'oauth-email-taken' | 'oauth-no-email' | 'unknown';
 
 const FORM_ERROR_MESSAGES: Record<FormErrorKind, string> = {
   'invalid-credentials': 'Неверная почта или пароль',
   'rate-limited': 'Слишком много попыток, попробуйте позже',
+  'oauth-email-taken': 'Этот email уже зарегистрирован. Войдите паролем и привяжите Yandex из настроек.',
+  'oauth-no-email': 'Провайдер не вернул email. Войдите паролем.',
   unknown: 'Что-то пошло не так, попробуйте ещё раз',
 };
 
@@ -23,6 +25,12 @@ const errorKindFromStatus = (status: number | undefined): FormErrorKind => {
   if (status === 401) return 'invalid-credentials';
   if (status === 429) return 'rate-limited';
   return 'unknown';
+};
+
+const oauthErrorFromQuery = (raw: string | null): FormErrorKind | null => {
+  if (raw === 'oauth_email_taken') return 'oauth-email-taken';
+  if (raw === 'oauth_no_email') return 'oauth-no-email';
+  return null;
 };
 
 const useFromParam = (): string | null => {
@@ -33,7 +41,15 @@ const useFromParam = (): string | null => {
   }, [location.search]);
 };
 
-const oauthStartUrl = (provider: 'yandex' | 'vk', from: string | null): string => {
+const useOAuthErrorFromQuery = (): FormErrorKind | null => {
+  const location = useLocation();
+  return useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return oauthErrorFromQuery(params.get('error'));
+  }, [location.search]);
+};
+
+const oauthStartUrl = (provider: 'yandex', from: string | null): string => {
   const base = `/api/v1/auth/oauth/${provider}/start`;
   return from ? `${base}?from=${encodeURIComponent(from)}` : base;
 };
@@ -42,11 +58,14 @@ export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const { authManager } = useRegistry();
   const from = useFromParam();
+  const oauthError = useOAuthErrorFromQuery();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [status, setStatus] = useState<FormStatus>('idle');
   const [formError, setFormError] = useState<FormErrorKind | null>(null);
+
+  const activeError = formError ?? oauthError;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
@@ -119,12 +138,12 @@ export const LoginPage: React.FC = () => {
                   <Input autoComplete='current-password' placeholder='••••••••' />
                 </TextField>
 
-                {formError ? (
+                {activeError ? (
                   <div
                     role='alert'
                     className='rounded-xl bg-[color:oklch(96%_0.02_27)] px-3 py-2.5 text-[13px] leading-[1.5] text-[color:oklch(38%_0.16_27)]'
                   >
-                    {FORM_ERROR_MESSAGES[formError]}
+                    {FORM_ERROR_MESSAGES[activeError]}
                   </div>
                 ) : null}
 
@@ -139,32 +158,18 @@ export const LoginPage: React.FC = () => {
                 <span className='h-px flex-1 bg-[var(--separator)]' />
               </div>
 
-              <div className='grid grid-cols-1 gap-2 min-[400px]:grid-cols-2'>
-                <a
-                  href={oauthStartUrl('yandex', from)}
-                  className='inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[var(--surface)] text-[14px] font-medium text-[color:var(--foreground)] no-underline transition-colors hover:bg-[color:oklch(98%_0_0)]'
+              <a
+                href={oauthStartUrl('yandex', from)}
+                className='inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[var(--surface)] text-[14px] font-medium text-[color:var(--foreground)] no-underline transition-colors hover:bg-[color:oklch(98%_0_0)]'
+              >
+                <span
+                  aria-hidden='true'
+                  className='inline-flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#FC3F1D] text-[12px] font-semibold leading-none text-white'
                 >
-                  <span
-                    aria-hidden='true'
-                    className='inline-flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#FC3F1D] text-[12px] font-semibold leading-none text-white'
-                  >
-                    Я
-                  </span>
-                  Yandex ID
-                </a>
-                <a
-                  href={oauthStartUrl('vk', from)}
-                  className='inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[var(--surface)] text-[14px] font-medium text-[color:var(--foreground)] no-underline transition-colors hover:bg-[color:oklch(98%_0_0)]'
-                >
-                  <span
-                    aria-hidden='true'
-                    className='inline-flex h-[18px] w-[18px] items-center justify-center rounded-md bg-[#0077FF] text-[9px] font-bold leading-none text-white'
-                  >
-                    VK
-                  </span>
-                  VK ID
-                </a>
-              </div>
+                  Я
+                </span>
+                Yandex ID
+              </a>
             </div>
 
             <p className='m-0 flex justify-center gap-1.5 text-[14px] text-[color:var(--muted)]'>

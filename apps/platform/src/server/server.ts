@@ -4,7 +4,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { createAuthRouter, createSessionMiddleware, redirectIfAuthenticated, requireAuth } from '@server/auth';
+import {
+  createAuthRouter,
+  createOAuthCallbackRouter,
+  createSessionMiddleware,
+  redirectIfAuthenticated,
+  requireAuth,
+} from '@server/auth';
 import { createServerRegistry, errorMiddleware, pageMiddleware } from '@server/application';
 
 const PORT = 4000;
@@ -30,7 +36,18 @@ app.get('/api/v1/health', (_req, res) => {
 
 app.use(
   '/api/v1/auth',
-  createAuthRouter({ authManager: registry.authManager, sessionManager: registry.sessionManager }),
+  createAuthRouter({
+    authManager: registry.authManager,
+    sessionManager: registry.sessionManager,
+    oauthProviders: registry.oauthProviders,
+  }),
+);
+app.use(
+  '/auth/callback',
+  createOAuthCallbackRouter({
+    oauthProviders: registry.oauthProviders,
+    oauthManager: registry.oauthManager,
+  }),
 );
 
 app.use(STATIC_URL, express.static(staticPath));

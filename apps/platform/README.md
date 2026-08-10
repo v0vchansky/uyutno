@@ -71,3 +71,29 @@ Type-check тестов идёт отдельно через `pnpm --filter plat
 ## Ручная проверка и тестовые данные
 
 Тестовые учётки для локального прогона (login, гарды, `/auth/me`) — в [`docs/testing.md`](../../docs/testing.md).
+
+## Переменные окружения
+
+Читаются напрямую из `process.env` (без dotenv). В dev достаточно экспортировать нужные значения в шелл перед `pnpm --filter platform dev`.
+
+| Переменная                   | Обязательна | Дефолт (dev)                                     | Назначение                                                                                                    |
+| ---------------------------- | ----------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`                   | нет         | `development`                                    | Влияет на флаги cookie (`Secure` включается в `production`) и на fallback-секреты                             |
+| `DATABASE_URL`               | нет         | `postgres://uyutno:uyutno@localhost:5432/uyutno` | Строка подключения к PostgreSQL                                                                               |
+| `PUBLIC_BASE_URL`            | нет         | `http://localhost:4000`                          | Базовый URL сервера, используется для построения OAuth-`redirect_uri` (`${PUBLIC_BASE_URL}/auth/callback/…`)  |
+| `YANDEX_OAUTH_CLIENT_ID`     | для OAuth   | —                                                | `client_id` приложения Yandex ID. Если пусто — эндпоинты `/api/v1/auth/oauth/yandex/*` и колбэк вернут 404    |
+| `YANDEX_OAUTH_CLIENT_SECRET` | для OAuth   | —                                                | `client_secret` того же приложения                                                                            |
+| `OAUTH_STATE_SECRET`         | в prod      | `uyutno-dev-oauth-state-secret` (только dev)     | Секрет для HMAC-подписи short-lived cookie `oauth_state` (state + `from`). В prod требуется явно ≥16 символов |
+
+### Локальный запуск с Yandex OAuth
+
+1. Зарегистрировать приложение в кабинете Yandex OAuth (задача 0010). Redirect URI для dev: `http://localhost:4000/auth/callback/yandex`.
+2. Экспортировать креды перед стартом:
+   ```bash
+   export YANDEX_OAUTH_CLIENT_ID=<client id>
+   export YANDEX_OAUTH_CLIENT_SECRET=<client secret>
+   pnpm --filter platform dev
+   ```
+3. Открыть `http://localhost:4000/login`, нажать «Yandex ID» — редирект на `oauth.yandex.ru`.
+
+Если `YANDEX_OAUTH_CLIENT_ID`/`SECRET` не заданы, сервер стартует, но при старте выведет warning и `/api/v1/auth/oauth/yandex/start` будет отвечать 404 — фронт покажет ошибку, кнопка при этом остаётся видимой (валидная ситуация только в dev без OAuth).

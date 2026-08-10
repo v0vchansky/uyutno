@@ -55,7 +55,7 @@ const useFromParam = (): string | null => {
   }, [location.search]);
 };
 
-const oauthStartUrl = (provider: 'yandex' | 'vk', from: string | null): string => {
+const oauthStartUrl = (provider: 'yandex', from: string | null): string => {
   const base = `/api/v1/auth/oauth/${provider}/start`;
   return from ? `${base}?from=${encodeURIComponent(from)}` : base;
 };
@@ -215,32 +215,18 @@ export const RegisterPage: React.FC = () => {
                 <span className='h-px flex-1 bg-[var(--separator)]' />
               </div>
 
-              <div className='grid grid-cols-1 gap-2 min-[400px]:grid-cols-2'>
-                <a
-                  href={oauthStartUrl('yandex', from)}
-                  className='inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[var(--surface)] text-[14px] font-medium text-[color:var(--foreground)] no-underline transition-colors hover:bg-[color:oklch(98%_0_0)]'
+              <a
+                href={oauthStartUrl('yandex', from)}
+                className='inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[var(--surface)] text-[14px] font-medium text-[color:var(--foreground)] no-underline transition-colors hover:bg-[color:oklch(98%_0_0)]'
+              >
+                <span
+                  aria-hidden='true'
+                  className='inline-flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#FC3F1D] text-[12px] font-semibold leading-none text-white'
                 >
-                  <span
-                    aria-hidden='true'
-                    className='inline-flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#FC3F1D] text-[12px] font-semibold leading-none text-white'
-                  >
-                    Я
-                  </span>
-                  Yandex ID
-                </a>
-                <a
-                  href={oauthStartUrl('vk', from)}
-                  className='inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[var(--surface)] text-[14px] font-medium text-[color:var(--foreground)] no-underline transition-colors hover:bg-[color:oklch(98%_0_0)]'
-                >
-                  <span
-                    aria-hidden='true'
-                    className='inline-flex h-[18px] w-[18px] items-center justify-center rounded-md bg-[#0077FF] text-[9px] font-bold leading-none text-white'
-                  >
-                    VK
-                  </span>
-                  VK ID
-                </a>
-              </div>
+                  Я
+                </span>
+                Yandex ID
+              </a>
             </div>
 
             <p className='m-0 flex justify-center gap-1.5 text-[14px] text-[color:var(--muted)]'>

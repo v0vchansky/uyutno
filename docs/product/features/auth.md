@@ -180,11 +180,32 @@ Cookie `session_id`, opaque строка, `HttpOnly` + `Secure` + `SameSite=Lax`
 - **Magic link для входа** — не рассматривается.
 - **Импорт демо-проекта в аккаунт после регистрации** — относится к фиче демо, не сюда.
 
+## OAuth-провайдеры: используемые эндпоинты
+
+### Yandex ID
+
+Стандартный OAuth 2.0 authorization code flow, без PKCE (клиент — server-side, `client_secret` хранится на сервере).
+
+| Шаг       | Метод/URL                                                                                     | Комментарий                                                                                                                      |
+| --------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| authorize | `GET https://oauth.yandex.ru/authorize?response_type=code&client_id=…&redirect_uri=…&state=…` | Scope наследуется из настроек приложения в кабинете (email — обязателен, чтобы работал сценарий регистрации нового пользователя) |
+| token     | `POST https://oauth.yandex.ru/token` (`application/x-www-form-urlencoded`)                    | Тело: `grant_type=authorization_code&code=…&client_id=…&client_secret=…&redirect_uri=…`                                          |
+| userinfo  | `GET https://login.yandex.ru/info?format=json`                                                | Заголовок `Authorization: OAuth <access_token>`. Читаем `id` → `provider_user_id`, `default_email` → `email`                     |
+
+`redirect_uri` строится из `PUBLIC_BASE_URL` (см. `apps/platform/README.md`, раздел «Переменные окружения»): `${PUBLIC_BASE_URL}/auth/callback/yandex`.
+
+Токены (`access_token`, `refresh_token`) в БД не сохраняются — сразу после userinfo забываются (ADR 0005).
+
+### VK ID
+
+Пока не реализовано — см. задачу 0022. Кнопка на `/login` и `/register` до 0022 отсутствует в UI, чтобы не вести пользователя в 404.
+
 ## Открытые вопросы
 
 - **SMTP-провайдер** — выбор откладывается на отдельную задачу (см. `release-v0.md`, «Открытые вопросы»). До её решения `/forgot-password` и `/reset-password` заблокированы.
-- **OAuth-приложения Yandex ID и VK ID** — регистрация в кабинетах провайдеров, получение `client_id`/`client_secret`, настройка redirect URI — отдельная задача. До её решения OAuth-задача заблокирована.
+- **OAuth-приложение VK ID** — регистрация в кабинете VK, получение `client_id`/`client_secret`, настройка redirect URI — задача 0021. До её решения задача 0022 (сам VK-flow) заблокирована.
 
 ## История изменений
 
 - **2026-08-10** — первая версия документа.
+- **2026-08-10** — добавлен раздел «OAuth-провайдеры: используемые эндпоинты» (Yandex ID). Отмечено, что кнопка VK ID убрана из UI до реализации в задаче 0022.
