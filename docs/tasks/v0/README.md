@@ -97,7 +97,7 @@
 | 0013 | TASK | [`/register` — форма + POST /auth/register](0013-TASK-register-page.md)                                                    | [x]    | 0011, 0017       | —                              |
 | 0014 | TASK | [`/forgot-password` + `/reset-password`](0014-TASK-password-reset.md)                                                      | [ ]    | 0011, 0009       | —                              |
 | 0015 | TASK | [OAuth Yandex ID + VK ID](0015-TASK-oauth-flow.md)                                                                         | [ ]    | 0011, 0010       | —                              |
-| 0020 | TASK | [Реакция клиента на состояние авторизации (шапка + гард auth-страниц)](0020-TASK-header-auth-state-and-auth-page-guard.md) | [~]    | 0011, 0012, 0013 | —                              |
+| 0020 | TASK | [Реакция клиента на состояние авторизации (шапка + гард auth-страниц)](0020-TASK-header-auth-state-and-auth-page-guard.md) | [x]    | 0011, 0012, 0013 | 1eedff8 (прямой коммит в main) |
 
 ### 0016 · Доделки к релизу · [ ]
 
