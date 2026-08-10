@@ -1,6 +1,8 @@
 import type React from 'react';
 import { Link, useLocation } from 'react-router';
 
+import { useRegistry } from '../../registry/useRegistry';
+
 import { Logo } from './Logo';
 
 const NAV_ITEMS: ReadonlyArray<{ href: string; label: string }> = [
@@ -13,9 +15,11 @@ const HOME_ONLY_NAV_PATHS = new Set<string>(['/']);
 
 export const PublicHeader: React.FC = () => {
   const { pathname } = useLocation();
-  const showLogin = pathname !== '/login';
-  const showRegister = pathname !== '/register';
+  const { authManager } = useRegistry();
+  const isAuthenticated = Boolean(authManager.getCurrentUser());
   const showNav = HOME_ONLY_NAV_PATHS.has(pathname);
+  const showLogin = !isAuthenticated && pathname !== '/login';
+  const showRegister = !isAuthenticated && pathname !== '/register';
 
   return (
     <header className='border-b border-[var(--separator)] bg-[var(--surface)]'>
@@ -39,17 +43,26 @@ export const PublicHeader: React.FC = () => {
         {showNav ? <span className='flex-1 lg:hidden' /> : null}
 
         <div className='flex items-center gap-2'>
-          {showLogin ? (
-            <Link to='/login' className='button button--lg button--tertiary hidden md:inline-flex'>
-              Войти
+          {isAuthenticated ? (
+            <Link to='/projects' className='button button--lg button--primary'>
+              <span className='md:hidden'>Кабинет</span>
+              <span className='hidden md:inline'>В личный кабинет</span>
             </Link>
-          ) : null}
-          {showRegister ? (
-            <Link to='/register' className='button button--lg button--primary'>
-              <span className='md:hidden'>Создать</span>
-              <span className='hidden md:inline'>Создать проект</span>
-            </Link>
-          ) : null}
+          ) : (
+            <>
+              {showLogin ? (
+                <Link to='/login' className='button button--lg button--tertiary hidden md:inline-flex'>
+                  Войти
+                </Link>
+              ) : null}
+              {showRegister ? (
+                <Link to='/register' className='button button--lg button--primary'>
+                  <span className='md:hidden'>Создать</span>
+                  <span className='hidden md:inline'>Создать проект</span>
+                </Link>
+              ) : null}
+            </>
+          )}
         </div>
       </div>
     </header>
