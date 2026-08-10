@@ -3,6 +3,7 @@ import { db } from '@server/postgres';
 
 export interface ServerRegistry {
   authManager: AuthManager;
+  sessionManager: SessionManager;
 }
 
 export const createServerRegistry = (): ServerRegistry => {
@@ -11,5 +12,5 @@ export const createServerRegistry = (): ServerRegistry => {
   const sessionManager = new SessionManager(sessionsRepository);
   const authManager = new AuthManager(usersRepository, sessionManager);
 
-  return { authManager };
+  return { authManager, sessionManager };
 };

@@ -1,1 +1,9 @@
-export { AppError, ConflictError, ForbiddenError, NotFoundError, UnauthorizedError, ValidationError } from './errors';
+export {
+  AppError,
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  TooManyRequestsError,
+  UnauthorizedError,
+  ValidationError,
+} from './errors';

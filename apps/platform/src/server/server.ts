@@ -28,7 +28,10 @@ app.get('/api/v1/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
-app.use('/api/v1/auth', createAuthRouter());
+app.use(
+  '/api/v1/auth',
+  createAuthRouter({ authManager: registry.authManager, sessionManager: registry.sessionManager }),
+);
 
 app.use(STATIC_URL, express.static(staticPath));
 app.use(express.static(publicPath));
