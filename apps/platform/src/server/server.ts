@@ -1,25 +1,34 @@
+import cookieParser from 'cookie-parser';
 import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { errorMiddleware, pageMiddleware } from '@server/application';
+import { createAuthRouter, createSessionMiddleware, redirectIfAuthenticated, requireAuth } from '@server/auth';
+import { createServerRegistry, errorMiddleware, pageMiddleware } from '@server/application';
 
 const PORT = 4000;
 const STATIC_URL = '/static';
+
+const AUTH_PAGE_PATHS = ['/login', '/register', '/forgot-password', '/reset-password'];
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const staticPath = path.resolve(__dirname, '../../dist/client');
 const publicPath = path.resolve(__dirname, '../../public');
 
 const app = express();
+const registry = createServerRegistry();
 
 app.disable('etag');
 app.use(express.json({ limit: '10mb' }));
+app.use(cookieParser());
+app.use(createSessionMiddleware(registry.authManager));
 
 app.get('/api/v1/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
+
+app.use('/api/v1/auth', createAuthRouter());
 
 app.use(STATIC_URL, express.static(staticPath));
 app.use(express.static(publicPath));
@@ -30,7 +39,13 @@ const cssHref = cssFile ? `${STATIC_URL}/${cssFile}` : '';
 const jsFile = fs.readdirSync(staticPath).find(f => f.endsWith('.js'));
 const jsPath = `${STATIC_URL}/${jsFile}`;
 
-app.get('/{*splat}', pageMiddleware(cssHref, jsPath));
+const page = pageMiddleware(cssHref, jsPath);
+
+for (const authPath of AUTH_PAGE_PATHS) {
+  app.get(authPath, redirectIfAuthenticated, page);
+}
+app.get('/_page-check', requireAuth('page'), page);
+app.get('/{*splat}', page);
 
 app.use(errorMiddleware);
 

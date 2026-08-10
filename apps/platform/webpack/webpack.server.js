@@ -30,6 +30,9 @@ const config = {
   ],
   resolve: {
     extensions: ['.tsx', '.ts', '.js'],
+    extensionAlias: {
+      '.js': ['.ts', '.tsx', '.js'],
+    },
     alias: {
       '@server': path.resolve(platformRoot, 'src/server'),
       '@app': path.resolve(platformRoot, 'src/client'),

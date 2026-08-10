@@ -56,3 +56,14 @@ pnpm --filter platform dev
 | `pnpm --filter platform db:codegen` | перегенерировать `db.generated.ts` из текущей схемы БД |
 
 После любого изменения схемы миграцией нужно прогнать `db:codegen` и закоммитить обновлённый `db.generated.ts` в одном PR с миграцией.
+
+## Тесты
+
+Юнит-тесты — на **Jest** через `@swc/jest` (ADR [0014](../../docs/adr/0014-testovyy-runner-jest-swc.md)). Файлы лежат рядом с кодом (`foo.ts` + `foo.test.ts`), без `__tests__/`.
+
+| Команда                                  | Что делает                          |
+| ---------------------------------------- | ----------------------------------- |
+| `pnpm --filter platform test`            | прогнать все тесты один раз         |
+| `pnpm --filter platform test -- --watch` | watch-mode, перезапуск на изменения |
+
+Type-check тестов идёт отдельно через `pnpm --filter platform typecheck` — jest типы не проверяет.

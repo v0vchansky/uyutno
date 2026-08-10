@@ -3,16 +3,18 @@ import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { StaticRouter } from 'react-router';
 
-import { Application, createRegistry, Document } from '../../../client/application';
+import { Application, createRegistry, Document, serializeInitialState } from '../../../client/application';
 
 export const pageMiddleware = (cssHref: string, jsPath: string) => {
   return (request: Request, response: Response): void => {
-    const registry = createRegistry();
+    const initialState = { user: request.user };
+    const registry = createRegistry(initialState);
 
     const html = renderToString(
       createElement(Document, {
         cssHref,
         jsPath,
+        initialStateJson: serializeInitialState(initialState),
         children: createElement(StaticRouter, { location: request.url }, createElement(Application, { registry })),
       }),
     );

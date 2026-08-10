@@ -1,6 +1,7 @@
 export { PublicLayout } from './components/PublicLayout/PublicLayout';
 
-export { api } from './http/api';
+export { api, UNAUTHORIZED_EVENT } from './http/api';
+export type { UnauthorizedEventDetail } from './http/api';
 
 export type { Registry } from './registry/Registry';
 export { RegistryContext } from './registry/RegistryContext';

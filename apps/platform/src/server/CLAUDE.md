@@ -101,6 +101,7 @@ Error-middleware в `application`:
 
 ## Тесты
 
+- Раннер и общие правила — в [`apps/platform/CLAUDE.md`](../../CLAUDE.md#тесты) (Jest + `@swc/jest`, ADR 0014).
 - Co-location: `foo.ts` + `foo.test.ts` лежат рядом. Никаких `__tests__/`.
 
 ## Именование

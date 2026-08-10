@@ -63,3 +63,4 @@ ADR нужен, когда решение:
 - [0011 — Линтер и форматтер: ESLint 10 (flat config) + Prettier 3](./0011-linter-i-formatter-eslint-prettier.md)
 - [0012 — Git-хуки: husky + lint-staged, pre-commit с ESLint / Prettier / tsc](./0012-git-hooks-husky.md)
 - [0013 — Транспилятор: SWC вместо Babel](./0013-transpilyator-swc.md)
+- [0014 — Тестовый раннер: Jest + @swc/jest](./0014-testovyy-runner-jest-swc.md)

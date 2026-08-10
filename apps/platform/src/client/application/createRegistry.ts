@@ -1,6 +1,10 @@
-import { AuthManager } from '@app/auth';
+import { AuthManager, type User } from '@app/auth';
 import type { Registry } from '@app/common';
 
-export const createRegistry = (): Registry => ({
-  authManager: new AuthManager(),
+export interface InitialState {
+  user: User | null;
+}
+
+export const createRegistry = (initialState: InitialState = { user: null }): Registry => ({
+  authManager: new AuthManager(initialState.user),
 });

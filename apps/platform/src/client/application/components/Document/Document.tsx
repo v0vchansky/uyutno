@@ -1,12 +1,15 @@
 import type React from 'react';
 
+import { INITIAL_STATE_GLOBAL } from '../../initialState';
+
 interface Props {
   cssHref: string;
   jsPath: string;
+  initialStateJson: string;
   children: React.ReactNode;
 }
 
-export const Document: React.FC<Props> = ({ cssHref, jsPath, children }) => {
+export const Document: React.FC<Props> = ({ cssHref, jsPath, initialStateJson, children }) => {
   return (
     <html lang='ru'>
       <head>
@@ -17,6 +20,11 @@ export const Document: React.FC<Props> = ({ cssHref, jsPath, children }) => {
         <link rel='icon' type='image/svg+xml' sizes='16x16' href='/favicon-16.svg' />
         <link rel='apple-touch-icon' sizes='180x180' href='/apple-touch-icon.svg' />
         {cssHref ? <link rel='stylesheet' href={cssHref} /> : null}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.${INITIAL_STATE_GLOBAL}=${initialStateJson};`,
+          }}
+        />
         <script src={jsPath} defer />
       </head>
       <body>
