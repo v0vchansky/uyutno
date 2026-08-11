@@ -72,6 +72,17 @@
     border-radius: 0.75rem; /* 12px — базовый радиус для кнопок в шапке и формах */
   }
 
+  /*
+   * HeroUI по умолчанию клеит красную «*» ко всем required-полям через .label::after.
+   * В наших макетах required не помечается — все поля обязательные, звёздочка визуально
+   * лишняя. Обнуляем content на псевдоэлементе; текст лейбла и aria-required остаются.
+   */
+  [data-required='true']:not([role='group']):not([role='radiogroup']):not([role='checkboxgroup']) > .label::after,
+  [data-required='true']:not([data-slot='radio']):not([data-slot='checkbox']) > .label::after,
+  .label--required::after {
+    content: none;
+  }
+
   /* Крупные CTA — 52px десктоп / 48px мобилка, 16px текст, 14px радиус. */
   .button[data-size='xl'] {
     height: 48px;

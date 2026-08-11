@@ -143,8 +143,8 @@ export const RegisterPage: React.FC = () => {
         content='Создайте аккаунт в уютно, чтобы сохранить планировку и вернуться к ней с любого компьютера.'
       />
       <PublicLayout mode='auth'>
-        <div className='flex min-h-full items-center justify-center px-4 py-8 md:px-6 md:py-12'>
-          <div className='flex w-full max-w-[400px] flex-col gap-6'>
+        <div className='flex min-h-full items-center justify-center px-4 py-6 md:p-8'>
+          <div className='flex w-full max-w-[360px] flex-col gap-6'>
             <header className='flex flex-col gap-2'>
               <h1 className='m-0 text-[22px] font-semibold tracking-[-0.02em] md:text-[28px]'>Создать аккаунт</h1>
               <p className='m-0 text-[14px] leading-[1.6] text-[color:var(--muted)] md:text-[16px]'>
@@ -229,17 +229,11 @@ export const RegisterPage: React.FC = () => {
 
                 <p className='m-0 text-[12px] leading-[1.5] text-[color:var(--muted)]'>
                   Создавая аккаунт, вы принимаете{' '}
-                  <Link
-                    to={TERMS_URL}
-                    className='text-[color:var(--foreground-secondary)] underline-offset-2 hover:underline'
-                  >
+                  <Link to={TERMS_URL} className='text-[color:var(--foreground)] underline-offset-2 hover:underline'>
                     условия использования
                   </Link>{' '}
                   и{' '}
-                  <Link
-                    to={PRIVACY_URL}
-                    className='text-[color:var(--foreground-secondary)] underline-offset-2 hover:underline'
-                  >
+                  <Link to={PRIVACY_URL} className='text-[color:var(--foreground)] underline-offset-2 hover:underline'>
                     политику конфиденциальности
                   </Link>
                   .
