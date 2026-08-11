@@ -13,6 +13,7 @@ import {
   requireAuth,
 } from '@server/auth';
 import { createServerRegistry, errorMiddleware, pageMiddleware } from '@server/application';
+import { createProjectsRouter } from '@server/projects';
 
 const PORT = 4000;
 const STATIC_URL = '/static';
@@ -51,6 +52,8 @@ app.use(
   }),
 );
 app.use('/auth', createLogoutRouter({ sessionManager: registry.sessionManager }));
+
+app.use('/api/v1/projects', createProjectsRouter({ projectsManager: registry.projectsManager }));
 
 app.use(STATIC_URL, express.static(staticPath));
 app.use(express.static(publicPath));

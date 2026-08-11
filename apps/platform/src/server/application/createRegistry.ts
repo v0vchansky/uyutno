@@ -9,12 +9,14 @@ import {
 } from '@server/auth';
 import type { OAuthProviderRegistry } from '@server/auth';
 import { db } from '@server/postgres';
+import { ProjectsManager, ProjectsRepository } from '@server/projects';
 
 export interface ServerRegistry {
   authManager: AuthManager;
   sessionManager: SessionManager;
   oauthManager: OAuthManager;
   oauthProviders: OAuthProviderRegistry;
+  projectsManager: ProjectsManager;
 }
 
 export const createServerRegistry = (): ServerRegistry => {
@@ -25,6 +27,8 @@ export const createServerRegistry = (): ServerRegistry => {
   const authManager = new AuthManager(usersRepository, sessionManager);
   const oauthManager = new OAuthManager(usersRepository, oauthAccountsRepository, sessionManager);
   const oauthProviders = createOAuthProviderRegistry();
+  const projectsRepository = new ProjectsRepository(db);
+  const projectsManager = new ProjectsManager(projectsRepository);
 
-  return { authManager, sessionManager, oauthManager, oauthProviders };
+  return { authManager, sessionManager, oauthManager, oauthProviders, projectsManager };
 };
