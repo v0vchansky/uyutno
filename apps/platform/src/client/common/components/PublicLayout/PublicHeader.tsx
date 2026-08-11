@@ -33,7 +33,12 @@ export const PublicHeader: React.FC<Props> = ({ mode, user }) => {
 
   return (
     <header className='sticky top-0 z-40 border-b border-[var(--separator)] bg-[var(--surface)]'>
-      <div className='mx-auto flex max-w-[1200px] items-center gap-6 px-4 py-3 lg:px-8'>
+      {/* Единая высота шапки на всех 4 состояниях (см. docs/ui/layout.md).
+          Целевые размеры контента — 40px на десктопе, 44px до 1024px; вместе с
+          py-3 (12+12 = 24px) внутренний бокс — 64px / 68px соответственно.
+          Так как в проекте box-sizing: border-box, min-height задаётся сразу
+          на внешнюю высоту контейнера. */}
+      <div className='mx-auto flex min-h-[68px] max-w-[1200px] items-center gap-6 px-4 py-3 lg:min-h-16 lg:px-8'>
         <Link to={logoTarget} aria-label='уютно — на главную' className='inline-flex items-center no-underline'>
           <Logo variant='header' />
         </Link>

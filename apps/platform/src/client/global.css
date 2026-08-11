@@ -8,8 +8,20 @@
   --font-sans: var(--font-inter);
 }
 
+/*
+ * scroll-padding-top равен высоте шапки, чтобы якорные переходы
+ * не заезжали под sticky-шапку.
+ * До 1024px шапка 69px (12 + 44 + 12 + 1), на десктопе 65px (12 + 40 + 12 + 1).
+ * См. docs/ui/layout.md.
+ */
 html {
-  scroll-padding-top: 65px;
+  scroll-padding-top: 69px;
+}
+
+@media (min-width: 1024px) {
+  html {
+    scroll-padding-top: 65px;
+  }
 }
 
 @media (prefers-reduced-motion: no-preference) {
