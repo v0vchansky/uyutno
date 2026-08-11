@@ -15,7 +15,7 @@ const config = {
   output: {
     filename: 'server.js',
     path: path.resolve(platformRoot, 'dist/server'),
-    clean: isProd,
+    clean: true,
     module: true,
     chunkFormat: 'module',
     library: { type: 'module' },

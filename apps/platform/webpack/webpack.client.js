@@ -13,7 +13,7 @@ const config = {
     filename: `bundle${isProd ? '.[contenthash]' : ''}.js`,
     path: path.resolve(platformRoot, 'dist/client'),
     publicPath: '/static/',
-    clean: isProd,
+    clean: true,
   },
   devtool: isProd ? false : 'source-map',
   resolve: {

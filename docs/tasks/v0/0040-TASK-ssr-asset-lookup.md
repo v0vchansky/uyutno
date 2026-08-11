@@ -50,3 +50,5 @@ const jsFile = fs.readdirSync(staticPath).find(f => f.endsWith('.js'));
 ## Заметки
 
 Всплыло 2026-08-12 при отладке багов `NewProjectTile` (курсор + focus-обводка после Escape). Симптомы: правки в JSX не долетают до браузера, хотя `dist/client/bundle.js` их содержит. Причина — `server.ts` подсовывал старый `bundle.<hash>.js` от предыдущей prod-сборки, лежавший рядом.
+
+Часть 2 скоупа (`webpack.client.js` + `webpack.server.js` — `clean: true` в dev) сделана ad-hoc вне задачи: `pnpm dev` теперь всегда чистит `dist/`, реликтовые файлы больше не оседают. В задаче остаётся часть 1 — явный выбор ассетов в `server.ts` по регулярке (страховка от любых посторонних `.js`/`.css` в `dist/client/`).
