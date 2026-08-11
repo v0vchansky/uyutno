@@ -27,6 +27,14 @@ export interface PasswordResetTokens {
   user_id: string;
 }
 
+export interface Projects {
+  created_at: Generated<Timestamp>;
+  id: string;
+  name: string;
+  updated_at: Generated<Timestamp>;
+  user_id: string;
+}
+
 export interface Sessions {
   created_at: Generated<Timestamp>;
   expires_at: Timestamp;
@@ -48,6 +56,7 @@ export interface Users {
 export interface DB {
   oauth_accounts: OauthAccounts;
   password_reset_tokens: PasswordResetTokens;
+  projects: Projects;
   sessions: Sessions;
   users: Users;
 }

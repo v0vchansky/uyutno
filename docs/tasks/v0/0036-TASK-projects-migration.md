@@ -1,6 +1,6 @@
 # 0036 · TASK · Миграция `projects` + Kysely codegen
 
-- Статус: [ ]
+- Статус: [x]
 - Эпик: 0035
 - Зависит от: 0006, 0007
 - Спека: docs/tasks/v0/0035-EPIC-projects-screen.md
@@ -41,12 +41,15 @@
 
 ## Приёмка
 
-- [ ] `pnpm --filter platform db:up` накатывает миграцию на чистой БД без ошибок.
-- [ ] `pnpm --filter platform db:down` откатывает её без ошибок.
-- [ ] В `src/server/postgres/db.generated.ts` появилась запись `projects` с ожидаемым набором полей.
-- [ ] `pnpm --filter platform typecheck` зелёный.
-- [ ] Каскадное удаление проекта при удалении пользователя проверено вручную (через `psql` или интеграционный тест — на усмотрение автора; достаточно строки в «Заметках» с описанием проверки).
+- [x] `pnpm --filter platform db:up` накатывает миграцию на чистой БД без ошибок.
+- [x] `pnpm --filter platform db:down` откатывает её без ошибок.
+- [x] В `src/server/postgres/db.generated.ts` появилась запись `projects` с ожидаемым набором полей.
+- [x] `pnpm --filter platform typecheck` зелёный.
+- [x] Каскадное удаление проекта при удалении пользователя проверено вручную (через `psql` или интеграционный тест — на усмотрение автора; достаточно строки в «Заметках» с описанием проверки).
 
 ## Заметки
 
-—
+- Миграция — `db/migrations/20260811205858_projects.sql`.
+- Прогнан цикл `db:up` → `db:down` → `db:up` — успешно, без ошибок.
+- Codegen (`db:codegen`) добавил интерфейс `Projects` в `src/server/postgres/db.generated.ts` (поля `id`, `user_id`, `name`, `created_at`, `updated_at`), запись `projects` — в `interface DB`.
+- Каскадное удаление проверено внутри контейнера `uyutno-postgres-dev` через `psql`: в транзакции вставили пользователя и его проект, `COUNT(*)` до `DELETE FROM users` — `1`, после — `0`; транзакция откачена (`ROLLBACK`), продовые данные не тронуты.
