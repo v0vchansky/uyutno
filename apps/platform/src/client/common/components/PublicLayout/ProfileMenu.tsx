@@ -48,6 +48,7 @@ export const ProfileMenu: React.FC<Props> = ({ user, variant }) => {
         <ChevronDown size={16} strokeWidth={1.5} aria-hidden='true' />
       </Popover.Trigger>
       <Popover.Content
+        isNonModal
         offset={8}
         placement='bottom right'
         className='w-[220px] rounded-xl border border-[var(--separator)] bg-[var(--surface)] p-1 shadow-[0_2px_8px_rgb(0_0_0_/_0.10)]'
