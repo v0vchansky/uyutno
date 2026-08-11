@@ -108,6 +108,7 @@
 | 0022 | TASK | [OAuth VK ID](0022-TASK-oauth-flow-vk.md)                                                                                  | [ ]    | 0015, 0021       | —                              |
 | 0023 | TASK | [Имя пользователя: регистрация + OAuth + отображение](0023-TASK-user-display-name.md)                                      | [x]    | 0013, 0015       | — (прямой коммит в main)       |
 | 0024 | TASK | [OAuth-коллизии: привязка провайдера и oauth_only-ошибки](0024-TASK-oauth-account-collisions.md)                           | [ ]    | 0011, 0015       | —                              |
+| 0029 | TASK | [Выход из аккаунта: `/auth/logout` + клиент](0029-TASK-logout.md)                                                          | [ ]    | 0011, 0026       | —                              |
 
 ### 0016 · Доделки к релизу · [ ]
 
