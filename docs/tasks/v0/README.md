@@ -149,3 +149,4 @@
 | 0032 | TASK | [OAuth Yandex: «OAuth-провайдер не найден»](0032-TASK-oauth-yandex-provider-not-found.md)        | [x]    | 0015             | —                              |
 | 0033 | TASK | [Единая высота шапки на всех экранах](0033-TASK-header-height-sync.md)                           | [x]    | 0026, 0028, 0031 | —                              |
 | 0034 | TASK | [Yandex OAuth: `force_confirm=yes` для выбора аккаунта](0034-TASK-oauth-yandex-force-confirm.md) | [x]    | 0015, 0032       | —                              |
+| 0040 | TASK | [Явный выбор клиентских бандлов в SSR (dev/prod)](0040-TASK-ssr-asset-lookup.md)                 | [ ]    | —                | —                              |
