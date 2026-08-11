@@ -49,7 +49,7 @@ export class AuthManager {
     return data.user;
   }
 
-  async logout(): Promise<never> {
-    throw new Error('AuthManager.logout: not implemented (task 0012)');
+  logout(): void {
+    window.location.href = '/auth/logout';
   }
 }

@@ -78,15 +78,8 @@ export const MobileMenu: React.FC<Props> = ({ mode, user }) => {
     navigate('/settings');
   };
 
-  const handleLogout = async (): Promise<void> => {
-    close();
-    try {
-      await authManager.logout();
-      navigate('/');
-    } catch (error) {
-       
-      console.error('logout failed', error);
-    }
+  const handleLogout = (): void => {
+    authManager.logout();
   };
 
   const showLandingNav = mode === 'guest-landing' || mode === 'auth-landing';

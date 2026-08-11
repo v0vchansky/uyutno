@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   createAuthRouter,
+  createLogoutRouter,
   createOAuthCallbackRouter,
   createSessionMiddleware,
   redirectIfAuthenticated,
@@ -49,6 +50,7 @@ app.use(
     oauthManager: registry.oauthManager,
   }),
 );
+app.use('/auth', createLogoutRouter({ sessionManager: registry.sessionManager }));
 
 app.use(STATIC_URL, express.static(staticPath));
 app.use(express.static(publicPath));

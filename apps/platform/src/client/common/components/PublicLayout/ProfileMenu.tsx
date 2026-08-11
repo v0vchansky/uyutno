@@ -28,14 +28,8 @@ export const ProfileMenu: React.FC<Props> = ({ user, variant }) => {
     navigate('/settings');
   };
 
-  const handleLogout = async (): Promise<void> => {
-    try {
-      await authManager.logout();
-      navigate('/');
-    } catch (error) {
-       
-      console.error('logout failed', error);
-    }
+  const handleLogout = (): void => {
+    authManager.logout();
   };
 
   return (

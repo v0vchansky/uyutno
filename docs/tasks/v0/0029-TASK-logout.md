@@ -1,6 +1,6 @@
 # 0029 · TASK · Выход из аккаунта: `/auth/logout` + клиент
 
-- Статус: [ ]
+- Статус: [x]
 - Эпик: 0005
 - Зависит от: 0011 (session middleware), 0026 (кнопка «Выйти» в шапке)
 - Спека: [docs/adr/0005-model-autentifikatsii.md](../../adr/0005-model-autentifikatsii.md)
@@ -45,13 +45,13 @@
 
 ## Приёмка
 
-- [ ] `GET /auth/logout` с активной cookie — 302 на `/`, `Set-Cookie: session_id=; ...` с истёкшим временем, запись в `sessions` удалена.
-- [ ] `GET /auth/logout` без cookie — тоже 302 на `/` (не 4xx, не 500).
-- [ ] `AuthManager.logout()` синхронный, `void`, тело — `window.location.href = '/auth/logout'`.
-- [ ] `ProfileMenu` и `MobileMenu` вызывают `authManager.logout()` без `try/catch` и без ручного `navigate('/')`.
-- [ ] Юнит-тесты logout-контроллера (2 кейса) — зелёные.
-- [ ] `pnpm --filter platform typecheck` — чисто.
-- [ ] Playwright MCP: залогин под `test@uyutno.dev` / `test1234`, открытие меню профиля на `/`, клик «Выйти» → пользователь на `/`, шапка в guest-состоянии. То же — из мобильного бургера (390px, залогин, открыть бургер, нажать «Выйти»).
+- [x] `GET /auth/logout` с активной cookie — 302 на `/`, `Set-Cookie: session_id=; ...` с истёкшим временем, запись в `sessions` удалена.
+- [x] `GET /auth/logout` без cookie — тоже 302 на `/` (не 4xx, не 500).
+- [x] `AuthManager.logout()` синхронный, `void`, тело — `window.location.href = '/auth/logout'`.
+- [x] `ProfileMenu` и `MobileMenu` вызывают `authManager.logout()` без `try/catch` и без ручного `navigate('/')`.
+- [x] Юнит-тесты logout-контроллера (2 кейса) — зелёные.
+- [x] `pnpm --filter platform typecheck` — чисто.
+- [x] Playwright MCP: залогин под `test@uyutno.dev` / `test1234`, открытие меню профиля на `/`, клик «Выйти» → пользователь на `/`, шапка в guest-состоянии. То же — из мобильного бургера (390px, залогин, открыть бургер, нажать «Выйти»).
 
 ## Заметки
 

@@ -10,7 +10,7 @@ export { createSessionMiddleware } from './middleware/sessionMiddleware';
 export { requireAuth } from './middleware/requireAuth';
 export { redirectIfAuthenticated } from './middleware/redirectIfAuthenticated';
 
-export { createAuthRouter, createOAuthCallbackRouter } from './router';
+export { createAuthRouter, createLogoutRouter, createOAuthCallbackRouter } from './router';
 
 export { createOAuthProviderRegistry } from './oauth/providers';
 export type { OAuthProviderRegistry } from './oauth/providers';

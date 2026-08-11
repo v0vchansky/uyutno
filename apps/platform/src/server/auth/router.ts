@@ -2,6 +2,7 @@ import { Router } from 'express';
 
 import { getMeController } from './controllers/getMeController';
 import { createLoginController } from './controllers/loginController';
+import { createLogoutController } from './controllers/logoutController';
 import { createOAuthCallbackController } from './controllers/oauthCallbackController';
 import { createOAuthStartController } from './controllers/oauthStartController';
 import { createRegisterController } from './controllers/registerController';
@@ -44,5 +45,15 @@ interface OAuthCallbackRouterDeps {
 export const createOAuthCallbackRouter = ({ oauthProviders, oauthManager }: OAuthCallbackRouterDeps): Router => {
   const router = Router();
   router.get('/:provider', createOAuthCallbackController(oauthProviders, oauthManager));
+  return router;
+};
+
+interface LogoutRouterDeps {
+  sessionManager: SessionManager;
+}
+
+export const createLogoutRouter = ({ sessionManager }: LogoutRouterDeps): Router => {
+  const router = Router();
+  router.get('/logout', createLogoutController(sessionManager));
   return router;
 };
