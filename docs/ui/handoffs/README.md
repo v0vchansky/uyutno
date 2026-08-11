@@ -10,6 +10,7 @@
 
 - **Токены темы** — `apps/platform/src/client/theme-uyutno.css`.
 - **Правила UI** (шкала отступов, типографика, цвет, компоновка, длинные списки, иконки) — [`docs/ui/guidelines.md`](../guidelines.md).
+- **Шапки и подвалы** (состояния, меню профиля, мобильное меню) — [`docs/ui/layout.md`](../layout.md).
 - **Бренд-ассеты** (favicon, og-image, логотипы) — `apps/platform/public/`.
 
 `README.md` внутри каждой папки handoff-а — снимок на момент экспорта, содержит устаревшие правила. **При расхождении с `docs/ui/guidelines.md` — верен гайдлайн.**
