@@ -8,6 +8,10 @@
   --font-sans: var(--font-inter);
 }
 
+html {
+  scroll-padding-top: 65px;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   html {
     scroll-behavior: smooth;

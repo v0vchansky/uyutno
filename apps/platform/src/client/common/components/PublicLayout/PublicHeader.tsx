@@ -32,7 +32,7 @@ export const PublicHeader: React.FC<Props> = ({ mode, user }) => {
   const logoTarget = isApp && user !== null ? '/projects' : '/';
 
   return (
-    <header className='border-b border-[var(--separator)] bg-[var(--surface)]'>
+    <header className='sticky top-0 z-40 border-b border-[var(--separator)] bg-[var(--surface)]'>
       <div className='mx-auto flex max-w-[1200px] items-center gap-6 px-4 py-3 lg:px-8'>
         <Link to={logoTarget} aria-label='уютно — на главную' className='inline-flex items-center no-underline'>
           <Logo variant='header' />
