@@ -137,7 +137,7 @@
 | 0036 | TASK | [Миграция `projects` + Kysely codegen](0036-TASK-projects-migration.md)                                       | [x]    | 0006, 0007       | dfe95de (прямой коммит в main) |
 | 0037 | TASK | [Бэкенд `projects` — Manager/Repository/Router (REST API)](0037-TASK-projects-backend.md)                     | [x]    | 0036, 0011, 0008 | e6cfd2a (прямой коммит в main) |
 | 0038 | TASK | [Экран `/projects` — каркас, сетка, состояния, модал «Новый проект»](0038-TASK-projects-page-frame.md)        | [x]    | 0037, 0026       | dfb25a9 (прямой коммит в main) |
-| 0039 | TASK | [Меню карточки + модалы «Переименовать»/«Удалить» + дублирование](0039-TASK-projects-card-menu-and-modals.md) | [x]    | 0038             | —                              |
+| 0039 | TASK | [Меню карточки + модалы «Переименовать»/«Удалить» + дублирование](0039-TASK-projects-card-menu-and-modals.md) | [x]    | 0038             | 4829803 (прямой коммит в main) |
 
 ### Без эпика
 
