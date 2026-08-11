@@ -2,6 +2,7 @@
 
 - Статус: [x]
 - Зависит от: 0011, 0026
+- Фича: [docs/product/features/projects.md](../../product/features/projects.md)
 - Спека: docs/ui/handoffs/projects/projects-screen.md
 - Дизайн: [docs/ui/handoffs/projects/Projects Screen.dc.html](../../ui/handoffs/projects/Projects%20Screen.dc.html)
 
