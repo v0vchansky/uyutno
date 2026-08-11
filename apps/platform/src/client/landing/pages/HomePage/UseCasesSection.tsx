@@ -29,8 +29,8 @@ const USE_CASES: ReadonlyArray<UseCase> = [
 export const UseCasesSection: React.FC = () => {
   return (
     <section className='flex flex-col gap-4'>
-      <h2 className='text-[22px] font-semibold tracking-[-0.02em] md:text-[28px]'>Когда пригодится</h2>
-      <div className='grid grid-cols-1 gap-4 sm:grid-cols-[repeat(auto-fit,minmax(240px,1fr))] md:grid-cols-[repeat(auto-fit,minmax(260px,1fr))]'>
+      <h2 className='text-[22px] font-semibold tracking-[-0.02em] lg:text-[28px]'>Когда пригодится</h2>
+      <div className='grid grid-cols-1 gap-4 sm:grid-cols-[repeat(auto-fit,minmax(260px,1fr))]'>
         {USE_CASES.map(useCase => (
           <article
             key={useCase.caption}

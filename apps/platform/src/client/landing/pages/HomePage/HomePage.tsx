@@ -18,7 +18,7 @@ export const HomePage: React.FC = () => {
         content='Начертите стены, расставьте мебель в реальных размерах и посмотрите комнату в 3D. Бесплатно, прямо в браузере, без установки.'
       />
       <PublicLayout>
-        <div className='mx-auto flex max-w-[1200px] flex-col gap-12 px-4 pb-8 pt-6 md:px-6 md:pb-12 md:pt-8 lg:px-8'>
+        <div className='mx-auto flex w-full max-w-[560px] flex-col gap-12 px-4 pb-8 pt-6 lg:max-w-[1200px] lg:px-8 lg:pb-12 lg:pt-8'>
           <HeroSection />
           <FeaturesSection />
           <HowItWorksSection />

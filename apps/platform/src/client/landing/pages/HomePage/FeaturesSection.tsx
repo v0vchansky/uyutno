@@ -27,14 +27,14 @@ export const FeaturesSection: React.FC = () => {
   return (
     <section id='features' className='flex flex-col gap-4'>
       <div className='flex flex-col gap-2'>
-        <h2 className='text-[22px] font-semibold tracking-[-0.02em] md:text-[28px]'>Что внутри</h2>
-        <p className='max-w-[560px] text-pretty text-[14px] leading-[1.6] text-[color:var(--muted)] md:text-[16px]'>
+        <h2 className='text-[22px] font-semibold tracking-[-0.02em] lg:text-[28px]'>Что внутри</h2>
+        <p className='max-w-[560px] text-pretty text-[14px] leading-[1.6] text-[color:var(--muted)] lg:text-[16px]'>
           Три инструмента, которых хватает, чтобы понять, как будет выглядеть комната.
         </p>
       </div>
 
-      <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
-        <article className='col-span-1 grid grid-cols-1 items-center gap-8 rounded-[24px] bg-[var(--surface-secondary)] p-6 md:col-span-2 md:p-8 lg:grid-cols-[1fr_1.15fr]'>
+      <div className='grid grid-cols-1 gap-4 lg:grid-cols-2'>
+        <article className='col-span-1 grid grid-cols-1 items-center gap-8 rounded-[24px] bg-[var(--surface-secondary)] p-6 lg:col-span-2 lg:grid-cols-[1fr_1.15fr] lg:p-8'>
           <div className='flex flex-col gap-2'>
             <h3 className='text-[22px] font-semibold tracking-[-0.02em]'>План со стенами</h3>
             <p className='text-pretty text-[16px] leading-[1.6] text-[color:var(--muted)]'>

@@ -30,8 +30,8 @@ const STEPS: ReadonlyArray<Step> = [
 export const HowItWorksSection: React.FC = () => {
   return (
     <section id='how' className='flex flex-col gap-4'>
-      <h2 className='text-[22px] font-semibold tracking-[-0.02em] md:text-[28px]'>Как это работает</h2>
-      <div className='grid grid-cols-1 gap-6 sm:grid-cols-[repeat(auto-fit,minmax(240px,1fr))] md:grid-cols-[repeat(auto-fit,minmax(260px,1fr))]'>
+      <h2 className='text-[22px] font-semibold tracking-[-0.02em] lg:text-[28px]'>Как это работает</h2>
+      <div className='grid grid-cols-1 gap-6 sm:grid-cols-[repeat(auto-fit,minmax(260px,1fr))]'>
         {STEPS.map((step, index) => (
           <article key={step.caption} className='flex flex-col gap-4'>
             <PlaceholderScreenshot

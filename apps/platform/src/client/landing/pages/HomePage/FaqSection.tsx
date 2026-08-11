@@ -37,8 +37,8 @@ export const FaqSection: React.FC = () => {
   return (
     <section id='faq' className='flex flex-col gap-4'>
       <div className='flex flex-col gap-2'>
-        <h2 className='text-[22px] font-semibold tracking-[-0.02em] md:text-[28px]'>Вопросы</h2>
-        <p className='max-w-[560px] text-pretty text-[14px] leading-[1.6] text-[color:var(--muted)] md:text-[16px]'>
+        <h2 className='text-[22px] font-semibold tracking-[-0.02em] lg:text-[28px]'>Вопросы</h2>
+        <p className='max-w-[560px] text-pretty text-[14px] leading-[1.6] text-[color:var(--muted)] lg:text-[16px]'>
           Если чего-то здесь нет, напишите — ответим и добавим.
         </p>
       </div>

@@ -11,11 +11,11 @@ const SECONDARY_CTA_STYLE = {
 
 export const HeroSection: React.FC = () => {
   return (
-    <section className='rounded-[24px] bg-[var(--surface-secondary)] p-6 md:p-8'>
+    <section className='rounded-[24px] bg-[var(--surface-secondary)] p-6 lg:p-8'>
       <div className='grid grid-cols-1 items-center gap-8 lg:grid-cols-[1.05fr_1fr]'>
         <div className='flex flex-col gap-6'>
           <div className='flex flex-col gap-4'>
-            <h1 className='text-balance text-[28px] font-semibold leading-[1.1] tracking-[-0.03em] md:text-[36px] lg:text-[44px]'>
+            <h1 className='text-balance text-[28px] font-semibold leading-[1.1] tracking-[-0.03em] lg:text-[44px]'>
               Планировка квартиры за вечер
             </h1>
             <p className='max-w-[440px] text-pretty text-[16px] leading-[1.6] text-[color:var(--muted)]'>
@@ -24,7 +24,7 @@ export const HeroSection: React.FC = () => {
             </p>
           </div>
 
-          <div className='flex flex-col gap-3 sm:flex-row sm:flex-wrap'>
+          <div className='flex flex-col gap-3 lg:flex-row lg:flex-wrap'>
             <Link to='/register' data-size='xl' className='button button--primary'>
               Собрать планировку
             </Link>
