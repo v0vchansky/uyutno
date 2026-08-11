@@ -1,0 +1,132 @@
+# 0038 · TASK · Экран `/projects` — каркас, сетка, состояния, модал «Новый проект»
+
+- Статус: [ ]
+- Эпик: 0035
+- Зависит от: 0037, 0026
+- Спека: docs/ui/handoffs/projects/projects-screen.md
+- Нужен дизайн: да
+- Дизайн: [docs/ui/handoffs/projects/Projects Screen.dc.html](../../ui/handoffs/projects/Projects%20Screen.dc.html), [docs/ui/handoffs/projects/projects-screen.md](../../ui/handoffs/projects/projects-screen.md)
+- PR: —
+
+## Описание
+
+Первая (визуальная) часть эпика: делаем сам экран `/projects` в `PublicLayout mode="app"` — заголовок, счётчик, кнопку «Создать проект», сетку карточек, плитку «Новый проект», три состояния (загрузка / пусто / ошибка), модал «Новый проект». Меню карточки и модалы «Переименовать»/«Удалить»/дублирование — отдельная задача (0039).
+
+Читать перед стартом:
+
+- `docs/ui/handoffs/projects/projects-screen.md` — источник правды по экрану.
+- `docs/ui/guidelines.md` — шкала отступов, типографика, цвет, компоновка.
+- `docs/ui/layout.md` — шапка `mode="app"` и подвал в приложении.
+- `apps/platform/src/client/CLAUDE.md` — раскладка модулей, `React.FC`, где живут типы/константы.
+
+### Модуль
+
+Клиентский модуль `src/client/projects/` (плюрал, отдельно от существующего `src/client/project/` — он про редактор одного проекта). Структура — по [`src/client/CLAUDE.md`](../../../apps/platform/src/client/CLAUDE.md):
+
+```
+projects/
+├── api/                    # getProjectsQuery, createProjectMutation (createQuery/createMutation)
+├── components/             # ProjectCard, NewProjectTile, ProjectsGrid, ProjectsEmptyState, ProjectsErrorState, ProjectsSkeleton, NewProjectModal
+├── lib/                    # formatUpdatedAt (см. правила ниже)
+├── pages/ProjectsPage/
+└── index.ts
+```
+
+### Роут
+
+- `Route.Projects = '/projects'` уже объявлен в `src/shared/router/routes.ts` — подключить в `application/components/Router/Router.tsx` внутри гарда, требующего авторизации.
+- Гвард на клиенте — по образцу `RedirectIfAuthenticated`: аналог `RequireAuth` из `@app/auth`, редиректящий на `/login?from=/projects` при `authManager.getCurrentUser() === null`. Если такого гарда ещё нет — добавить в `@app/auth` минимальный компонент; на бэке уже настроен `requireAuth('page')` (см. server.ts + задачу 0011).
+- В `src/server/server.ts` добавить SSR-гард на `/projects` (аналогично `AUTH_PAGE_PATHS`, но через `requireAuth('page')`).
+
+### Данные
+
+- HTTP-клиент — `api` из `@app/common` (axios с interceptor'ом). Никаких своих fetch-обёрток.
+- Список проектов — через `createQuery` из `@app/common` (если фабрика уже есть — использовать её; если нет — использовать напрямую `useQuery` от `@tanstack/react-query` по правилам `client/CLAUDE.md`). Проверить наличие react-query в проекте — если ещё не подключён, вписать подключение (QueryClient провайдер в `Application.tsx`) в эту задачу.
+- DTO проекта берётся из `@shared/projects` (задача 0037).
+
+### Каркас страницы
+
+- `PublicLayout mode="app"`.
+- `<title>Проекты — уютно</title>`, `<meta name="description" content="Ваши планировки в одном месте." />` (обязательно, см. клиентский CLAUDE).
+- Контейнер `max-w-[1200px]` с `padding: 32px` (мобильно — 16px по бокам, колонка 560px).
+- Строка заголовка: слева «Проекты» 28px/600, счётчик 13px `--muted` («N проектов» с русской формой множественного числа; helper вписать в `lib/`); справа «Создать проект» 40px (моб — под заголовком, 44px full-width).
+- Сетка: `grid-template-columns: repeat(auto-fill, minmax(280px, 1fr))`, gap 16px (моб — 240px). Плитка «Новый проект» — последняя ячейка, `min-height: 220px`, `border: 1px dashed #CCCCCC`, radius 24px. Ховер: рамка + текст → `--accent`.
+
+### Карточка проекта (базовая, без меню)
+
+- `ProjectCard` — компонент `React.FC<{ project: ProjectDto; onOpenMenu?: (id) => void }>`.
+- Внешняя обёртка — ссылка `<Link to={projectRoute(project.id)}>` (см. `shared/router/routes.ts`), радиус 24px, padding 12px, тень `--surface-shadow`.
+- Превью 4:3, radius 12px, фон-заглушка `--background`. В качестве заглушки — тот же диагональный SVG-паттерн, что в макете (можно вытащить в отдельный компонент `ProjectPlaceholder`).
+- Подпись: слева название (15px/500, `truncate`), дата 13px `--muted`.
+- Кнопка «…» 32×32 (моб 44×44), radius 8px, фон `--surface-secondary`, `aria-label="Действия с проектом"`. В этой задаче кнопка присутствует как заглушка (`onOpenMenu?.(project.id)` или `disabled`), само меню — задача 0039. Нельзя всплывать до ссылки-карточки: обработчик клика должен вызывать `event.preventDefault()` + `event.stopPropagation()`.
+
+### Формат даты
+
+Хелпер `formatUpdatedAt(iso: string, now: Date = new Date()): string` в `lib/`:
+
+- «изменён сегодня в 14:32» — тот же день.
+- «изменён вчера» — вчера.
+- «изменён 3 августа» — этот год, не сегодня и не вчера.
+- «изменён 12 марта 2025» — прошлый год или старше.
+
+Использовать `date-fns` с русской локалью (см. feedback в MEMORY: ставим готовые библиотеки, не пишем сами). Если `date-fns` ещё нет — добавить (`pnpm --filter platform add date-fns`).
+
+Юнит-тесты на этот хелпер обязательны (граничные случаи: полночь, високосный год не имеет значения, разные годы).
+
+### Состояние «Загрузка»
+
+Компонент `ProjectsSkeleton`: 4 скелетон-карточки в той же сетке. Прямоугольник 4:3 + две строки 12px и 10px, цвет `#F0F0F0`, анимация `opacity` 1 → 0.55 → 1 за 1.4s (`@keyframes`). Кнопка «Создать проект» тоже скелетон (плашка 40×140 такого же цвета). Заголовок и шапка — сразу.
+
+Уважать `prefers-reduced-motion: reduce` — при нём анимация не крутится (см. layout.md, там уже такой приём применён к меню).
+
+### Состояние «Пусто»
+
+`ProjectsEmptyState`: белая карточка на всю ширину сетки, padding 64px 32px, по центру:
+
+- Иллюстрация 180×120 (можно inline-SVG-плейсхолдер того же формата, что в макете; вытащить в `ProjectsEmptyIllustration`).
+- Заголовок «Здесь пока пусто» 22px/600.
+- Абзац 14px до 400px шириной: например, «Соберите первую планировку — это займёт пять минут».
+- Две кнопки 44px: «Создать проект» (`--accent`) → открывает модал «Новый проект»; «Посмотреть пример» → `Link` на `/demo`.
+
+### Состояние «Ошибка загрузки»
+
+`ProjectsErrorState`: та же геометрия, что empty. Текст: «Не удалось загрузить проекты» + строка «Попробуйте ещё раз через минуту». Кнопка «Повторить» — рефетч query.
+
+### Модал «Новый проект»
+
+`NewProjectModal` — компонент на HeroUI Modal (или React Aria из HeroUI v3, см. канон). Открывается по кнопке «Создать проект» в шапке контента, по кнопке в empty state и по плитке «Новый проект».
+
+- Ширина 344px, radius 24px, padding 24px, gap 16px. Подложка — затемнение 40%.
+- Мобильно (до 1024px) — прижимается к низу, padding 24px 16px, кнопки в ряд по 50% ширины.
+- Заголовок 22px/600: «Новый проект».
+- Поле «Название» (HeroUI TextField): лейбл 14px/500, отступ до поля 6px, высота 40px (моб 44px, font-size 16px, иначе Safari зумит), radius 12px. При открытии — предзаполнено словом «Квартира», фокус + `select()`.
+- Под полем подсказка 12px `--muted`: «Название можно изменить позже».
+- Валидация: `trim().length > 0` и `length <= 60`. Проверяется только на отправке. Пока пусто — кнопка «Создать и открыть» задизейблена.
+- Кнопки справа внизу, gap 8px: «Отмена» на `--surface-secondary` (закрывает модал, фокус возвращается к инициатору), «Создать и открыть» на `--accent`.
+- Enter сабмитит, Escape закрывает без сохранения.
+- Сабмит: `POST /api/v1/projects` через `createMutation` (или useMutation). Успех → `navigate(projectRoute(newProject.id))`. Ошибка сервера → показать ошибку под полем («Не удалось создать проект»).
+
+### Что не делаем
+
+- Меню карточки (Popover / bottom sheet) — задача 0039.
+- Модалы «Переименовать» и «Удалить» — задача 0039.
+- Дублирование — задача 0039.
+- Никакой оптимистичный UI: после `POST` инвалидируем список и делаем refetch (в этом эпике мы всё равно уводим пользователя в редактор — рефетчить нечего).
+
+## Приёмка
+
+- [ ] Незалогиненный на `/projects`: SSR → 302 → `/login?from=/projects`; клиент → та же навигация при потере сессии (401 из `/api/v1/projects` уводит по interceptor'у).
+- [ ] Залогиненный на `/projects`: видит шапку `mode="app"`, заголовок «Проекты», счётчик, кнопку «Создать проект», сетку карточек + плитку «Новый проект».
+- [ ] Состояния «Загрузка», «Пусто», «Ошибка загрузки» отрисованы согласно спеке.
+- [ ] Клик по плитке «Новый проект» и кнопке «Создать проект» открывает модал с предзаполненным «Квартира» и фокусом на поле.
+- [ ] Сабмит модала создаёт проект (`POST /api/v1/projects`) и уводит в `/project/:id`. Пустое имя не пропускается.
+- [ ] Клик по карточке (превью или названию) ведёт в `/project/:id`.
+- [ ] Форматирование даты покрыто юнит-тестами (`formatUpdatedAt.test.ts`): сегодня, вчера, этот год, прошлый год.
+- [ ] Адаптив: до 1024px колонка 560px, боковые поля 16px, сетка `minmax(240px, 1fr)`, «Создать проект» под заголовком full-width 44px, кнопка «…» 44×44.
+- [ ] `prefers-reduced-motion: reduce` — скелетон не пульсирует.
+- [ ] `pnpm --filter platform typecheck`, `pnpm --filter platform lint`, `pnpm --filter platform test` зелёные.
+- [ ] Визуальная проверка через Playwright MCP: 1440 / 768 / 390, состояния loading / empty / error / список, открытие модала.
+
+## Заметки
+
+—
