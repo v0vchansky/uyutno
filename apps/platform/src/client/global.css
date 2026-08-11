@@ -29,3 +29,38 @@ html {
     scroll-behavior: smooth;
   }
 }
+
+/*
+ * Скелетоны списков и карточек. Пульсация opacity 1 → 0.55 → 1 за 1.4s.
+ * При `prefers-reduced-motion: reduce` анимация не запускается,
+ * скелетон рендерится статичной плашкой.
+ */
+@keyframes uyutno-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.uyutno-skeleton {
+  background-color: #f0f0f0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .uyutno-skeleton {
+    animation: uyutno-skeleton-pulse 1.4s ease-in-out infinite;
+  }
+}
+
+/*
+ * Мобильная точка перелома для сетки проектов. См. `ProjectsGrid`
+ * и `docs/ui/handoffs/projects/projects-screen.md`.
+ */
+@media (max-width: 1023.98px) {
+  :root {
+    --projects-grid-min: 240px;
+  }
+}

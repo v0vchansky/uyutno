@@ -19,6 +19,7 @@ const PORT = 4000;
 const STATIC_URL = '/static';
 
 const AUTH_PAGE_PATHS = ['/login', '/register', '/forgot-password', '/reset-password'];
+const AUTH_REQUIRED_PAGE_PATHS = ['/projects'];
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const staticPath = path.resolve(__dirname, '../../dist/client');
@@ -68,6 +69,9 @@ const page = pageMiddleware(cssHref, jsPath, registry.oauthProviders);
 
 for (const authPath of AUTH_PAGE_PATHS) {
   app.get(authPath, redirectIfAuthenticated, page);
+}
+for (const requireAuthPath of AUTH_REQUIRED_PAGE_PATHS) {
+  app.get(requireAuthPath, requireAuth('page'), page);
 }
 app.get('/_page-check', requireAuth('page'), page);
 app.get('/{*splat}', page);
