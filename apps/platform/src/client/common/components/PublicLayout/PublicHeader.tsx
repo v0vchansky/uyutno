@@ -16,11 +16,11 @@ interface Props {
 }
 
 /**
- * Шапка на 4 состояния.
+ * Шапка на 4 состояния. Логотип во всех состояниях ведёт на `/`.
  *
  * - `guest-landing`: логотип, навигация по секциям, «Войти» + «Создать проект».
  * - `auth-landing`: логотип, навигация, «Мои проекты» + меню профиля (аватар + шеврон).
- * - `app`: логотип на /projects, справа меню профиля (аватар + имя + шеврон); фон под шапкой серый.
+ * - `app`: логотип, справа меню профиля (аватар + имя + шеврон); фон под шапкой серый.
  * - `auth`: только логотип.
  *
  * До 1024px навигация и профиль уходят в бургер (кроме `auth`).
@@ -29,7 +29,6 @@ export const PublicHeader: React.FC<Props> = ({ mode, user }) => {
   const isAuth = mode === 'auth';
   const isApp = mode === 'app';
   const showNav = mode === 'guest-landing' || mode === 'auth-landing';
-  const logoTarget = isApp && user !== null ? '/projects' : '/';
 
   return (
     <header className='sticky top-0 z-40 border-b border-[var(--separator)] bg-[var(--surface)]'>
@@ -39,7 +38,7 @@ export const PublicHeader: React.FC<Props> = ({ mode, user }) => {
           Так как в проекте box-sizing: border-box, min-height задаётся сразу
           на внешнюю высоту контейнера. */}
       <div className='mx-auto flex min-h-[68px] max-w-[1200px] items-center gap-6 px-4 py-3 lg:min-h-16 lg:px-8'>
-        <Link to={logoTarget} aria-label='уютно — на главную' className='inline-flex items-center no-underline'>
+        <Link to='/' aria-label='уютно — на главную' className='inline-flex items-center no-underline'>
           <Logo variant='header' />
         </Link>
 
