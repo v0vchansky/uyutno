@@ -1,13 +1,15 @@
 import { Button } from '@heroui/react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type React from 'react';
 import { useState } from 'react';
 
 import { PublicLayout } from '@app/common';
 
 import type { ProjectDto } from '../../../../shared/projects';
+import { duplicateProject } from '../../api/duplicateProject';
 import { getProjects } from '../../api/getProjects';
 import { PROJECTS_QUERY_KEY } from '../../api/projectsQueryKeys';
+import { DeleteProjectModal } from '../../components/DeleteProjectModal/DeleteProjectModal';
 import { NewProjectModal } from '../../components/NewProjectModal/NewProjectModal';
 import { NewProjectTile } from '../../components/NewProjectTile/NewProjectTile';
 import { ProjectCard } from '../../components/ProjectCard/ProjectCard';
@@ -15,6 +17,7 @@ import { ProjectsEmptyState } from '../../components/ProjectsEmptyState/Projects
 import { ProjectsErrorState } from '../../components/ProjectsErrorState/ProjectsErrorState';
 import { ProjectsGrid } from '../../components/ProjectsGrid/ProjectsGrid';
 import { ProjectsSkeleton } from '../../components/ProjectsSkeleton/ProjectsSkeleton';
+import { RenameProjectModal } from '../../components/RenameProjectModal/RenameProjectModal';
 import { pluralizeProjects } from '../../lib/pluralizeProjects';
 
 const PlusIcon: React.FC = () => (
@@ -33,11 +36,27 @@ const PlusIcon: React.FC = () => (
 );
 
 export const ProjectsPage: React.FC = () => {
+  const queryClient = useQueryClient();
+
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<ProjectDto | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ProjectDto | null>(null);
 
   const query = useQuery<ProjectDto[]>({
     queryKey: PROJECTS_QUERY_KEY,
     queryFn: getProjects,
+  });
+
+  // «Дублировать» — сразу шлём POST и инвалидируем список. Модалов и подтверждений нет.
+  // Ошибка — `console.error` и no-op: в v0 достаточно (см. спеку 0039).
+  const duplicateMutation = useMutation({
+    mutationFn: duplicateProject,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY });
+    },
+    onError: error => {
+      console.error('[projects] duplicate failed', error);
+    },
   });
 
   const projects = query.data ?? [];
@@ -46,6 +65,11 @@ export const ProjectsPage: React.FC = () => {
   const isError = query.isError;
 
   const openCreate = (): void => setIsCreateOpen(true);
+  const handleRename = (project: ProjectDto): void => setRenameTarget(project);
+  const handleDelete = (project: ProjectDto): void => setDeleteTarget(project);
+  const handleDuplicate = (project: ProjectDto): void => {
+    duplicateMutation.mutate(project.id);
+  };
 
   return (
     <>
@@ -88,7 +112,13 @@ export const ProjectsPage: React.FC = () => {
           {!isLoading && !isError && !isEmpty ? (
             <ProjectsGrid>
               {projects.map(project => (
-                <ProjectCard key={project.id} project={project} />
+                <ProjectCard
+                  key={project.id}
+                  project={project}
+                  onRename={handleRename}
+                  onDuplicate={handleDuplicate}
+                  onDelete={handleDelete}
+                />
               ))}
               <NewProjectTile onClick={openCreate} />
             </ProjectsGrid>
@@ -96,6 +126,20 @@ export const ProjectsPage: React.FC = () => {
         </div>
 
         <NewProjectModal isOpen={isCreateOpen} onOpenChange={setIsCreateOpen} />
+        <RenameProjectModal
+          project={renameTarget}
+          isOpen={renameTarget !== null}
+          onOpenChange={open => {
+            if (!open) setRenameTarget(null);
+          }}
+        />
+        <DeleteProjectModal
+          project={deleteTarget}
+          isOpen={deleteTarget !== null}
+          onOpenChange={open => {
+            if (!open) setDeleteTarget(null);
+          }}
+        />
       </PublicLayout>
     </>
   );

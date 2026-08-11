@@ -64,3 +64,28 @@ html {
     --projects-grid-min: 240px;
   }
 }
+
+/*
+ * Появление bottom sheet (меню карточки проекта на мобилке): панель едет снизу
+ * с fade, подложка — просто fade. При `prefers-reduced-motion: reduce` анимация
+ * отключена (`motion-safe:` в классах).
+ */
+@keyframes uyutno-sheet-in {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes uyutno-sheet-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
