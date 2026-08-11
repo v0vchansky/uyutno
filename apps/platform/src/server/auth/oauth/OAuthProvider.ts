@@ -1,4 +1,6 @@
-export type OAuthProviderId = 'yandex' | 'vk';
+import type { OAuthProviderId } from '../../../shared/auth';
+
+export type { OAuthProviderId };
 
 export interface OAuthProfile {
   providerUserId: string;

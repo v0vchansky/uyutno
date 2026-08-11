@@ -61,7 +61,7 @@ const cssHref = cssFile ? `${STATIC_URL}/${cssFile}` : '';
 const jsFile = fs.readdirSync(staticPath).find(f => f.endsWith('.js'));
 const jsPath = `${STATIC_URL}/${jsFile}`;
 
-const page = pageMiddleware(cssHref, jsPath);
+const page = pageMiddleware(cssHref, jsPath, registry.oauthProviders);
 
 for (const authPath of AUTH_PAGE_PATHS) {
   app.get(authPath, redirectIfAuthenticated, page);

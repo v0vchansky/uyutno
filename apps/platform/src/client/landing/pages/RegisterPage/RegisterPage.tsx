@@ -70,8 +70,9 @@ const oauthStartUrl = (provider: 'yandex', from: string | null): string => {
 
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
-  const { authManager } = useRegistry();
+  const { authManager, oauthEnabledProviders } = useRegistry();
   const from = useFromParam();
+  const isYandexEnabled = oauthEnabledProviders.includes('yandex');
 
   const displayNameInputRef = useRef<HTMLInputElement>(null);
   const emailInputRef = useRef<HTMLInputElement>(null);
@@ -240,24 +241,28 @@ export const RegisterPage: React.FC = () => {
                 </p>
               </Form>
 
-              <div className='flex items-center gap-3'>
-                <span className='h-px flex-1 bg-[var(--separator)]' />
-                <span className='text-[13px] text-[color:var(--muted)]'>или</span>
-                <span className='h-px flex-1 bg-[var(--separator)]' />
-              </div>
+              {isYandexEnabled ? (
+                <>
+                  <div className='flex items-center gap-3'>
+                    <span className='h-px flex-1 bg-[var(--separator)]' />
+                    <span className='text-[13px] text-[color:var(--muted)]'>или</span>
+                    <span className='h-px flex-1 bg-[var(--separator)]' />
+                  </div>
 
-              <a
-                href={oauthStartUrl('yandex', from)}
-                className='inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[var(--surface)] text-[14px] font-medium text-[color:var(--foreground)] no-underline transition-colors hover:bg-[color:oklch(98%_0_0)]'
-              >
-                <span
-                  aria-hidden='true'
-                  className='inline-flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#FC3F1D] text-[12px] font-semibold leading-none text-white'
-                >
-                  Я
-                </span>
-                Yandex ID
-              </a>
+                  <a
+                    href={oauthStartUrl('yandex', from)}
+                    className='inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[var(--surface)] text-[14px] font-medium text-[color:var(--foreground)] no-underline transition-colors hover:bg-[color:oklch(98%_0_0)]'
+                  >
+                    <span
+                      aria-hidden='true'
+                      className='inline-flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#FC3F1D] text-[12px] font-semibold leading-none text-white'
+                    >
+                      Я
+                    </span>
+                    Yandex ID
+                  </a>
+                </>
+              ) : null}
             </div>
 
             <p className='m-0 flex justify-center gap-1.5 text-[14px] text-[color:var(--muted)]'>

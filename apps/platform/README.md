@@ -96,4 +96,4 @@ Type-check тестов идёт отдельно через `pnpm --filter plat
    ```
 3. Открыть `http://localhost:4000/login`, нажать «Yandex ID» — редирект на `oauth.yandex.ru`.
 
-Если `YANDEX_OAUTH_CLIENT_ID`/`SECRET` не заданы, сервер стартует, но при старте выведет warning и `/api/v1/auth/oauth/yandex/start` будет отвечать 404 — фронт покажет ошибку, кнопка при этом остаётся видимой (валидная ситуация только в dev без OAuth).
+Если `YANDEX_OAUTH_CLIENT_ID`/`SECRET` не заданы, сервер стартует, но при старте выведет warning и `/api/v1/auth/oauth/yandex/start` будет отвечать 404. На клиенте в этом случае кнопка «Yandex ID» на `/login` и `/register` не рендерится: SSR прокидывает в `window.__INITIAL_STATE__.oauthEnabledProviders` фактически включённые провайдеры (валидная ситуация только в dev без OAuth).

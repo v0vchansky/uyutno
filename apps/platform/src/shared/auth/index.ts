@@ -7,3 +7,4 @@ export {
   DISPLAY_NAME_MAX_LENGTH,
 } from './registerRequest';
 export type { RegisterRequest } from './registerRequest';
+export type { OAuthProviderId } from './oauthProvider';

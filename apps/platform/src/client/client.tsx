@@ -16,7 +16,7 @@ declare global {
 const container = document.getElementById('root');
 
 if (container) {
-  const initialState = window.__INITIAL_STATE__ ?? { user: null };
+  const initialState = window.__INITIAL_STATE__ ?? { user: null, oauthEnabledProviders: [] };
   const registry = createRegistry(initialState);
 
   hydrateRoot(

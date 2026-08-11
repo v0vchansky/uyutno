@@ -3,11 +3,16 @@ import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { StaticRouter } from 'react-router';
 
+import type { OAuthProviderRegistry } from '@server/auth';
+
 import { Application, createRegistry, Document, serializeInitialState } from '../../../client/application';
 
-export const pageMiddleware = (cssHref: string, jsPath: string) => {
+export const pageMiddleware = (cssHref: string, jsPath: string, oauthProviders: OAuthProviderRegistry) => {
   return (request: Request, response: Response): void => {
-    const initialState = { user: request.user };
+    const initialState = {
+      user: request.user,
+      oauthEnabledProviders: oauthProviders.getEnabledIds(),
+    };
     const registry = createRegistry(initialState);
 
     const html = renderToString(

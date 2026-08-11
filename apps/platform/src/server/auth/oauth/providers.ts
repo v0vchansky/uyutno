@@ -3,6 +3,7 @@ import { YandexProvider } from './YandexProvider';
 
 export interface OAuthProviderRegistry {
   get(id: string): OAuthProvider | null;
+  getEnabledIds(): OAuthProviderId[];
 }
 
 export const createOAuthProviderRegistry = (): OAuthProviderRegistry => {
@@ -16,6 +17,7 @@ export const createOAuthProviderRegistry = (): OAuthProviderRegistry => {
       if (id !== 'yandex' && id !== 'vk') return null;
       return providers.get(id) ?? null;
     },
+    getEnabledIds: (): OAuthProviderId[] => Array.from(providers.keys()),
   };
 };
 
