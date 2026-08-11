@@ -18,6 +18,7 @@ interface Props {
 }
 
 const CLOSE_MS = 120;
+const MOBILE_MEDIA_QUERY = '(max-width: 1023.98px)';
 
 export const MobileMenu: React.FC<Props> = ({ mode, user }) => {
   const navigate = useNavigate();
@@ -67,6 +68,18 @@ export const MobileMenu: React.FC<Props> = ({ mode, user }) => {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
+  }, [isMounted, close]);
+
+  // Закрываем меню при переходе вьюпорта в десктоп (lg+),
+  // чтобы scroll-lock снялся сам через cleanup соответствующего эффекта.
+  useEffect(() => {
+    if (!isMounted) return;
+    const mql = window.matchMedia(MOBILE_MEDIA_QUERY);
+    const onChange = (event: MediaQueryListEvent): void => {
+      if (!event.matches) close();
+    };
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
   }, [isMounted, close]);
 
   const handleNavClick = (): void => {
@@ -127,7 +140,7 @@ export const MobileMenu: React.FC<Props> = ({ mode, user }) => {
                     key={item.href}
                     href={item.href}
                     onClick={handleNavClick}
-                    className='flex h-11 items-center rounded-xl px-3 text-[15px] text-[color:var(--foreground)] no-underline transition-colors hover:bg-[color:var(--surface-secondary)]'
+                    className='flex h-11 cursor-pointer items-center rounded-xl px-3 text-[15px] text-[color:var(--foreground)] no-underline transition-colors hover:bg-[color:var(--surface-secondary)]'
                   >
                     {item.label}
                   </a>
@@ -140,7 +153,7 @@ export const MobileMenu: React.FC<Props> = ({ mode, user }) => {
                 <Link
                   to='/login'
                   onClick={handleNavClick}
-                  className='flex h-11 items-center rounded-xl px-3 text-[15px] text-[color:var(--foreground)] no-underline transition-colors hover:bg-[color:var(--surface-secondary)]'
+                  className='flex h-11 cursor-pointer items-center rounded-xl px-3 text-[15px] text-[color:var(--foreground)] no-underline transition-colors hover:bg-[color:var(--surface-secondary)]'
                 >
                   Войти
                 </Link>
@@ -163,7 +176,7 @@ export const MobileMenu: React.FC<Props> = ({ mode, user }) => {
                   <button
                     type='button'
                     onClick={handleSettings}
-                    className='flex h-11 items-center gap-3 rounded-xl border-0 bg-transparent px-3 text-left text-[15px] text-[color:var(--foreground)] transition-colors hover:bg-[color:var(--surface-secondary)]'
+                    className='flex h-11 cursor-pointer items-center gap-3 rounded-xl border-0 bg-transparent px-3 text-left text-[15px] text-[color:var(--foreground)] transition-colors hover:bg-[color:var(--surface-secondary)]'
                   >
                     <Settings size={18} strokeWidth={1.5} aria-hidden='true' />
                     Настройки
@@ -172,7 +185,7 @@ export const MobileMenu: React.FC<Props> = ({ mode, user }) => {
                 <button
                   type='button'
                   onClick={handleLogout}
-                  className='flex h-11 items-center gap-3 rounded-xl border-0 bg-transparent px-3 text-left text-[15px] text-[color:var(--foreground)] transition-colors hover:bg-[color:var(--surface-secondary)]'
+                  className='flex h-11 cursor-pointer items-center gap-3 rounded-xl border-0 bg-transparent px-3 text-left text-[15px] text-[color:var(--foreground)] transition-colors hover:bg-[color:var(--surface-secondary)]'
                 >
                   <LogOut size={18} strokeWidth={1.5} aria-hidden='true' />
                   Выйти

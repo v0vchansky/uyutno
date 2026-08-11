@@ -61,7 +61,7 @@ export const ProfileMenu: React.FC<Props> = ({ user, variant }) => {
           <button
             type='button'
             onClick={handleSettings}
-            className='flex h-9 items-center gap-2 rounded-lg border-0 bg-transparent px-3 text-left text-[14px] font-normal text-[color:var(--foreground)] transition-colors hover:bg-[var(--surface-secondary)] focus:outline-none focus-visible:bg-[var(--surface-secondary)]'
+            className='flex h-9 cursor-pointer items-center gap-2 rounded-lg border-0 bg-transparent px-3 text-left text-[14px] font-normal text-[color:var(--foreground)] transition-colors hover:bg-[var(--surface-secondary)] focus:outline-none focus-visible:bg-[var(--surface-secondary)]'
           >
             <Settings size={16} strokeWidth={1.5} aria-hidden='true' />
             Настройки
@@ -69,7 +69,7 @@ export const ProfileMenu: React.FC<Props> = ({ user, variant }) => {
           <button
             type='button'
             onClick={handleLogout}
-            className='flex h-9 items-center gap-2 rounded-lg border-0 bg-transparent px-3 text-left text-[14px] font-normal text-[color:var(--foreground)] transition-colors hover:bg-[var(--surface-secondary)] focus:outline-none focus-visible:bg-[var(--surface-secondary)]'
+            className='flex h-9 cursor-pointer items-center gap-2 rounded-lg border-0 bg-transparent px-3 text-left text-[14px] font-normal text-[color:var(--foreground)] transition-colors hover:bg-[var(--surface-secondary)] focus:outline-none focus-visible:bg-[var(--surface-secondary)]'
           >
             <LogOut size={16} strokeWidth={1.5} aria-hidden='true' />
             Выйти
