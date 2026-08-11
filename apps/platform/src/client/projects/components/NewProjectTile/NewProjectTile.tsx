@@ -14,7 +14,7 @@ export const NewProjectTile: React.FC<Props> = ({ onClick }) => {
       type='button'
       onClick={onClick}
       aria-label='Новый проект'
-      className='group flex min-h-[220px] items-center justify-center rounded-3xl border border-dashed border-[var(--border)] bg-transparent text-[color:var(--muted)] transition-colors hover:border-[color:var(--accent)] hover:text-[color:var(--accent)] focus-visible:outline-none focus-visible:border-[color:var(--accent)] focus-visible:ring-2 focus-visible:ring-[color:var(--accent)]'
+      className='group flex min-h-[220px] cursor-pointer items-center justify-center rounded-3xl border border-dashed border-[var(--border)] bg-transparent text-[color:var(--muted)] outline-none transition-colors hover:border-[color:var(--accent)] hover:text-[color:var(--accent)] focus-visible:border-[color:var(--accent)] focus-visible:text-[color:var(--accent)]'
     >
       <span className='flex items-center gap-2 text-[14px] font-medium'>
         <svg
