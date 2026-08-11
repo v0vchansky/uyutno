@@ -36,6 +36,9 @@ export class YandexProvider implements OAuthProvider {
       client_id: this.clientId,
       redirect_uri: redirectUri,
       state,
+      // Принудительно показываем экран согласия / выбора аккаунта,
+      // иначе при активной сессии Passport Yandex ID молча возвращает код без UI.
+      force_confirm: 'yes',
     });
     return `${AUTHORIZE_URL}?${params.toString()}`;
   }
