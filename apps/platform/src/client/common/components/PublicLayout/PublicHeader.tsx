@@ -1,84 +1,110 @@
 import type React from 'react';
-import { Link, useLocation } from 'react-router';
+import { Link } from 'react-router';
 
-import { useRegistry } from '../../registry/useRegistry';
+import type { User } from '@app/auth';
 
+import { LANDING_NAV_ITEMS } from './landingNav';
 import { Logo } from './Logo';
+import { MobileMenu } from './MobileMenu';
+import { ProfileMenu } from './ProfileMenu';
 
-const NAV_ITEMS: ReadonlyArray<{ href: string; label: string }> = [
-  { href: '#features', label: 'Возможности' },
-  { href: '#how', label: 'Как это работает' },
-  { href: '#faq', label: 'Вопросы' },
-];
+export type HeaderMode = 'guest-landing' | 'auth-landing' | 'app' | 'auth';
 
-const HOME_ONLY_NAV_PATHS = new Set<string>(['/']);
+interface Props {
+  mode: HeaderMode;
+  user: User | null;
+}
 
-const displayNameOrEmailFallback = (user: { displayName: string | null; email: string }): string => {
-  if (user.displayName && user.displayName.length > 0) return user.displayName;
-  const at = user.email.indexOf('@');
-  return at > 0 ? user.email.slice(0, at) : user.email;
-};
-
-export const PublicHeader: React.FC = () => {
-  const { pathname } = useLocation();
-  const { authManager } = useRegistry();
-  const currentUser = authManager.getCurrentUser();
-  const isAuthenticated = currentUser !== null;
-  const showNav = HOME_ONLY_NAV_PATHS.has(pathname);
-  const showLogin = !isAuthenticated && pathname !== '/login';
-  const showRegister = !isAuthenticated && pathname !== '/register';
+/**
+ * Шапка на 4 состояния.
+ *
+ * - `guest-landing`: логотип, навигация по секциям, «Войти» + «Создать проект».
+ * - `auth-landing`: логотип, навигация, «Мои проекты» + меню профиля (аватар + шеврон).
+ * - `app`: логотип на /projects, справа меню профиля (аватар + имя + шеврон); фон под шапкой серый.
+ * - `auth`: только логотип.
+ *
+ * До 1024px навигация и профиль уходят в бургер (кроме `auth`).
+ */
+export const PublicHeader: React.FC<Props> = ({ mode, user }) => {
+  const isAuth = mode === 'auth';
+  const isApp = mode === 'app';
+  const showNav = mode === 'guest-landing' || mode === 'auth-landing';
+  const logoTarget = isApp && user !== null ? '/projects' : '/';
 
   return (
     <header className='border-b border-[var(--separator)] bg-[var(--surface)]'>
-      <div className='mx-auto flex max-w-[1200px] items-center gap-3 px-4 py-3 md:gap-6 md:px-6 lg:px-8'>
-        <Link to='/' aria-label='уютно — на главную' className='mr-2 inline-flex items-center no-underline'>
+      <div className='mx-auto flex max-w-[1200px] items-center gap-6 px-4 py-3 lg:px-8'>
+        <Link to={logoTarget} aria-label='уютно — на главную' className='inline-flex items-center no-underline'>
           <Logo variant='header' />
         </Link>
 
-        {showNav ? (
-          <nav className='hidden flex-1 items-center gap-1 lg:flex' aria-label='Разделы страницы'>
-            {NAV_ITEMS.map(item => (
-              <a key={item.href} href={item.href} className='button button--ghost'>
-                {item.label}
-              </a>
-            ))}
-          </nav>
-        ) : (
-          <span className='flex-1' />
+        {isAuth ? null : (
+          <>
+            {showNav ? (
+              <nav className='hidden flex-1 items-center gap-1 lg:flex' aria-label='Разделы страницы'>
+                {LANDING_NAV_ITEMS.map(item => (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    className='inline-flex h-9 items-center rounded-xl px-3 text-[14px] text-[color:var(--foreground)] no-underline transition-colors hover:bg-[color:var(--surface-secondary)]'
+                  >
+                    {item.label}
+                  </a>
+                ))}
+              </nav>
+            ) : (
+              <span className='flex-1' />
+            )}
+
+            <div className='ml-auto flex items-center gap-2'>
+              {mode === 'guest-landing' ? (
+                <>
+                  <Link
+                    to='/login'
+                    className='hidden h-10 items-center rounded-xl bg-[var(--default)] px-4 text-[14px] font-medium text-[color:var(--foreground)] no-underline transition-colors hover:bg-[color:var(--surface-secondary)] lg:inline-flex'
+                  >
+                    Войти
+                  </Link>
+                  <Link
+                    to='/register'
+                    className='inline-flex h-10 items-center rounded-xl bg-[var(--accent)] px-4 text-[14px] font-medium text-[color:var(--accent-foreground)] no-underline transition-colors hover:brightness-95'
+                  >
+                    <span className='lg:hidden'>Создать</span>
+                    <span className='hidden lg:inline'>Создать проект</span>
+                  </Link>
+                </>
+              ) : null}
+
+              {mode === 'auth-landing' && user ? (
+                <>
+                  <Link
+                    to='/projects'
+                    className='inline-flex h-10 items-center rounded-xl bg-[var(--accent)] px-4 text-[14px] font-medium text-[color:var(--accent-foreground)] no-underline transition-colors hover:brightness-95'
+                  >
+                    <span className='lg:hidden'>Проекты</span>
+                    <span className='hidden lg:inline'>Мои проекты</span>
+                  </Link>
+                  <div className='hidden lg:block'>
+                    <ProfileMenu user={user} variant='compact' />
+                  </div>
+                </>
+              ) : null}
+
+              {mode === 'app' && user ? (
+                <div className='hidden lg:block'>
+                  <ProfileMenu user={user} variant='full' />
+                </div>
+              ) : null}
+
+              {isApp || mode === 'auth-landing' || mode === 'guest-landing' ? (
+                <MobileMenu
+                  mode={isApp ? 'app' : mode === 'auth-landing' ? 'auth-landing' : 'guest-landing'}
+                  user={user}
+                />
+              ) : null}
+            </div>
+          </>
         )}
-
-        {showNav ? <span className='flex-1 lg:hidden' /> : null}
-
-        <div className='flex items-center gap-2'>
-          {isAuthenticated && currentUser ? (
-            <>
-              <span
-                className='max-w-[120px] truncate text-[14px] text-[color:var(--foreground-secondary)] md:max-w-[200px]'
-                title={displayNameOrEmailFallback(currentUser)}
-              >
-                {displayNameOrEmailFallback(currentUser)}
-              </span>
-              <Link to='/projects' className='button button--lg button--primary'>
-                <span className='md:hidden'>Кабинет</span>
-                <span className='hidden md:inline'>В личный кабинет</span>
-              </Link>
-            </>
-          ) : (
-            <>
-              {showLogin ? (
-                <Link to='/login' className='button button--lg button--tertiary hidden md:inline-flex'>
-                  Войти
-                </Link>
-              ) : null}
-              {showRegister ? (
-                <Link to='/register' className='button button--lg button--primary'>
-                  <span className='md:hidden'>Создать</span>
-                  <span className='hidden md:inline'>Создать проект</span>
-                </Link>
-              ) : null}
-            </>
-          )}
-        </div>
       </div>
     </header>
   );

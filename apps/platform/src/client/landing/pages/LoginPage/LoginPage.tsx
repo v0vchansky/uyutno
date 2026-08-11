@@ -91,7 +91,7 @@ export const LoginPage: React.FC = () => {
     <>
       <title>Вход в уютно</title>
       <meta name='description' content='Войдите в уютно, чтобы продолжить работу над планировками.' />
-      <PublicLayout>
+      <PublicLayout mode='auth'>
         <div className='flex min-h-full items-center justify-center px-4 py-8 md:px-6 md:py-12'>
           <div className='flex w-full max-w-[400px] flex-col gap-6'>
             <header className='flex flex-col gap-2'>

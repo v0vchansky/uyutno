@@ -142,7 +142,7 @@ export const RegisterPage: React.FC = () => {
         name='description'
         content='Создайте аккаунт в уютно, чтобы сохранить планировку и вернуться к ней с любого компьютера.'
       />
-      <PublicLayout>
+      <PublicLayout mode='auth'>
         <div className='flex min-h-full items-center justify-center px-4 py-8 md:px-6 md:py-12'>
           <div className='flex w-full max-w-[400px] flex-col gap-6'>
             <header className='flex flex-col gap-2'>
