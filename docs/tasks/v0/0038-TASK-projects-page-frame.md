@@ -6,7 +6,7 @@
 - Спека: docs/ui/handoffs/projects/projects-screen.md
 - Нужен дизайн: да
 - Дизайн: [docs/ui/handoffs/projects/Projects Screen.dc.html](../../ui/handoffs/projects/Projects%20Screen.dc.html), [docs/ui/handoffs/projects/projects-screen.md](../../ui/handoffs/projects/projects-screen.md)
-- PR: —
+- PR: dfb25a9 (прямой коммит в main)
 
 ## Описание
 
