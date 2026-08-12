@@ -151,5 +151,5 @@
 | 0033 | TASK | [Единая высота шапки на всех экранах](0033-TASK-header-height-sync.md)                                       | [x]    | 0026, 0028, 0031 | —                              |
 | 0034 | TASK | [Yandex OAuth: `force_confirm=yes` для выбора аккаунта](0034-TASK-oauth-yandex-force-confirm.md)             | [x]    | 0015, 0032       | —                              |
 | 0040 | TASK | [Явный выбор клиентских бандлов в SSR (dev/prod)](0040-TASK-ssr-asset-lookup.md)                             | [ ]    | —                | —                              |
-| 0041 | TASK | [Логотип шапки всегда ведёт на `/`](0041-TASK-header-logo-always-home.md)                                    | [~]    | —                | —                              |
-| 0042 | TASK | [Аудит `<title>`/`<meta description>` на страницах + правило в доске](0042-TASK-page-meta-audit-and-rule.md) | [~]    | —                | —                              |
+| 0041 | TASK | [Логотип шапки всегда ведёт на `/`](0041-TASK-header-logo-always-home.md)                                    | [x]    | —                | 610ba20 (прямой коммит в main) |
+| 0042 | TASK | [Аудит `<title>`/`<meta description>` на страницах + правило в доске](0042-TASK-page-meta-audit-and-rule.md) | [x]    | —                | 610ba20 (прямой коммит в main) |
