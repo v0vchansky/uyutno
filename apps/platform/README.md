@@ -74,7 +74,7 @@ Type-check тестов идёт отдельно через `pnpm --filter plat
 
 ## Переменные окружения
 
-Читаются напрямую из `process.env` (без dotenv). В dev достаточно экспортировать нужные значения в шелл перед `pnpm --filter platform dev`.
+В dev `dev:server` запускает `node --env-file=./.env`, поэтому `apps/platform/.env` подхватывается автоматически (нативный Node ≥20, без пакета `dotenv`). Значения из шелла имеют приоритет над `.env`. В prod (`pnpm start`) `.env` не читается — переменные ожидаются в окружении.
 
 | Переменная                   | Обязательна | Дефолт (dev)                                     | Назначение                                                                                                    |
 | ---------------------------- | ----------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
@@ -88,12 +88,12 @@ Type-check тестов идёт отдельно через `pnpm --filter plat
 ### Локальный запуск с Yandex OAuth
 
 1. Зарегистрировать приложение в кабинете Yandex OAuth (задача 0010). Redirect URI для dev: `http://localhost:4000/auth/callback/yandex`.
-2. Экспортировать креды перед стартом:
-   ```bash
-   export YANDEX_OAUTH_CLIENT_ID=<client id>
-   export YANDEX_OAUTH_CLIENT_SECRET=<client secret>
-   pnpm --filter platform dev
+2. Прописать креды в `apps/platform/.env`:
    ```
+   YANDEX_OAUTH_CLIENT_ID=<client id>
+   YANDEX_OAUTH_CLIENT_SECRET=<client secret>
+   ```
+   и запустить `pnpm --filter platform dev`. Альтернативно — экспортировать те же переменные в шелл (значения из шелла перекрывают `.env`).
 3. Открыть `http://localhost:4000/login`, нажать «Yandex ID» — редирект на `oauth.yandex.ru`.
 
 Если `YANDEX_OAUTH_CLIENT_ID`/`SECRET` не заданы, сервер стартует, но при старте выведет warning и `/api/v1/auth/oauth/yandex/start` будет отвечать 404. На клиенте в этом случае кнопка «Yandex ID» на `/login` и `/register` не рендерится: SSR прокидывает в `window.__INITIAL_STATE__.oauthEnabledProviders` фактически включённые провайдеры (валидная ситуация только в dev без OAuth).
