@@ -15,6 +15,8 @@ import {
 import { createServerRegistry, errorMiddleware, pageMiddleware } from '@server/application';
 import { createProjectsRouter } from '@server/projects';
 
+import { isKnownPagePath } from '../shared/router/routes';
+
 const PORT = 4000;
 const STATIC_URL = '/static';
 
@@ -74,7 +76,12 @@ for (const requireAuthPath of AUTH_REQUIRED_PAGE_PATHS) {
   app.get(requireAuthPath, requireAuth('page'), page);
 }
 app.get('/_page-check', requireAuth('page'), page);
-app.get('/{*splat}', page);
+app.get('/{*splat}', (req, res) => {
+  if (!isKnownPagePath(req.path)) {
+    res.status(404);
+  }
+  page(req, res);
+});
 
 app.use(errorMiddleware);
 

@@ -1,9 +1,11 @@
 # 0019 · TASK · 404-страница для неизвестных путей
 
-- Статус: [ ]
+- Статус: [x]
 - Эпик: 0016
 - Зависит от: 0004
 - Спека: —
+- Нужен дизайн: нет (согласовано, делаем по guidelines)
+- Дизайн: —
 - PR: —
 
 ## Описание
@@ -27,13 +29,24 @@
 
 ## Приёмка
 
-- [ ] `curl -i http://localhost:4000/nonexistent` возвращает `HTTP/1.1 404 Not Found` и HTML c контентом 404-страницы (не SSR-шелл текущей главной).
-- [ ] В браузере на неизвестном URL отрисовывается `NotFoundPage` внутри `PublicLayout` с ссылкой на главную; свои `<title>` и `<meta name="description">` присутствуют в `<head>`.
-- [ ] Известные пути (`/`, `/login`, `/register`, `/forgot-password`, `/reset-password`, `/project/:id`) продолжают отвечать 200 и рендериться как раньше.
-- [ ] После успешного логина/регистрации пользователь попадает на существующую страницу (`/`), а не на 404.
-- [ ] SPA-переход на несуществующий путь (навигация через `<Link>` / `navigate`) показывает `NotFoundPage`, а не пустой layout.
-- [ ] Визуальная проверка через Playwright MCP: 1440 / 768 / 390, golden path и 404-состояние.
+- [x] `curl -i http://localhost:4000/nonexistent` возвращает `HTTP/1.1 404 Not Found` и HTML c контентом 404-страницы (не SSR-шелл текущей главной).
+- [x] В браузере на неизвестном URL отрисовывается `NotFoundPage` внутри `PublicLayout` с ссылкой на главную; свои `<title>` и `<meta name="description">` присутствуют в `<head>`.
+- [x] Известные пути (`/`, `/login`, `/register`, `/forgot-password`, `/reset-password`, `/project/:id`) продолжают отвечать 200 и рендериться как раньше.
+- [x] После успешного логина/регистрации пользователь попадает на существующую страницу (`/projects`), а не на 404.
+- [x] SPA-переход на несуществующий путь (навигация через `<Link>` / `navigate`) показывает `NotFoundPage`, а не пустой layout.
+- [x] Визуальная проверка через Playwright MCP: 1440 / 768 / 390, golden path и 404-состояние.
 
 ## Заметки
 
-—
+- Дефолт-редирект после логина/регистрации трогать не пришлось: страница `/projects` уже готова (эпик 0035, задачи 0036–0039). Абзац в «Описании» про временный перевод на `/` — устаревший, оставил как есть; сам критерий приёмки поправил на актуальную формулировку («на существующую страницу `/projects`, а не на 404»).
+- `NotFoundPage` — в модуле `landing` (`apps/platform/src/client/landing/pages/NotFoundPage/NotFoundPage.tsx`), экспортирован из `landing/index.ts`. Внутри — `PublicLayout` (`mode='landing'` по дефолту), заголовок «404», подзаголовок «Такой страницы нет», подпись, ссылка-кнопка «На главную» → `Route.Home`. Копия и типографика — по `docs/ui/guidelines.md`; своя пара `<title>`/`<meta description>` в JSX.
+- Единый источник «известных путей» — `Route` enum в `apps/platform/src/shared/router/routes.ts`. Туда же добавил `isKnownPagePath(pathname)` (регексп-матчер, поддерживает `:id`-параметры).
+- Сервер (`apps/platform/src/server/server.ts`): catch-all `app.get('/{*splat}', ...)` теперь перед вызовом `page` дёргает `isKnownPagePath(req.path)` и, если false, ставит `res.status(404)`. HTML тот же — рендерится тот же SSR-шелл, но с 404-статусом; клиентский `<Route path='*'>` внутри Router даёт визуальный контент.
+- Клиентский Router (`apps/platform/src/client/application/components/Router/Router.tsx`): добавлен `<Route path='*' element={<NotFoundPage />} />` в конец `<Routes>`. Плюс заглушки под задачу 0014 для `/forgot-password` и `/reset-password` (`element={<></>}`) — иначе wildcard подхватил бы их и клиент показал бы NotFoundPage, хотя сервер отдаёт 200. Когда 0014 закроется, заглушки заменятся на реальные формы.
+- Проверки: `pnpm --filter platform typecheck` — чисто; `pnpm lint` (корневой; `pnpm --filter platform lint` не существует) — чисто.
+- `curl` по всем ключевым путям: `/nonexistent` → 404, `/foo/bar/baz` → 404; `/`, `/login`, `/register`, `/forgot-password`, `/reset-password`, `/project/xyz` → 200. HTML на `/nonexistent` содержит `<title>Страница не найдена — уютно</title>`, «Такой страницы нет», «Проверьте адрес».
+- Playwright MCP на dev-сервере `:4000`:
+  - 1440 / 768 / 390 — скриншоты `/nonexistent` под залогиненным пользователем: layout + шапка `landing`-режима + подвал, центрированная 404-композиция, кнопка «На главную».
+  - SPA-переход по клику «На главную» с `/nonexistent` — URL стал `/`, title — «уютно — планировщик квартиры онлайн» (без перезагрузки).
+  - SPA-переход `history.pushState('/spa-unknown') + PopStateEvent` на главной — title сразу стал «Страница не найдена — уютно», React Router перематчил wildcard.
+  - SPA-переход на `/forgot-password` под залогиненным пользователем — редирект в `/projects` через `RedirectIfAuthenticated`, NotFoundPage не мелькает (стаб-роут отработал).
