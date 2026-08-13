@@ -37,11 +37,21 @@ library anywhere in the path. Evidence:
   boolean; walls are emitted as independent quads and only later unioned into
   room contours by unrelated code.
 
-**Join strategy: miter, with an automatic bevel/square fallback.** The default
-join is a true miter (intersect the two offset lines). When the miter would
-overshoot — sharp angle _and_ the miter apex falls outside the segment bounds —
-they drop back to the un-mitered offset endpoints (`C = L01; D = R01`), which is
-effectively a **bevel/butt cap** at that vertex. No round joins exist.
+**Join strategy: miter, with an automatic flat-cap fallback.** The default
+join is a true miter (intersect the two offset lines, `TR.lineIntersectLine`
+at 58039 outer → `C`, 58040 inner → `D`; block continues `A = C; B = D` at
+58064). When the miter would overshoot — turn sharper than `recalcAng ≈ 0.75π`
+_and_ the miter apex falls outside bounds — they drop back to the un-mitered,
+**perpendicular** offset endpoints (`C = L01; D = R01`, 58048–58049), which
+splits the strip into two **flat (perpendicular) end caps** at that vertex. This
+is a **flat-cap fallback, not a bevel** — the caps are square to their own
+segments, not a chamfer across the corner. Same logic in the closed-contour
+branch (58099–58121). No round joins exist.
+
+This 2D miter (draw-time) is one of **two** corner mechanisms and does not
+compete with the rebuild-time plug: the miter shapes the 2D wall polygons while
+drawing; at rebuild, residual angular gaps between the 3D walls are closed by a
+flat vertical `DataPlug` quad (see §Connectors & caps). Neither path bevels.
 
 ---
 
@@ -88,11 +98,12 @@ So the miter is only abandoned when **both**: the turn is sharper than
 `0.75π` (135°) away from straight, **and** the computed apex `C` fails
 `pointInBounds(C, D, L2)` (line 50167 — an inclusive AABB test with `L_EPS`
 slack) i.e. the miter spike shoots past the next offset point. In that case they
-close off the current block at the un-mitered offset points and begin a fresh
-block — a bevel that also prevents the runaway spike. This is their miter-limit
-equivalent. The closed-contour branch (58106) applies the same `recalcAng`
-gate but **without** the `pointInBounds` guard, so closed rooms re-miter purely
-on angle.
+close off the current block at the un-mitered, perpendicular offset points
+(`C = L01; D = R01`, 58048–58049) and begin a fresh block — a **flat cap**
+(square to each segment), _not_ a chamfered bevel across the corner. It doubles
+as the runaway-spike guard, i.e. their miter-limit equivalent. The
+closed-contour branch (58099–58121) applies the same `recalcAng` gate but
+**without** the `pointInBounds` guard, so closed rooms re-cap purely on angle.
 
 **(d) Very short segments.** Two guards up front (57926–57927): a 1-point
 contour yields `[]`; a 2-point contour shorter than `wallsWidth` yields `[]`
@@ -163,10 +174,13 @@ candidate is **skipped** if:
   endpoints (54420–54432) — i.e. the connector would cross a real wall;
 - the connector properly intersects a wall interior (`lineIntersectLine`, 54434) or duplicates a cut of equal height (54443–54454).
 
-Survivors become `WC.DataPlug` quads extruded to `axis.wall1.height`
-(`createPlug3D`, 54495) — literal little filler prisms plugging the corner void.
-So the "cap fill" is a **whitelist of short, non-crossing bridges** between
-paired wall faces, not a geometric union.
+Survivors become `WC.DataPlug` — a **flat vertical quad** (the four corners are
+the connector edge at floor and at `axis.wall1.height`; the plug data is built
+at 52053). Its mesh is emitted by `createPlug3D` (54495) as **two triangles**
+(54507–54508) — a single planar rectangle spanning the gap, **not** an extruded
+prism and **not** a beveled corner. So the rebuild-time "cap fill" is a
+**whitelist of short, non-crossing, flat bridges** (≤ `maxConnectorLength = 40`)
+between paired wall faces, not a geometric union and not a chamfer.
 
 ---
 
@@ -178,7 +192,7 @@ Numeric thresholds and where they bite:
 | ------------------ | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `1e-8`             | `TR.L_EPS` (49482)                                        | denominator / coincidence epsilon in `lineIntersectLine` (49898), `parallelBox` collapse (54903), `pointInBounds` slack (50169) |
 | `1e-4`             | `TR.B_EPS` (49483)                                        | on-line tolerance in `pointOnLine`/`projectionPointOnLine` (49579, 50141), snap-neighbor matching (57242)                       |
-| `0.75π` (135°)     | `recalcAng` (57924)                                       | re-miter / bevel threshold at sharp corners (58046, 58106)                                                                      |
+| `0.75π` (135°)     | `recalcAng` (57924)                                       | miter → **flat-cap** fallback threshold at sharp corners (58046, 58099–58121); not a bevel                                      |
 | `0.05` rad (~2.9°) | `parallelBox` / `parallelLines` `maxAngle` (54835, 50254) | near-parallel merge tolerance for wall pairing                                                                                  |
 | `40`               | `maxConnectorLength` (54384)                              | max bridgeable junction gap                                                                                                     |
 | `80`               | `MAX_WALL_WIDTH` (54379)                                  | max face separation for a box/axis (54913)                                                                                      |
@@ -218,8 +232,9 @@ For our fresh TS build:
   not a unioned polygon — downstream code (rooms, axes, connectors, 3D) assumes
   that quad-strip structure.
 - **Load-bearing bespoke logic we'd have to replicate to match pixels:**
-  (1) the `0.75π` + `pointInBounds` re-miter/bevel rule — a stock miter-limit is
-  a _ratio_, not an angle+bounds test, so joins would differ at ~135°;
+  (1) the `0.75π` + `pointInBounds` miter → flat-cap rule (perpendicular end
+  caps, not a bevel) — a stock miter-limit is a _ratio_, not an angle+bounds
+  test, so joins would differ at ~135°;
   (2) the `startNeighbSegments` T-junction tuck-in (pick the farther
   intersection); (3) the connector/plug gap-fill with `maxConnectorLength = 40`
   and its crossing-rejection whitelist; (4) `parallelBox`'s four-case overlap
@@ -241,8 +256,11 @@ For our fresh TS build:
 **High confidence** on: custom (non-library) hand-rolled miter offset; the
 `0.75π` re-miter threshold, `0.05` rad parallel tolerance, `maxConnectorLength=40`,
 `MAX_WALL_WIDTH=80`, `MIN_WALL_LENGTH=15` — all read directly at cited lines; the
-single-sided band construction; miter-with-bevel-fallback join strategy;
-per-segment-quad output structure; connector whitelist logic.
+single-sided band construction; miter-with-**flat-cap**-fallback join strategy
+(perpendicular end caps at 58048–58049, not a bevel); the two-mechanism split
+(draw-time miter vs rebuild-time flat `DataPlug` quad, 52053 / 54495 with two
+triangles at 54507–54508); per-segment-quad output structure; connector
+whitelist logic.
 
 **Gaps / lower confidence:** (1) I did not fully trace how per-segment quads are
 subsequently unioned into the final room contour polygons and how variable

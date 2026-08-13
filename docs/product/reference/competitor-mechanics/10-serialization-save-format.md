@@ -52,6 +52,15 @@ All line numbers below refer to those two files. This is a functional spec writt
 1. **Full-scene autosave** = the same `SceneSaver.save(data, /*autoSave*/ true)` path, which just appends `autoSave=1` to the body. Same endpoint, same envelope.
 2. **Autosave-metadata POST** = `R2D.UserCore.UserAutoSave.updateAutoSave(data)` — `user.js:2985`. A thin, **caller-driven** POST (no internal debounce/interval/event listener — the trigger and throttling live in the controller that calls `me.autoSaveUpdate(...)`, `user.js:220`). It sends the **raw** `JSON.stringify(data)` as the whole body (NOT wrapped as `json=`), to `R2D.URL.URL_AUTO_SAVE_UPDATE`. Validation is `status == 'ok'` (not `success`, and it does not check `plan_id`); it always `resolve`s (never rejects), returning `{type:"error", data:"TEXT_ERROR_LOAD_DATA"}` on failure. The user-level "autosave enabled" flag is `me.data.autoSave` (`user.js:18`).
 
+#### Autosave cadence — two independent timers
+
+The controller drives autosave with **two separate `setInterval` loops** (both armed after a 5 s startup delay). Independent of the manual/full save (which also snapshots a preview screenshot, §Save):
+
+- **localStorage every 5 s (diff-guarded)** — `scope.sceneAutoSaveStorage(hash)` (`plannercore.js:16295`). Immediately writes `R2D.Storage.save('r2d_project_<hash>', JSON.stringify({...getObjDataForStorage(), hash}))`, then a `setInterval(…, 5000)` re-serializes and **writes only if the JSON differs** from what's already stored (a cheap dirty-diff, not the history dirty-flag). Key is `r2d_project_<hash>` when a project hash exists (from URL `/project/<hash>` or the passed `hash`), else the bare `r2d_project`. Cleared by `clearSceneAutoSaveStorage()` (`16310`, `clearInterval` + removes both keys). This is the localStorage recovery source that `SceneLoader.loadFromString` reads back.
+- **Server every 60 s (owner + dirty + saved-project only)** — `scope.sceneAutoSaveServer(userKey)` (`plannercore.js:16317`): `setInterval(…, 60000)` that fires `saveCurrentScene(null, /*autoSave*/ true)` **only when all three hold**: `scene.getProjectId()` (project already exists server-side), `scope.wasChanged()` (history dirty-flag, see `09-undo-redo-history.md` §7), and `userKey == scope.getProjectUserKey()` (**current user is the project owner** — a viewer of someone else's shared project never auto-persists to the server). Cleared by `clearSceneAutoSaveServer()` (`16325`).
+
+So: local backup is fast/unconditional-but-diffed (5 s), server autosave is slow and gated on ownership + unsaved changes + an existing `projectId` (60 s). Neither replaces the explicit user save, which additionally attaches the preview screenshot.
+
 ### Copy / delete / share (project-level operations)
 
 - **Copy:** `R2D.SceneRename`/`SceneCopy.execute()` (`plannercore.js:15370`): body `json={"plan_id":planId,"plan_new_name":newName,"plan_old_name":oldName}` → `R2D.URL.URL_COPY_PLAN`. Response yields a **new `id` and new `hash`** for the copy (`getNewId()`/`getNewHash()`).
@@ -184,9 +193,14 @@ scene = {
   viewState: <opaque camera/view blob>,
   skybox: { id, r /*rotation*/, tags:[] },
   additionalSettings: { showPartialVisibleElements },
-  hiddenElements: [...]
+  hiddenElements: { objects, walls, covers, groups, bottomPlinths, topPlinths, ceilings, frames, cap, areas, cuts }
 }
 ```
+
+#### `hiddenElements` — object of 11 named id-arrays
+
+Not a flat array of ids — an **object with 11 keys**, each a separate array (init `plannercore.js:13126`, saved verbatim as `hiddenElements: scope.hiddenElements` at `13920`, restored by spread-merge over the defaults at `15551-15557`):
+`objects, walls, covers, groups, bottomPlinths, topPlinths, ceilings, frames, cap, areas, cuts`. Elements are ids, **except `groups`** whose elements are **arrays of the group's object ids** (membership compared by `JSON.stringify`).
 
 #### `products[]` — `R2D.Scene.makeSceneObjectData` (`plannercore.js:14862`)
 

@@ -20,20 +20,20 @@ roomtodo разделяет **«редактирование» (бесплатн
 
 Карта фич/цен (из React-UI):
 
-| Выход                                      | Тип               | Стоимость                         | Гейт    | Клиентский метод                              |
-| ------------------------------------------ | ----------------- | --------------------------------- | ------- | --------------------------------------------- |
-| Скриншот                                   | PNG вьюпорта      | **бесплатно**                     | нет     | `R2D.scene.makeRenderScreenShot()` (локально) |
-| Фотореал 2K (1920×1080)                    | серверный рендер  | **1 кредит**                      | кредиты | `user.makeRender({type:3})`                   |
-| Фотореал 4K (3840×2160)                    | серверный рендер  | **2 кредита**                     | кредиты | `user.makeRender({type:4})`                   |
-| 360° панорама-рендер                       | серверный рендер  | **4 кредита**                     | кредиты | `user.makeRender({type:5})`                   |
-| 360° виртуальный тур                       | сшитый тур        | tour-builder (iframe)             | —       | `/tours/add`, `user.uTours360_*`              |
-| AI image→3D модель                         | AI-меш            | **1 кредит**                      | кредиты | `R2D.modelAIUploader.createNewModel()`        |
-| Своя 3D-модель (GLB)                       | загрузка          | загрузка free, **сохранение PRO** | план    | `R2D.modelUploader.*`                         |
-| Свой материал/ковёр/постер                 | загрузка          | free (видимость гейтит план)      | план    | `R2D.customUploader.upload*()`                |
-| 2D PDF-план                                | экспорт           | free                              | нет     | `user.makeExport({type:0,format:'pdf'})`      |
-| 3D-экспорт (IFC/FBX/GLB/OBJ/DAE/DXF/BLEND) | серверный экспорт | —                                 | **PRO** | `user.makeExport({type:1,format})`            |
-| Логотип/декаль на поверхности              | клиентский декаль | free                              | —       | `R2D.LogoEditor`                              |
-| Ссылка/эмбед                               | шеринг            | free; **view-only = PRO**         | план    | `planner.scene.setOnlyViewParam()`            |
+| Выход                                      | Тип               | Стоимость                         | Гейт           | Клиентский метод                              |
+| ------------------------------------------ | ----------------- | --------------------------------- | -------------- | --------------------------------------------- |
+| Скриншот                                   | PNG вьюпорта      | **бесплатно**                     | нет            | `R2D.scene.makeRenderScreenShot()` (локально) |
+| Фотореал 2K (1920×1080)                    | серверный рендер  | **1 кредит**                      | кредиты        | `user.makeRender({type:3})`                   |
+| Фотореал 4K (3840×2160)                    | серверный рендер  | **2 кредита**                     | кредиты        | `user.makeRender({type:4})`                   |
+| 360° панорама-рендер                       | серверный рендер  | **4 кредита**                     | кредиты        | `user.makeRender({type:5})`                   |
+| 360° виртуальный тур                       | сшитый тур        | tour-builder (iframe)             | —              | `/tours/add`, `user.uTours360_*`              |
+| AI image→3D модель                         | AI-меш            | **1 кредит**                      | кредиты        | `R2D.modelAIUploader.createNewModel()`        |
+| Своя 3D-модель (GLB)                       | загрузка          | загрузка free, **сохранение PRO** | план           | `R2D.modelUploader.*`                         |
+| Свой материал/ковёр/постер                 | загрузка          | free (видимость гейтит план)      | план           | `R2D.customUploader.upload*()`                |
+| 2D PDF-план                                | экспорт (клиент)  | free                              | basic (мягкий) | `R2D.pdfCreator.createView2D` (локально)      |
+| 3D-экспорт (IFC/FBX/GLB/OBJ/DAE/DXF/BLEND) | серверный экспорт | —                                 | **PRO**        | `user.makeExport({type:1,format})`            |
+| Логотип/декаль на поверхности              | клиентский декаль | free                              | —              | `R2D.LogoEditor`                              |
+| Ссылка/эмбед                               | шеринг            | free; **view-only = PRO**         | план           | `planner.scene.setOnlyViewParam()`            |
 
 `rendersPrices = { '2k':1, '4k':2, '360':4 }` — `renderMake/main/Main.jsx:424-428`.
 
@@ -99,7 +99,7 @@ roomtodo разделяет **«редактирование» (бесплатн
 
 **Нет websocket/push** — это интервальный поллинг:
 
-- `RendersAnd360Popup.jsx` ставит интервал **15 000 мс**, зовёт `user.loadRenders(20, offset)` и следит за списком `planner.renders.inProgressIds[]`. Значения статуса: `waiting → created → rendering → taken → finished`/`stored` (готово), `error` (упало), `deleted`.
+- `RendersAnd360Popup.jsx` ставит интервал **15 000 мс**, зовёт `user.loadRenders(20, offset)` и следит за списком `planner.renders.inProgressIds[]`. **In-progress статусы (6, каноничный список — `RendersAnd360Popup.jsx:738`):** `waiting`, `created`, `rendering`, `taken`, `start`, `finished`. **Терминальные (2):** `stored` (успех) / `error` (упало) — проверка `status=='stored'||status=='error'` (`RendersAnd360Popup.jsx:560/798`, `renderMake/main/Main.jsx:517`). Плюс служебный `deleted` (не рендерится). **⚠️ `finished` семантически звучит терминально, но в коде это in-progress — поллинг на нём НЕ останавливается** (терминальны только `stored`/`error`).
 - На `stored`/`error` диспатчит `planner.apiScene.RENDERS_UPDATE` и выкидывает id из `inProgressIds`; интервал чистится, когда список пуст.
 - Попап `RenderDone` («RENDER_WELL_DONE / RENDER_IN_PROGRESS») — **fire-and-forget-подтверждение** сразу после сабмита; он _не_ ждёт картинку, результат появляется позже в списке рендеров.
 
@@ -142,13 +142,23 @@ roomtodo разделяет **«редактирование» (бесплатн
 
 - `fillAnsZipProjectData()` → `getSceneState(true)` + preview → JSZip → base64.
 - `POST URL_EXPORT_SCENE` с `{format, exportType, renderData:{environment}, projectData, frameData, cameraData}` → `{status:'ok', data:{exportId}}` (user.js:294-321).
-- Статус: `GET /api2/exporter/status/{taskId}` (user.js:326-387) → `{status, data:{status, file}}`.
-- Тот же путь `not_enough_credits` существует, хотя экспорт гейтится в основном планом, а не кредитами.
+- **Гейт — по ТАРИФУ, не кредитами.** 3D-форматы → строго `pro`, 2D → `basic` (`ExportPopup.jsx:585`, `Main.jsx:636-666`). Кредиты — механика **рендера**, не экспорта. Серверная ветка `not_enough_credits` в `makeExport` (user.js:246) — клон-остаток от рендера (тот же текст `TEXT_RENDERS_NOT_CREDITS`); export-специфичного кредитного UI нет.
+
+**Поллинг статуса экспорта — два раздельных пути:**
+
+- **Не-IFC (серверный экспорт):** `setInterval` **500 мс** (`Export3DProjectPopup.jsx:624`), опрашивает `GET /api2/exporter/status/{taskId}` (user.js:326-387) → `{status, data:{status, file}}`. Успех = `response.status=='ok'` + наличие `file`; ошибка = `response.data.status==-20` (коды из **разных полей** ответа). (Для контраста рендер поллит **15 000 мс**.)
+- **IFC — БЕЗ поллинга:** генерится **в браузере** (`R2D.controller.exportToIFC()`), готовность приходит **событием** `ifcStatus` (код `'20'`, `Export3DProjectPopup.jsx:561/574`).
 
 **Форматы (React `exportPopup`):**
 
-- **2D (`type:0`, `format:'pdf'`)** — PDF-план, генерируется **на клиенте** через `R2D.PDFCreator` (`createView2D` / `getDataurlstring` / `download`), _не_ на сервере. Форматы бумаги A3/A4/A5/B4/B5/Letter; масштабы 1:10…1:200 (+imperial, +fit); тогглы: показать масштаб / площадь комнаты / имя комнаты / размеры / текстуру ландшафта.
-- **3D (`type:1`)** — серверный экспорт через `URL_EXPORT_SCENE`, форматы **IFC, BLEND, FBX, GLB, DXF, OBJ, DAE**; у IFC особый клиентский путь (`R2D.controller.exportToIFC()`). **PRO-гейт.** Прогресс опрашивается до URL скачивания.
+- **2D (`type:0`, `format:'pdf'`)** — PDF-план, генерируется **на клиенте** через `R2D.pdfCreator.createView2D` (`getDataurlstring` / `download`), _не_ на сервере. Форматы бумаги A3/A4/A5/B4/B5/Letter; масштабы 1:10…1:200 (+imperial, +fit); тогглы: показать масштаб / площадь комнаты / имя комнаты / размеры / текстуру ландшафта. **Гейт «мягкий»:** free-юзеру показывают плашку «доступно на basic/pro» + замок (`ExportPopup.jsx:585-601`), но поток **НЕ блокируется** — `onContinue` план не проверяет, download синхронный без await. То есть 2D → basic-или-pro визуально, но технически проходит.
+
+  - **`R2D.PDFCreator` — два режима источника картинки в PDF.** (а) `view2d` — берёт **растровый скрин 2D-вьюпорта** (тот же view-2D-канвас, что видит пользователь) и вставляет как изображение. (б) `constr` — **векторная перерисовка контуров плана «с нуля»** (не скрин, а повторный рендер линий: контуры стен, размеры, площадь, имя, модели на стенах) — чётче и масштабонезависимо. То есть `createView2D` — не единственный путь; `constr`-ветка даёт вектор, `view2d` — растр.
+  - **Шрифт вшит base64.** `Roboto` (~224 КБ) закодирован base64 **прямо в бандл** PDF-генератора (нет внешней загрузки шрифта → PDF самодостаточен, но раздувает JS). _Анти-паттерн для нас: подгружать/сабсетить шрифт, а не хардкодить 224 КБ в бандл._
+  - **PDF = ПЛАН, а не смета.** Содержимое PDF — только **чертёж** комнаты: контуры, размеры стен, площадь, масштаб, имя, модели на стенах (+ опц. текстура пола). **Списка товаров / спецификации / цен / сметы в PDF НЕТ** — экспорт это документ-чертёж, не коммерческое предложение. (Продуктовая заметка: у нас смета/BOM — отдельный выход, не часть чертёжного PDF.)
+  - **Матрица экспортного UI (кратко):** 6 форматов бумаги (A4 / A5 / A3 / Letter / B5 / B4) × **portrait/landscape**; **9 масштабов + авто-fit** (подгон под лист); тумблеры содержимого (масштаб / имя / площадь / размеры / текстура пола); **живой preview** результата до скачивания.
+
+- **3D (`type:1`)** — серверный экспорт через `URL_EXPORT_SCENE`, форматы **IFC, BLEND, FBX, GLB, DXF, OBJ, DAE**; у IFC особый клиентский путь (в браузере, событие `ifcStatus`). **Строго PRO-гейт.** Прогресс опрашивается (500 мс) до URL скачивания; IFC — по событию.
 
 `/switch_image/` — это лента ассетов сравнения **«скриншот vs 2K» (before/after)** (глобальный массив `switch_image` из `{img_1: screenshot, img_2: 2k_render}`), питающая маркетинговые слайдеры `RenderExample`. Это _продажный/upsell_-эндпоинт, **не** часть сабмита рендера. Соседние массивы: `renders_2k_4k` (2K-vs-4K-сравнение) и `images_360` (примеры iframe-туров).
 
@@ -179,7 +189,7 @@ Zip: JSZip, DEFLATE level 9, отдаётся как **base64 data-URL-стро�
 **makeRender POST body:** `{renderType(3|4|5), renderView(interior|exterior|top), renderOrientation, renderData:{environment:null}, projectData, frameData, cameraData}`.
 **makeExport POST body:** `{format, exportType(0|1), renderData:{environment}, projectData, frameData, cameraData}`.
 
-**Render item (список):** `{id, renderId, type, status, preview, created, actions:{open:{link}}, error}`. `status ∈ {waiting, created, rendering, taken, finished/stored, error, deleted}`.
+**Render item (список):** `{id, renderId, type, status, preview, created, actions:{open:{link}}, error}`. `status ∈ {waiting, created, rendering, taken, start, finished` (все in-progress) `| stored` (успех) `| error` (упало) `| deleted` (служебный)`}`. Терминальны только `stored`/`error`; `finished`, несмотря на имя, in-progress.
 
 **AI-task:** create → `{status:'ok', data:{taskId}}`; status → `{status, data:{task:{progress}, entityId, status}}` (готово, когда `entityId` задан).
 
@@ -209,7 +219,7 @@ Zip: JSZip, DEFLATE level 9, отдаётся как **base64 data-URL-стро�
 4. **Frustum-culling продуктов перед рендером закомментирован** (user.js:1465-1470) — так каждый видимый продукт уезжает, даже вне кадра, раздувая payload. **Куллим по frustum рендера.**
 5. **`RenderFrame` хардкодит 16:9**; portrait/прочие соотношения прикручены через `renderOrientation`. **Делаем aspect ratio first-class-параметром задачи рендера.**
 6. **Смешанный транспорт и обработка ошибок.** `XHRLoader` для одних вызовов, `fetch` для AI/логотипа; конвенции статусов пляшут (`'ok'` vs `'success'`, `error`-строка vs объект). Каждый хендлер заново реализует parse+status-чек. **Один типизированный HTTP-клиент + один конверт job/result.**
-7. **Раздвоение экспорта:** 2D PDF генерится на клиенте (`R2D.PDFCreator`), 3D — на сервере; разные кодопути, разная семантика прогресса. **Унифицируем за одной export-job-абстракцией где возможно.**
+7. **Раздвоение (даже растроение) экспорта:** 2D PDF генерится на клиенте (`R2D.pdfCreator`), не-IFC 3D — на сервере с поллингом 500 мс, IFC — в браузере по событию `ifcStatus`; три разных кодопути, три семантики прогресса, коды статуса из разных полей ответа. **Унифицируем за одной export-job-абстракцией где возможно.**
 8. **Загрузка модели через `webkitdirectory`-пикеры директорий** для рассыпанных glTF-наборов — хрупко и завязано на браузер. **Стандартизируем на single-file GLB (и опционально ZIP).**
 9. **Декали логотипа компонуются на клонированные пер-меш-канвасы** с самописной drag-математикой (`sensitiveMove`, `pixPerCm`) — накапливает канвасы и клонирует материалы; риск утечек памяти. **Чище — нормальный Three.js `DecalGeometry`/decal-материал.**
 10. **Серверные эндпоинты вброшены как непрозрачные `R2D.URL.*`** без версионной дисциплины (`/api`, `/api2`, голый `/renders_2k_4k/`, `/panoramas_360/` вперемешку). **Определяем одну версионированную документированную API-поверхность.**
@@ -218,7 +228,7 @@ Zip: JSZip, DEFLATE level 9, отдаётся как **base64 data-URL-стро�
 
 ## Confidence & gaps
 
-**High (вычитано из кода дословно):** трёхшаговый контракт всех платных выходов (zip-снапшот → task-эндпоинт → поллинг статуса); ценовая лестница `rendersPrices {2k:1,4k:2,360:4}` и AI=1 (`Main.jsx:424-428`); тело `makeRender`/`makeExport` POST и форма ответа `{status, data:{renderId|exportId}}`; статус-машина рендера `waiting→created→rendering→taken→finished/stored|error|deleted`; интервалы поллинга (15 с рендеры, 500 мс AI, 2 с кредиты); лимиты загрузок (модель ≤60 МБ/≤60k тр./≤50 частей; картинки ≤20 МБ; форматы файлов); нормализация в GLB на клиенте + двойной пост `URL_UPLOAD_FILE`+`URL_UPLOAD_ENTITY`; путь `URL_UPLOAD_PRIVATE` для материала/ковра/постера с `type_id`; AI create/checkStatus с готовностью по `entityId`; PDF на клиенте (`R2D.PDFCreator`) vs 3D на сервере; списание кредитов на сервере при сабмите (`not_enough_credits`); туры как серверные сущности по хэшу `h` через postMessage-iframe; `RenderFrame` хардкод 16:9; закомментированный frustum-culling (user.js:1465-1470); параметры логотипа и `logoSrcList`/`logoFileNamesList` в сцене.
+**High (вычитано из кода дословно):** трёхшаговый контракт всех платных выходов (zip-снапшот → task-эндпоинт → поллинг статуса); ценовая лестница `rendersPrices {2k:1,4k:2,360:4}` и AI=1 (`Main.jsx:424-428`); тело `makeRender`/`makeExport` POST и форма ответа `{status, data:{renderId|exportId}}`; статус-машина рендера: in-progress `waiting/created/rendering/taken/start/finished`, терминальные `stored`(успех)/`error`, служебный `deleted` (`finished` — не терминальный, поллинг не стопается); интервалы поллинга (15 с рендеры, 500 мс AI, 2 с кредиты); лимиты загрузок (модель ≤60 МБ/≤60k тр./≤50 частей; картинки ≤20 МБ; форматы файлов); нормализация в GLB на клиенте + двойной пост `URL_UPLOAD_FILE`+`URL_UPLOAD_ENTITY`; путь `URL_UPLOAD_PRIVATE` для материала/ковра/постера с `type_id`; AI create/checkStatus с готовностью по `entityId`; PDF на клиенте (`R2D.pdfCreator.createView2D`) vs 3D на сервере; поллинг серверного экспорта 500 мс (`Export3DProjectPopup.jsx:624`, успех `status=='ok'`+file, ошибка `data.status==-20`) vs IFC без поллинга (событие `ifcStatus` код `'20'`); гейт экспорта по тарифу (3D→pro / 2D→basic-мягкий), а не кредитами (`not_enough_credits` в makeExport — клон-остаток от рендера); списание кредитов на сервере при сабмите рендера (`not_enough_credits`); туры как серверные сущности по хэшу `h` через postMessage-iframe; `RenderFrame` хардкод 16:9; закомментированный frustum-culling (user.js:1465-1470); параметры логотипа и `logoSrcList`/`logoFileNamesList` в сцене.
 
 **Inferred (додумано из обращений к полям, не из схемы):** точная серверная JSON-форма item рендера и `ProductData`; контракт `/renders_2k_4k/` (реконструирован из имён констант + тел запросов, но не из спеки); что именно несёт `metaZip` при загрузке модели (SVG-параметры генерации плана? доп. LOD?); auth-детали (`x-token`-заголовок + `credentials:'include'` подтверждены для fetch-путей, но не для каждого XHR-вызова).
 

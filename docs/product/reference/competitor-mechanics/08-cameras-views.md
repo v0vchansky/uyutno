@@ -208,6 +208,35 @@ Wiring (стр. 36859): `onProgress = () => render(false, true)` — проме�
 
 ---
 
+## 8. Оверлеи поверх сцены (свет и подписи комнат)
+
+Два вспомогательных «вьюера» рисуют не камеру, а контент **в общей `scene3d`** и живут рядом с 3D-видом. Оба привязаны к `cameraState` view3d.
+
+### 8a. Пользовательский свет в моделях-светильниках (`LightViewer3D`, стр. 48921)
+
+Отдельный источник света **внутри модели-светильника**, которым управляет пользователь (вкл/выкл, цвет, яркость). Один инстанс на sceneObject-лампу; общий пул/лимит — статические поля класса.
+
+- **Источник данных — ZIP модели.** `getDataFromPool()` (стр. 49163): фетчит `sceneObject.metaZipSrc`, `JSZip.loadAsync`, читает **`light.json`**, парсит и кэширует по `productId` в статический `LightViewer3D.pool` (`Map`). Повторное включение той же модели данные не перекачивает.
+- **Три типа ламп** (`createLightWrap`, стр. 49202): `"Spot"` → `THREE.SpotLight` (угол `data.size/2`, penumbra=blend, `shadow.camera.far=5000`, bias −0.0001), `"Point"` → `THREE.PointLight` (bias −0.005), `"Area"` → `THREE.RectAreaLight` (ширина/высота из данных, во вложенном `Object3D`). Все кладутся в `wrap3d`, добавляются в сцену через `getLights().addLightToModelsLights(wrap3d)` (стр. 49300) — это тот же контейнер `getLightsFromModels()`, что рендерится в MIDDLE-слой (см. §7a). Оси лампы конвертируются `pos.set(x, z, -y)`, кватернион `(x, z, -y, w)` — та же remap-конвенция, что у рулеток/сериализации.
+- **Лимит 9 источников на сцену.** `canLightOn()` (стр. 49147): обходит `getLightsObject3d()`, считает существующие Spot/Point/RectArea и **отклоняет включение**, если `count + lightData.length > LightViewer3D.maxLightCount (=9)`. `switchLight()` (стр. 49106) → `lightOn`/`lightOff` возвращают bool успеха.
+- **UI цвета/яркости** (стр. 49381–49461): `setLightColor(hex)` красит все под-источники и обновляет эмиссию; `setLightPower(value)`/`getLightPower()` работают в **интерфейсной шкале 0–100** и мапят в физ. мощность по коэффициентам per-type — `blendPower = value/100 * 100`, затем `child[prop] = blendPower / coef`, где `coef`: **Spot 50, Point 20, Area 5** (`prop`=`power` у Spot/Point, `intensity` у RectArea; стр. 48922–48924). Ввод санитайзится (`,`→`.`, клип в 100).
+- **Состояние сохраняется в `sceneObject.lightInfo`** (`getDataForSaving`, стр. 49194): `{isEnabled, color, power}` — пишется на каждый on/off/цвет/яркость. (Это то же `lightInfo`, что SceneHistory копит в снапшот, см. `09-undo-redo-history.md` §2.2.)
+- **Глобальный тумблер теней.** Статический `LightViewer3D.isShadowEnabled` + `updateShadow()` (стр. 49039): при **любом** живом источнике включает `castShadow` на стенах и `receiveShadow` на продуктах разом; при нуле источников — выключает всё. Тени — свойство сцены целиком, не отдельной лампы.
+- **Эмиссия «стекла лампы» + подмена стекла.** Материал с именем `ServiceNames.LAMP` при включённом свете получает `emissionInfo = {color: material.current, power: lightInfo.power * emissionCoef(=0.1)}` и `addMaterial = transpGlassMatId` — id прозрачного стекла зависит от хоста (`dev.roomtodo.com`→`32766`, `roomtodo.com`→`41838`; стр. 48927). Так «плафон» светится и становится прозрачным. `updateLampEmission()` (стр. 49345) синхронит `current`-цвет лампового материала с цветом света (hex) и дёргает `sceneObject.update()`. `makeLightsInfoForRender(products)` (стр. 48938) собирает финальный `lightInfo`-массив для рендера и попутно проставляет эту эмиссию по всем моделям с лампой.
+- **Скейл лампы** (`update`, стр. 49304): позиции под-источников умножаются на `scaleX/Y/Z` sceneObject'а (RectArea пересчитывает width/height), чтобы свет ехал вместе с масштабированной моделью.
+
+### 8b. Подписи комнат-плашки (`CoversTitleViewer3D`, стр. 48695)
+
+Название комнаты + площадь как **billboard-плашка на полу**, видимая **только в 3D-режиме** (в 2D/конструкторе подписи рисует DOM-оверлей `R2D.TitlesTool`, см. `07-measurements-rulers.md` §B). Контейнер — `commonSceneObject.coversTitleObjects`.
+
+- **Данные из конструктора** (`updateTitlesData`, стр. 48858): `scene.getConstructor().covers.map(...)` → на каждый cover `{title: cover.title, area: DimensionSystem.squareToString(cover.area), textLineArr}`. Текст берётся из `cover.title.text`, чистится от html-тегов (`<br>/<p>/<strong>/…`), бьётся на строки. Ковры без `title` отфильтровываются.
+- **Текстура через offscreen-canvas** (`createPlaneTexture`, стр. 48784): рисует название (шрифт `loadedFont`, обводка белым по чёрному тексту для читаемости на любом полу) и площадь отдельной строкой мельче; чёткость через множитель `k=5`. Раздельные флаги видимости `title.visible.view3d` (название) и `title.areaVisible.view3d` (площадь). Шрифт `Roboto-Regular.ttf` грузится `FontFace` в конструкторе.
+- **Плашка = `PlaneGeometry(100×100)`**, повёрнута `rotateX(-π/2)` (лежит на полу), `MeshBasicMaterial{transparent:true}`, позиция на `distToCover=1` над полом в `(title.x, title.y)`. Масштаб плашки подгоняется под ширину текста/число строк (`update3D`, стр. 48885).
+- **Всегда лицом к камере** (billboard): `mesh.rotation.set(0, cameraData.pan, 0)` (стр. 48916) — плашка крутится по азимуту вслед за орбитой. Плюс `updateScale()` (стр. 48851) масштабирует текстуру от нормализованного зума (`scale = 1 + zoom*1.5`), чтобы подпись не мельчала при отдалении.
+- **Жизненный цикл:** `enable()` строит меши, `disable()`/`remove3D()` диспоузят geometry+texture и чистят контейнер; `update(resetTexture)` перестраивает при смене ковров/зума. Диспоуз текстур обязателен — иначе утечка (как и у 3D-рулеток).
+
+---
+
 ## Data model — сводка чисел (для реимплементации)
 
 | Параметр                               | Значение                                                | Стр.          |
@@ -261,6 +290,9 @@ Wiring (стр. 36859): `onProgress = () => render(false, true)` — проме�
 - **Right-drag pan на уровне MouseController отключён** (wiring закомм., стр. 28036); pan идёт через Space+left или API-события `CAMERA_MOVE`.
 - **Два зум-стека**: живой (`Renderer3DPerspective`, dist 10–30000, `scaleValues`) vs легаси `CameraOrbitController` (dist 500–2000, шаг 0.05) — зеркалить живой.
 - **Множитель `height*2`** в `findOptimalCamDist`/`setCameraFromTopToBottom` — Y трактуется с 2×, конвенция не разрешена.
+- **Лимит света = 9 источников** на сцену (`LightViewer3D.maxLightCount`, стр. 48926); тени — глобальный тумблер (любой источник → тени у всех стен/продуктов), не per-lamp. Данные лампы кэшируются в статический `pool` по `productId`.
+- **Оси света и подписей** используют ту же remap `(x, z, -y)`, что рулетки/сериализация (2D-`y` ↔ 3D-`z`).
+- **Плашки-подписи и 3D-рулетки** держат `THREE.Texture`/DOM — обязателен диспоуз на `disable`, иначе утечка.
 
 ---
 

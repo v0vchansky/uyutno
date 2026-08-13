@@ -6,15 +6,15 @@
 
 There are **two independent ruler subsystems** plus an **automatic wall-dimension** system and an **inline editable-dimension** system. Do not conflate them:
 
-| Subsystem                 | Namespace                              | Where                     | Persisted                       | Purpose                                       |
-| ------------------------- | -------------------------------------- | ------------------------- | ------------------------------- | --------------------------------------------- |
-| 2D manual ruler           | `WC.Ruler`, `WC.StateMakingRuler` etc. | 2D constructor canvas     | yes (`customRulers`)            | user draws a measurement line on the 2D plan  |
-| 3D manual ruler           | `R2D.CustomRulers` / `R2D.RulerAB`     | 3D viewport               | yes (same `customRulers` field) | same measurement, drawn/edited in 3D          |
-| Auto wall dimensions      | `drawSize` / `drawPolygonSizes`        | 2D canvas                 | n/a (derived)                   | length label auto-drawn on every wall segment |
-| Inline editable dimension | `SizesFromKeyboard` (`WC.SFK`)         | DOM `<input>` over canvas | n/a                             | type a number to move geometry                |
-| Transient 3D object ruler | `R2D.Ruler3D` (line 38226)             | 3D viewport               | no                              | live spacing hints while dragging furniture   |
+| Subsystem                 | Namespace                              | Where                           | Persisted                       | Purpose                                                                   |
+| ------------------------- | -------------------------------------- | ------------------------------- | ------------------------------- | ------------------------------------------------------------------------- |
+| 2D manual ruler           | `WC.Ruler`, `WC.StateMakingRuler` etc. | 2D constructor canvas           | yes (`customRulers`)            | user draws a measurement line on the 2D plan                              |
+| `R2D` manual ruler        | `R2D.CustomRulers` / `R2D.RulerAB`     | **2D view only** (`R2D.view2d`) | yes (same `customRulers` field) | same measurement; visible only in 2D, hidden in 3D fly/walk (guard below) |
+| Auto wall dimensions      | `drawSize` / `drawPolygonSizes`        | 2D canvas                       | n/a (derived)                   | length label auto-drawn on every wall segment                             |
+| Inline editable dimension | `SizesFromKeyboard` (`WC.SFK`)         | DOM `<input>` over canvas       | n/a                             | type a number to move geometry                                            |
+| Transient 3D object ruler | `R2D.Ruler3D` (line 38226)             | 3D viewport                     | no                              | live spacing hints while dragging furniture                               |
 
-The 2D `WC.Ruler` list and the 3D `R2D.CustomRulers` list are two views of the **same stored data** (`wallsData.customRulers`), rebuilt from it whenever you switch view.
+The `WC.Ruler` list and the `R2D.CustomRulers` list are two views of the **same stored data** (`wallsData.customRulers`), rebuilt from it whenever you switch view. Both live in the 2D plan: `R2D.CustomRulers.updateComponents` (line 38651) shows its components only when `viewer == R2D.view2d` and hides them otherwise — so manual rulers appear **only in 2D**, never in the 3D fly-over or walk views. (`R2D.RulerAB` has no own visibility guard; its parent `CustomRulers` controls it.) The unrelated `R2D.Ruler3D` (auto wall-size hints, §E) is a **different** entity — not the manual ruler.
 
 ---
 
@@ -117,7 +117,9 @@ me.aligner2 = {center: TR.Point, dragPt: TR.Point, state: 'up'}
 - `drawRulerLabel`: text = `R2D.DimensionSystem.toString(TR.euclDistP(a1,a2))` at the midpoint in a white rounded-rect (`roundRect` radius 3, height 24, `measureText+20` wide), light-grey when hovered; stores `ruler.value` and a 4-corner `ruler.bounds` for click hit-testing. When the ruler is the `selectedSizeData`, it clears the rect instead (the DOM input takes over).
 - `checkRulerHoverSize` (line 71516): point-in-bounds test → sets `isHovered`, cursor `text`/`default`.
 
-### C.2 — 3D ruler (`R2D.CustomRulers` / `R2D.RulerAB`)
+### C.2 — `R2D` ruler (`R2D.CustomRulers` / `R2D.RulerAB`)
+
+> Despite living in the `R2D`/`scene3d`/`THREE` namespace, this ruler is **displayed only in 2D** (`view2d`) — `updateComponents` (line 38651) hides it in the 3D fly/walk views. The "3D" nature here is only the geometry/DOM implementation, not where the user sees it.
 
 - Manager `R2D.CustomRulers(scene3d, wallsData, api)` (line 38555), singleton via `.init` / `._instance`; reached as `mih._customRulers` / `scope._scene3d.customRulers`. Holds `rulers[]`, `creating`, `newVectors[]`, `selectedRuler`, `selectedAligner`, `draggingRuler`.
 - **State glue — `R2D.MIH.StateCreatingRuler` (line 43716):** `start()` on desktop calls `addRuler()` (arm creation); on phone `createNewRuler()` + back to `stateMain`. `mouseUp/touchEnd` → `addPoint(e)`; when `isCreating()` turns false → `stateMain`. `stop()` → `_cancel()`. Drag/select states call `_customRulers.disableRulers()/activateRulers()` so rulers don't fight furniture dragging (lines 43788/43795 etc.).
@@ -184,14 +186,14 @@ The click-a-dimension-and-type-a-number system. `WC.SFK = new SizesFromKeyboard(
 
 - **Auto wall dimensions**: 2D only (canvas `drawSize`), toggled by `sizesVisible`.
 - **Room name/area**: DOM overlay, visible in 2D and 3D viewers via independent per-viewer flags.
-- **Manual rulers**: authored/edited in **both** 2D (`WC.Ruler`) and 3D (`R2D.RulerAB`), sharing one persisted list; the 3D form projects HTML labels into the viewport while drawing a dashed 3D line.
+- **Manual rulers**: **2D only.** Both `WC.Ruler` and `R2D.RulerAB` (the latter built on `scene3d`/`THREE`) share one persisted list, but `R2D.CustomRulers.updateComponents` (line 38651) shows its components only when `viewer == R2D.view2d` and hides them in the 3D fly/walk views. `RulerAB` has no own visibility guard (the parent `CustomRulers` rules it). The `RulerAB` form projects HTML labels into the viewport while drawing a dashed line, but only within the 2D view.
 - **Transient object spacing** (`R2D.Ruler3D`, line 38226): 3D-only, auto-generated while dragging furniture, never saved.
 
 ---
 
 ## F. Edge cases
 
-- **Ctrl held** disables snapping (both endpoint-snap and 8-way angle snap) in 2D and 3D ruler drawing.
+- **Ctrl held** disables snapping (both endpoint-snap and 8-way angle snap) in both ruler code paths (`WC.Ruler` and `R2D.RulerAB`); note manual ruler drawing is reachable only in the 2D view.
 - **Angle snap windows** are tight (±1°–2°) so free-angle rulers are still easy to draw.
 - **Imperial parse errors** never crash: they return `{error}` and surface a popup; the geometry is left unchanged.
 - **Imperial rounding** to 1/16" can make a committed length differ slightly from the typed decimal; carry logic rolls 12" → 1'.

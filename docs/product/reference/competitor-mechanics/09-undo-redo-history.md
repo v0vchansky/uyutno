@@ -199,6 +199,8 @@ The 2D side dispatches `WC.HISTORY_STATE` (`'historyState'`, line 60513) via `di
 
 `saveState`, `undo`, and `redo` all set `R2D.controller.savedLastChanges = false` (lines 12363, 12401, 12425) — i.e. any history mutation marks the project as having unsaved changes. `wasChanged()` returns `!(sceneIsEmpty() || savedLastChanges)` (line 16397). A successful server/storage save sets `savedLastChanges = true` (lines 15693, 15793, 16147) and triggers `sceneAutoSaveStorage()` (line 15701). So history and autosave are coupled only through this dirty flag: **history does not trigger autosave directly, but every undo/redo re-dirties the project**, so an autosave cycle will re-persist the post-undo state. On project load, `scene.history.clear()` then `saveState()` (lines 15574–15576) establishes a fresh baseline; on error during load, `clearSceneAutoSaveStorage()` is called.
 
+The autosave **cadence** itself (localStorage `r2d_project_<hash>` diff-write every 5 s; server save every 60 s gated on `projectId` + `wasChanged()` + owner) lives in two `setInterval` loops in the controller — documented in `10-serialization-save-format.md` §Autosave cadence, not here.
+
 ---
 
 ## 8. Template sub-sections

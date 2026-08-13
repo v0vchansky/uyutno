@@ -189,7 +189,8 @@
 `forWall` (геттер в подклассах, 11597 / 11857 / 12089) = `productData.property.appointment == APPOINTMENT_WALL` ("wall" vs "scene", 11473). Настенные MODEL проецируются на ближайшую **ось стены**:
 
 - `scene.add` (14033): если `forWall`, сразу `getObjectDataForWallElement` → `dropElement(dataForWall, radiusDropElement=10, sceneObject)` (14038) → `setDropDataToWallElement`.
-- `me.dropElement(dataObj, snapDist=10, sceneObject)` (**55172**): центр `(x, z)` ищет ближайшую ось `getAxis(center, snapDist)` (55338) — минимум `|distanceBetweenPointAndLine|` по всем `axes`, **отказ если `minDist > snapDist`** (55357, возвращает `null` = отвергнуто). При успехе — проекция центра на ось (`projectionPointOnLine`, 55181), `rotation = axis.angle`, `depth = axis.depth`, регистрация в `axis.models`, пересборка врезок/стен/плинтусов. Возвращает `{x, y, rotation, depth}`.
+- `me.dropElement(dataObj, snapDist=10, sceneObject)` (**55172**): центр `(x, z)` ищет ближайшую ось `getAxis(center, snapDist)` (55338) — минимум `|distanceBetweenPointAndLine|` по всем `axes`, **отказ если `minDist > snapDist`** (55357, возвращает `null` = отвергнуто). При успехе — проекция центра на ось (`projectionPointOnLine`, 55181), `modelData.rotation = axis.angle` (55186), `depth = axis.depth`, регистрация в `axis.models`, пересборка врезок/стен/плинтусов. Возвращает `{x, y, rotation, depth}`.
+  - **Поворот двери/окна — две разные формулы для драга и врезки, не путать.** Во время ДРАГА (`moveElement`) в снап-объект кладётся `rotation = Math.PI + ang`, где `ang = -atan2(dy, dx)` по точкам оси (55164, 55168) — явный `+π`. При финальной ВРЕЗКЕ (`dropElement`) пишется `modelData.rotation = axis.angle` (55186), без явного `+π`. Разворот при этом всё равно получается: для **внешней** стены `axis.angle` считается по свопнутому порядку точек (55395–55404), и своп сам даёт π. То есть в драге поворот берётся из явного `+π`, а в дропе тот же π приходит через своп точек оси — **не сводить обе ветки к «rotation = axis.angle»**.
 - `setDropDataToWallElement` (14791): пишет `x, z`, `rotationY` (если `updateRotation`), `setDepth(dropData.depth + 1)` — толщина элемента подгоняется под толщину стены + 1 см.
 - Снятие: `remove`/drag-start вызывает `pickElement(id)` (55241) — убирает модель с оси и пересобирает стену.
 - Отдельная 2D-проекция на плане: для настенных и для товаров со `svgRealName` создаётся `ObjectViewer3DModelPlane` (32716).
@@ -205,6 +206,18 @@
 **2D**: план — та же 3D-сцена сверху; для настенных/SVG-товаров рисуется отдельный `ObjectViewer3DModelPlane` (32716), хранится в `view2d.getObjectsViewers3dPlanes()`. Footprint для снаппинга/боксов — `get2DRectPoints` (11489), пересобирается на каждый `updateSnap2d`.
 
 **Триггер пересборки**: `sceneObject.update()` → `checkValues()` + `Event.UPDATE`; вьюер слушает и перерисовывает. `updateParametric` — единственный флаг, ведущий к перестройке **геометрии** (не только трансформа).
+
+### 7.1 Параметрический ресайз каталожных моделей (`ParametricScaler`, 30138)
+
+`R2D.Tool.ps` — это класс `ParametricScaler` (**30138**), который перестраивает геометрию каталожной модели (мебель/двери/окна) под `width/height/depth` **без искажения деталей**: ножки/рамки/фурнитура держат свои размеры, тянется только «тело». Вызывается из `configurate(objectViewer3D)` (**30163**) при каждом ресайзе параметрического товара (тот самый `R2D.Tool.ps.configurate`, упомянутый в §7 и §0). Кэширует эталон в `pool[productId]` и пропускает пересчёт, если `width/height/depth` не изменились (`prevParamsMap`, 30177).
+
+- **Разметка мешей.** Модель параметрична, если у **каждого** меша в `userData` есть `scale` и `fix` (`isModelParametric`, 30691). `userData.scale ∈ {no, horizontal, vertical, all}` — какие оси меша тянутся; `userData.fix ∈ {left, right, top, bottom, topLeft/…, axis, topAxis, bottomAxis, no}` — где у меша якорь-anchor (что остаётся на месте при растяжении). Разметка приходит из самой glTF (кладётся дизайнером модели), собирается в `configInfoModel` (30242).
+- **Три оси через `params/modelSize`.** `scaleX/Y/Z = params.{width,height,depth} / modelSize.{...}` (30503) — общий множитель модели; `deltaX/Y` (30507) — абсолютный прирост по X/Y. Глубина (`z`) у всех вершин всегда домножается на `scaleZ` (тело просто масштабируется в глубину). Ширина/высота считаются **по-меш**: `newMeshWidth = params.width − dists.left − dists.right` → `scaleX = newMeshWidth / size.width` (30591), где `dists` — зазоры меша до габаритов модели (30296). Так растягивается только внутренняя часть, а поля до краёв сохраняются.
+- **«Шовные точки» (`commonPoints`, 30147).** Перед первым ресайзом `ParametricScaler` находит вершины, **общие** для смежных мешей (`isPointAtPointsList`, 30368), и раскладывает их по бакетам `topLeftArr/topRightArr/bottomLeftArr/bottomRightArr/topAxisArr/bottomAxisArr/axisArr/leftArr/rightArr` через `scaleFixMap` (30319, ключ = комбинация `outerFix → innerScale → innerFix`). Вершина, попавшая в бакет, при ресайзе сдвигается **жёстко на `±deltaX/2` / `+deltaY`** синхронно с соседом (30517–30588), а не масштабируется — поэтому шов между двумя деталями не расходится.
+- **UV-коррекция (`updateModelUV`, 30817).** После пересборки позиций UV правятся на `ratioUV = 0.01` от прироста вершины (`p.A.u ± deltaA·ratioUV`, 31013–31027), чтобы текстура не тянулась вместе с растянутым мешем (аналог `updateUV` по `scaleDir` для непараметрических, но точечно по вершинам).
+- **Санитайзеры.** `chekMeshesScale` (30206): если у меша `scale.x > 90` (артефакт экспорта в мм/см), масштаб «запекается» в геометрию и обнуляется до 1. Геометрия переводится в non-indexed (`toNonIndexed`, 30287), чтобы поштучно двигать вершины.
+
+Именно `ParametricScaler` объясняет, откуда у мебели и модульной мебели «умный» ресайз: `scaleX/Y/Z` из §0 — это множитель для **непараметрических**; у параметрических те же поля лишь считают целевой `width/height/depth`, а форму строит `ParametricScaler` по разметке `scale`/`fix`.
 
 ---
 
@@ -243,7 +256,7 @@
 **Пробелы / не проверено:**
 
 - Точная математика `shiftVectors` / `getVectorsSides` (полуразмеры вдоль нормали при стекинге) — механика ясна, формула построчно не разобрана.
-- `R2D.Tool.ps.configurate` (перегенерация параметрической геометрии) — вызывается, но внутренности PS-модуля здесь не вскрывались (кандидат в отдельную секцию/каталог `12-*`).
+- `R2D.Tool.ps.configurate` — вскрыт в §7.1 (`ParametricScaler`, 30138): разметка `scale`/`fix`, шовные точки `commonPoints`, UV-коррекция `ratioUV`. Не разобрана построчно только математика `axis/topAxis`-веток с `dists.toOY` (30596–30684) — общий принцип (якорь + по-меш `scaleX`) ясен, точная формула симметрии относительно OY не перечитана.
 - Копипейст/дублирование и групповые трансформации — вынесены в `05-selection-transform-grouping.md`, здесь не покрывались.
 - Поведение `moveElement(pos, 20)` для настенных (внутренняя реализация в конструкторе) — вызов и радиус подтверждены, тело не перечитано.
 - Сетка (grid snap) как отдельный механизм не найдена: снаппинг идёт к стенам/боксам/углам, а не к регулярной сетке — если grid есть, он не в `SNAP.Snap2D`.

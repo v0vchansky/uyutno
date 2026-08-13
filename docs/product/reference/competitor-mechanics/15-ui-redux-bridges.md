@@ -4,7 +4,7 @@
 >
 > Сокращения путей: `RS = src/react_src/planner_front/src/js`, `JSX = RS/react/jsx`, `SLICE = RS/redux/features`. Ядро движка — `js/plannercore.js`, аккаунт-слой — `js/user.js`.
 >
-> В `00-overview.md` уже сказано: «движок отделён от UI, React — тонкий контроллер поверх фасада (`R2D.createPlannerAPI` → `apiScene`/`apiConstr`)». Эта секция **уточняет и раскрывает** это утверждение: «отделён» ≠ «в другом окне». Наоборот — React и движок живут в **одном** документе и общаются напрямую через внутрипроцессную шину. postMessage существует, но только на четырёх _других_ границах.
+> В `00-overview.md` уже сказано: «движок отделён от UI, React — тонкий контроллер поверх фасада (`R2D.createPlannerAPI` → `apiScene`/`apiConstr`)». Эта секция **уточняет и раскрывает** это утверждение: «отделён» ≠ «в другом окне». Наоборот — React и движок живут в **одном** документе и общаются напрямую через внутрипроцессную шину. postMessage существует, но только на шести _других_ межоконных границах.
 
 ---
 
@@ -18,12 +18,12 @@
 
 ### Внутрипроцессная шина — реальный «мост» UI↔движок
 
-`R2D.createPlannerAPI(planner)` (`plannercore.js:600`) строит фасад, который потребляет UI:
+`R2D.createPlannerAPI(planner)` (`plannercore.js:600`, вызывается как `R2D.createPlannerAPI(me)` `:30`) — **мутатор без `return`**: навешивает фасад прямо на переданный `planner`. Итого **7 неймспейсов** (`scene, view3d, view2d, viewWalk, constr, units, renders`; `:602-608`), из которых EventDispatcher-ами являются ровно два — `scene` (`:602`) и `constr` (`:606`); остальные пять (`view3d/view2d/viewWalk/units/renders`) — простые `{}` с методами. Плюс на верхний уровень `planner` вешаются не-неймспейсные методы (`zoomIn/zoomOut/fullscreen/toCenter/…`, `:610+`):
 
 ```
-planner.scene = planner.apiScene = new EventDispatcher();   // plannercore.js:602
-planner.constr = planner.apiConstr = new EventDispatcher(); // :606
-planner.view3d/view2d/viewWalk = {activate/isActive...}     // :603-617
+planner.scene = planner.apiScene = new EventDispatcher();   // plannercore.js:602 (EventDispatcher)
+planner.constr = planner.apiConstr = new EventDispatcher(); // :606 (EventDispatcher)
+planner.view3d/view2d/viewWalk/units/renders = { ... }      // :603-608 (простые {})
 planner.mih = () => R2D.MouseInteractionHelper._instance;   // :610
 ```
 
@@ -61,18 +61,22 @@ planner.mih = () => R2D.MouseInteractionHelper._instance;   // :610
 
 ---
 
-## Четыре границы postMessage, которые ДЕЙСТВИТЕЛЬНО существуют
+## Шесть границ postMessage, которые ДЕЙСТВИТЕЛЬНО существуют
 
-Внутрипроцессная шина — не postMessage. Но postMessage реально используется на четырёх _других_ границах. Участников — четыре, вот как они общаются:
+Внутрипроцессная шина (`apiScene`/`apiConstr`) — **не** postMessage, это внутренний EventDispatcher в одном окне. Настоящий межоконный `postMessage` используется на **шести** отдельных внешних границах:
 
-1. **React-UI ⇄ движок R2D — одно окно, внутрипроцессно** (описано выше).
-2. **Документ планировщика ⇄ внешний фрейм мерчанта/хоста — postMessage.** Весь планировщик (React+движок) может быть встроен как `<iframe>` в сайт партнёра («мерчанта»).
-3. **Планировщик ⇄ встроенный iframe-конфигуратор мебели — postMessage.**
-4. **Платёжные попапы ⇄ iframe формы оплаты — postMessage.**
+1. **Документ планировщика ⇄ внешний фрейм мерчанта/хоста — исходящий.** `R2D.postMessageToParent` (`plannercore.js:10195`); в React-нотификациях `program_ready/project_saved/got_estimation/merchant_login`. Весь планировщик (React+движок) может быть встроен как `<iframe>` в сайт партнёра («мерчанта»).
+2. **Документ планировщика ⇄ внешний фрейм мерчанта/хоста — входящий.** `messageListener` в `Main.jsx:404` (`load_project/set_token/save_project/export_project` и др.).
+3. **Планировщик ⇄ встроенный app-iframe конфигуратора товара — `appMessageListener`** (`plannercore.js:24719`); IN `conf_ready/insert_to_planner/close`, OUT `start_configurate`.
+4. **Планировщик ⇄ legacy ZIP-конфигуратор** — отдельный локальный `messageListener` (`plannercore.js:24478`, за хоткеем Ctrl+Alt+C).
+5. **Платёжные попапы ⇄ iframe формы оплаты** — `PayProPopup.jsx` / `BuyCredits.jsx` (`buy_finish` / `credits_buy_finish`).
+6. **Tour360-билдер ⇄ iframe** — `Tour360Create.jsx` (`tour_360_save` / `cancel`).
 
-Есть и пятый, **не-postMessage** механизм динамической загрузки — remote-компоненты через `@paciolan/remote-component` (см. ниже).
+> Границы 1 и 2 — одна и та же host-граница, но это **два разных слушателя/направления** (исходящий `postMessageToParent` и входящий `messageListener`); ниже они разобраны вместе как «граница мерчанта/хоста».
 
-### Граница #2 — планировщик ⇄ фрейм мерчанта/хоста
+**НЕ postMessage** (частые ложные кандидаты): (а) внутрипроцессная шина `apiScene`/`apiConstr` — внутренний EventDispatcher, одно окно; (б) `@paciolan/remote-component` — качает JS-бандл (zip→blobURL) и рендерит инлайн, никакого межоконного обмена (см. ниже); (в) web-worker `postMessage` — отдельный внутренний канал, не межоконный.
+
+### Границы #1+#2 — планировщик ⇄ фрейм мерчанта/хоста (исходящий + входящий)
 
 `R2D.postMessageToParent(str)` (`plannercore.js:10195`) → `window.parent.postMessage(str,'*')` (no-op, если не во фрейме). Все пейлоады — `JSON.stringify({action, ...})`. Входящее обрабатывает `messageListener` (`Main.jsx:404-715`).
 
@@ -105,7 +109,7 @@ planner.mih = () => R2D.MouseInteractionHelper._instance;   // :610
 
 Поведение **управляется конфиг-флагами** (`R2D.config.data.enable_merchant_login`, `enable_set_project`, `enable_estimation`, `enable_pro`, `my_projects_merchant_logic`, `product_details_show_merchant_logic`, `custom_registration`, `start_popup.*`). Когда мерчант встраивает планировщик, эти флаги перенаправляют логин, «мои проекты» и клики по деталям продукта наверх, в хост, вместо собственных попапов планировщика.
 
-### Граница #3 — встроенный iframe-конфигуратор мебели
+### Граница #3 — встроенный app-iframe конфигуратора мебели
 
 `R2D.createAppIFrame()` (`plannercore.js:24844`) создаёт дочерний iframe на `${DOMAIN}/planner/configurator_launcher?site_key=…` для продуктов с дескриптором `applications` (`advancedFurniture` во весь экран, или `moduleFurniture` — правый док 270px; выбор через `getAppName` `:24908` / `getAppSrc` `:24917`). Хендшейк (`appMessageListener` `:24719`):
 
@@ -114,17 +118,23 @@ planner.mih = () => R2D.MouseInteractionHelper._instance;   // :610
 - child→parent `close` → удалить iframe, `scene.history.saveState()` (`:24816`).
 - child→parent `check_parent` → parent отвечает `{action:"parent"}` (`:24833`).
 
-Легаси `createAppIFrameOld` (`:24451`) пишет HTML из zip в iframe и использует `app_ready`→`set_data{url_files,url_entities,url_products,url_materials,url_apps,token,lang,product_id,scene_data}`, затем `app_save{product_id,settings}` / `app_close`.
-
 Оба слушателя защитно игнорируют `framebus`-фреймы и не-строковые данные (`if(...e.data.startsWith('/*framebus*/')) return`, `:24720` / `Main.jsx:405`).
 
-### Граница #4 — iframe формы оплаты
+### Граница #4 — legacy ZIP-конфигуратор
+
+Легаси `createAppIFrameOld` (`:24451`) пишет HTML из zip в iframe; его собственный локальный `messageListener` (`plannercore.js:24478`, доступ за хоткеем Ctrl+Alt+C) использует `app_ready`→`set_data{url_files,url_entities,url_products,url_materials,url_apps,token,lang,product_id,scene_data}`, затем `app_save{product_id,settings}` / `app_close`. Это отдельная от #3 postMessage-граница со своим протоколом.
+
+### Граница #5 — iframe формы оплаты
 
 Pay/credits-попапы встраивают биллинг-форму как вложенный iframe и слушают колбэки `buy` / `buy_finish` / `credits_buy_finish` / `upgrade` / `close` (`JSX/components/popups/PayProPopup.jsx:134-384`, `BuyCredits.jsx:421-484`). `PayProPopup` — полноэкранный iframe на `/{lang}/pricing_iframe/`, **поллит** бэкенд каждые 2с, пока новый план не отразится, затем перезагружает. `BuyCredits` — iframe `/api/credits/get_form`, поллит `user.credits()` до изменения.
 
-### Пятый механизм (не postMessage) — remote-компоненты `@paciolan/remote-component`
+### Граница #6 — iframe Tour360-билдера
 
-`RemoteComponentMain.jsx` (+ `remote-component.config.js`). Некоторые продукты каталога несут прикреплённые «applications» — per-product React-микроприложения (конфигураторы). `RemoteComponentMain` тянет **ZIP приложения из `R2D.URL.DOMAIN`**, распаковывает в браузере (`JSZip`), извлекает `react/app.js`, оборачивает в `Blob` → object URL (кэшируется в `planner.getSavedApplications()`) и рендерит `<RemoteComponent url={blobUrl} data={...}/>`. Общие `react`/`react-jss` инжектятся через `remote-component.config.js`, чтобы remote переиспользовал host-React. Динамическая загрузка компонента в рантайме, **не** build-time federation. (Отличается от iframe-конфигуратора границы #3 — это внутрипроцессный remote React-компонент.)
+Tour360-билдер встроен как iframe; `Tour360Create.jsx` слушает колбэки `tour_360_save` / `cancel` от него. Отдельная postMessage-граница со своим мини-протоколом.
+
+### Не-postMessage механизм — remote-компоненты `@paciolan/remote-component`
+
+`RemoteComponentMain.jsx` (+ `remote-component.config.js`). Некоторые продукты каталога несут прикреплённые «applications» — per-product React-микроприложения (конфигураторы). `RemoteComponentMain` тянет **ZIP приложения из `R2D.URL.DOMAIN`**, распаковывает в браузере (`JSZip`), извлекает `react/app.js`, оборачивает в `Blob` → object URL (кэшируется в `planner.getSavedApplications()`) и рендерит `<RemoteComponent url={blobUrl} data={...}/>`. Общие `react`/`react-jss` инжектятся через `remote-component.config.js`, чтобы remote переиспользовал host-React. Динамическая загрузка компонента в рантайме, **не** build-time federation. **Это не postMessage** — рендерится инлайн в том же окне, никакого межоконного обмена. (Отличается от iframe-конфигуратора границы #3 — это внутрипроцессный remote React-компонент.)
 
 ---
 
@@ -141,7 +151,7 @@ Redux (Redux Toolkit) — **зеркало UI-состояния, а не ист
 
 ## 12 слайсов Redux Toolkit (состояние + владение)
 
-Стор: `configureStore({reducer: combineReducers({...})})` (`RS/redux/store/store.js`). Внимание на рассинхрон ключ↔имя: `constr`(имя `constr`), `viewMode`←`viewModeSlice_legacy`, `viewMode_new`←`viewModeSlice`. Всего **12 редьюсеров.**
+Стор: `configureStore({reducer: combineReducers({...})})` (`RS/redux/store/store.js:17-28`). Внимание на рассинхрон ключ↔имя (**инверсия имён импортов**, дубль не вычищен): `constr`(имя `constr`), ключ `viewMode` ← `viewModeSlice_legacy` (legacy), ключ `viewMode_new` ← `viewModeSlice` (новый). Оба слайса разом проводные в проде. Всего **12 редьюсеров.**
 
 ### common (`SLICE/common/commonSlice.js`, имя `common`)
 
@@ -265,7 +275,7 @@ Flex-строка: `<LeftMain/>` | `plannerMain{ TopPanel (справа свер
 
 ## Что не копируем (anti-patterns)
 
-1. **Не путать границы.** «React и движок говорят через postMessage» здесь **ложно** — общий window и внутрипроцессная шина. postMessage — только для host/configurator/payment iframe. В нашей переписке держать движок↔UI внутрипроцессным (типизированный event-emitter / store-bridge), а postMessage резервировать строго под настоящие кросс-ориджин встраивания.
+1. **Не путать границы.** «React и движок говорят через postMessage» здесь **ложно** — общий window и внутрипроцессная шина. postMessage — только на 6 межоконных границах (host исх./вх., app-конфигуратор, legacy ZIP-конфигуратор, оплата, Tour360); `@paciolan/remote-component` и web-worker — **не** postMessage. В нашей переписке держать движок↔UI внутрипроцессным (типизированный event-emitter / store-bridge), а postMessage резервировать строго под настоящие кросс-ориджин встраивания.
 
 2. **Redux — зеркало, а не источник истины, но редьюсеры тут зовут движок.** `viewModeSlice.setActiveViewMode` зовёт `planner[mode].activate()` _внутри редьюсера_ (`viewModeSlice.js:37`); нечистые редьюсеры ломают time-travel/devtools и делают порядок хрупким. Сайд-эффекты движка — в thunk/middleware, никогда в редьюсер.
 
@@ -287,7 +297,7 @@ Flex-строка: `<LeftMain/>` | `plannerMain{ TopPanel (справа свер
 
 ## Confidence & gaps
 
-**Высокая уверенность** (прочитано с номерами строк): внутрипроцессная природа связки UI↔движок (`init.js` глобалы, `appendChild` canvas, `createPlannerAPI` `:600-617`, `EventDispatcher` `:8371-8407`); полный event-словарь движок→UI и командная поверхность React→движок; все четыре postMessage-границы с их action-словарями (`postMessageToParent` `:10195`, `messageListener` `Main.jsx:404-715`, `createAppIFrame` `:24844` + `appMessageListener` `:24719`, платёжные iframe `PayProPopup/BuyCredits`); механизм `@paciolan/remote-component`; 12 слайсов Redux с полями initialState и владением; недоделанный рефактор `viewMode` vs `viewMode_new`; app shell / панели / ~48-попап реестр / quick-панели / tips; tech stack.
+**Высокая уверенность** (прочитано с номерами строк): внутрипроцессная природа связки UI↔движок (`init.js` глобалы, `appendChild` canvas, `createPlannerAPI` `:600-617`, `EventDispatcher` `:8371-8407`); полный event-словарь движок→UI и командная поверхность React→движок; все шесть postMessage-границ с их action-словарями (host исходящий `postMessageToParent` `:10195` + host входящий `messageListener` `Main.jsx:404-715`; app-iframe `createAppIFrame` `:24844` + `appMessageListener` `:24719`; legacy ZIP `createAppIFrameOld` `:24451` + `messageListener` `:24478`; платёжные iframe `PayProPopup/BuyCredits`; Tour360 `Tour360Create.jsx`); механизм `@paciolan/remote-component` (не postMessage); 12 слайсов Redux с полями initialState и владением; недоделанный рефактор `viewMode` vs `viewMode_new`; app shell / панели / ~48-попап реестр / quick-панели / tips; tech stack.
 
 **Пробелы / средняя уверенность:**
 

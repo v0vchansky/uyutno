@@ -162,6 +162,34 @@ The view object (`R2D.ObjectConstructor3D`) listens for `WC.ELEMENT_UPDATE` (dis
 
 ---
 
+## 4a. Tile configurator (`TConf`) — раскладка плитки
+
+`TConf` — **самостоятельный Canvas2D под-редактор** (не Three.js), открывается поверх плана (`appendCanvas`/`.tileConfig_canvas`, L77676; прячет вьюеры класс`canvas_hidden`). Верх — `TConf.TileConfig` (L77565), внутри `field` (`TConf.Field`, L77699) + `editor` (`TConf.Editor`, L79153). Единицы поля — сантиметры. Наружу отдаёт результат в том же shape-формате, что полы/стены (см. §4.1), через `getTiles` (мост ниже).
+
+### 4a.1 Field / Area / Delimiter (рекурсивное деление)
+
+Поверхность рубится **перегородками** `TConf.Delimiter` (L79116) на зоны `TConf.Area` (L78918). Делимитеры образуют граф: у каждого `parent1/parent2` (концы, к которым он примыкает) и `children` (делимитеры, стартующие от него), тип `Delimiter.HOR='h'` / `Delimiter.VER='v'` (L79150). У `Area` — четыре ссылки `delimiters.{top,bottom,left,right}` на ограничивающие её делимитеры; `calcAreas` пересобирает контуры зон из графа.
+
+`splitArea(area, how)` (L78424) режет активную зону надвое, создавая один новый делимитер и одну новую `Area`; **имена инвертированы — не спутать**: `how == Delimiter.HOR` (⇄ `TConf.SPLIT_HOR`, L77562) создаёт **вертикальный** делимитер `new Delimiter(Delimiter.VER, …)` (L78436) — т.е. «горизонтальный сплит» рассекает по X и ставит вертикальную линию; симметрично `Delimiter.VER` ставит `Delimiter.HOR` (L78462). Порог — не режет зону тоньше 5 см (L78434/78460). Новая зона получает следующий `matID` из циклического `matIDs` + `addMatID = getDefaultAddMaterialByKey("cap")` (L78427–78429). Обратная операция — `mergeAreas(delimiter)` (L78283): удаляет делимитер и сливает две смежные зоны.
+
+Каждая `Area` несёт свой материал/цвет и трансформ раскладки: `matID`, `color` (`#hex`), `matRotation`, `angle` (поворот сетки), `shiftX/shiftY` (сдвиг), `margin` (шов, дефолт **0.5 см**, L78968), `random`, `defMaterial`, `tiles[]` (L78934/78962).
+
+### 4a.2 AutoFill (сетка + рандом + обрезка)
+
+`autoFill(area, mat)` (L77865) заполняет зону плитками `TConf.Tile`: шаг `stepX = material.width + margin`, `stepY = material.height + margin` (L77884), сетка выравнивается по `Math.round(min/step)*step` (L77887) и генерится с запасом (`i,j ∈ [−n−2, n+2]`, L77897), затем `removeOutsideTiles(area)` (L77909) обрезает всё вне контура зоны. Если `area.random` — `randomRotate()` (L77912 → L78948) даёт каждой плитке случайный поворот/отражение (`Tile.randomRotate`, L78953). `autoFillAll` (L77857) перезаливает все зоны с `defMaterial`. Каждая перезаливка шлёт `TConf.FIELD_CHANGED` (L77914).
+
+### 4a.3 Snap (двухуровневый) и undo
+
+`TConf.Snap` (L79477) при ручном перетаскивании плитки даёт двухфазную привязку `getSnapPoint`: сначала `snapToBorder` (к границам активной зоны, с учётом полей `margin/2`, L79502), затем `snapToNeighbour` (к соседним плиткам с учётом шва) — до двух проходов соседа (L79486–79493); порог `snapDist`, epsilon `TR.B_EPS = 0.0001` (L49483).
+
+Своя история — `TConf.History(field)` (L78832): стек **сериализованных снапшотов** `field.getData()` (не клон живого `Field`), `undo/redo` восстанавливают через `field.setData(stack[pointer])` (L78852–78868); при новом действии хвост за указателем отсекается (L78843). Стартовый снапшот сохраняется в конструкторе (L78850).
+
+### 4a.4 Мост наружу — `Field.getTiles()`
+
+`TileConfig.getTiles(h, w, faceRight)` → `field.getTiles(...)` (L77650 → L77917) конвертирует каждую плитку каждой зоны в объект **того же shape-формата, что полы/стены §4.1**: `{outerContours:[tileCont], innerContours:[], boundContours:[areaCont], materialID, addMaterialID, rotation, flip, fixUV:true, id:'disable'}` (L77957). Углы плитки переводятся `areaToReal` в координаты зоны, затем **зеркалятся под сторону стены** через `TR.flipPoints`: для `faceRight` — только по Y (L77948), иначе — по X и Y со сдвигом на `w` (L77952) — тот же back-face-mirror, что у `findTriWall` (§4.1). Так набор плиток встраивается в общий геометро-конвейер отделки без отдельного рендер-пути. (Дроп материала из каталога в зону — `field.getAreaByPoint` → `autoFill`, уже описан в §1 «TConf variant».)
+
+---
+
 ## 5. Edge cases
 
 - **id `0`/`"0"` = "no material":** `getMaterial` returns null (L36233); GLTF child loop skips `current == "0"` and restores the embedded material instead (L32482–32502); constructor skips `materialsIds[i] == "0"` (L32553).
@@ -187,4 +215,4 @@ The view object (`R2D.ObjectConstructor3D`) listens for `WC.ELEMENT_UPDATE` (dis
 - **`private_material` does not exist** in this build. No `isPrivate`/`userMaterial` token; the nearest notion is catalog **ownership** via `user_key`/`isOwner()` (≈L17317). If the product spec needs "user/private materials," it is not modeled planner-side here.
 - **sRGB handling is legacy and buggy (verified High):** `GLTFLoader` ставит `sRGBEncoding` на диффуз (L5969), но `Pool3D.__GLTFLoadListener` **перетирает на `LinearEncoding` для всех каталожных GLB** (L36069–36071, выполняется после лоадера) → нетто-диффуз каталожных моделей = **Linear** (недо-коррекция цвета — легаси-баг, не спека). Package-текстуры наследуют output-encoding рендерера без per-texture флага. No `SRGBColorSpace`/`convertSRGBToLinear` — старый three.js. При порте на r185 цвет-пространства задавать явно и НЕ копировать их force-linear.
 - **`materialX/materialY` units**: pixels at 100 px/m; the `mx/my` serialized values are floats in the same pixel space (L53772). Offsets are pre-rotation, about `rotatingCenter` (wall center L53115).
-- **Tile-configurator (`TConf`/areas/delimiters)** is a distinct sub-system with its own `autoFill`/`matID`/`color` model (L78100–78160, L81019) not fully mapped here beyond the drop path.
+- **Tile-configurator (`TConf`)** — структура вскрыта в §4a: `Field`/`Area`/`Delimiter`-граф, `splitArea` (⚠️ инверсия SPLIT_HOR→VER, L78432), `autoFill` (сетка+рандом+обрезка, L77865), двухуровневый `Snap` (L79477), снапшот-undo `getData/setData` (L78832), мост `getTiles` в shape-формат отделки (L77917). Не разобрана построчно только математика `mergeAreas` (L78283) и per-tile `randomRotate` (L78953) — принцип ясен, точные формулы не перечитаны.

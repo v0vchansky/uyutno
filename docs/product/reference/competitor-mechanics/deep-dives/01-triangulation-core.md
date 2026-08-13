@@ -17,7 +17,9 @@ Evidence for the cdt2d identification:
 - Call at line **50983**: `imported_clean_graph(ptCoords, edges)` mutates `points`/`edges` **in place** immediately before triangulation. That is the signature and contract of **`clean-pslg`**, the library the cdt2d docs explicitly recommend running first ("preprocess it first using clean-pslg … the resulting graph meets all invariants required by cdt2d"). The pairing cdt2d + clean-pslg is a canonical mikolalysenko stack.
 - `{exterior: true}` appears exactly once in the whole file (only the triangulation call); the other `exterior` hits (14594, 46203, 46798) are unrelated render/material flags.
 
-No patches to the stock libs are visible from the planner side (we only see the call boundary). Any modifications, if present, would be inside the un-recovered vendor bundle.
+No patches to the stock libs are visible from the planner side (we only see the call boundary). Any modifications, if present, would be inside the vendor bundle.
+
+> **Verified:** the vendor bundle is `tris.js` — a **browserify bundle of the npm packages `cdt2d` + `clean-pslg`**, exposed via `window.imported_*` wrappers (tris.js:1912–1921). `poly2tri` / `SweepContext` occurrences in the codebase = **0**, confirming poly2tri is _not_ used.
 
 Sources for API confirmation: [cdt2d](https://github.com/mikolalysenko/cdt2d), [clean-pslg (npm)](https://www.npmjs.com/package/clean-pslg).
 
@@ -114,5 +116,5 @@ Net: **stock cdt2d + a faithful re-implementation of their wrapper's four/five s
 ## Confidence & gaps
 
 - **High confidence** that the raw triangulator is stock **cdt2d + clean-pslg**: exact API/option-flag match (`{exterior:true}`, `(points, edges)` in-place clean), the `imported_` external-global prefix, the single unique call site, and the canonical cdt2d↔clean-pslg pairing all agree.
-- **Gap:** the actual bodies of `imported_triangulate` / `imported_clean_graph` are **not in the recovered files** (only call sites at 50635 and 50983). So I cannot verify from source whether the vendored copies were _patched_ vs stock, nor read cdt2d's internal epsilons/flip logic directly — the "cdt2d = sweep+flip, clean-pslg = split-at-intersections/dedupe" characterization is from the libraries' public docs, not from this bundle. If the exact vendored algorithm matters, we'd need to recover that second bundle (search the deployed site for the module that _defines_ `imported_triangulate`).
+- **Gap:** the bodies of `imported_triangulate` / `imported_clean_graph` live in the separate `tris.js` browserify bundle (wrappers at tris.js:1912–1921), not inline in `plannercore.js` (only call sites at 50635 and 50983 there). The bundle is now identified as `cdt2d` + `clean-pslg`, but I have not audited its bundled bodies line-by-line, so I cannot verify from source whether the vendored copies were _patched_ vs stock, nor read cdt2d's internal epsilons/flip logic directly — the "cdt2d = sweep+flip, clean-pslg = split-at-intersections/dedupe" characterization is from the libraries' public docs. `poly2tri`/`SweepContext` = 0 occurrences across the codebase.
 - **High confidence** on everything in the wrapper (pipeline order, epsilons, recursion, complexity) — all read directly from the source lines cited.
