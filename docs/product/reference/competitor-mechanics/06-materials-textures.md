@@ -27,7 +27,7 @@ All IDs are catalog product IDs (strings). A material can also be a **color**, d
 4. Apply: `constructorObject3d.setMaterial(draggingMaterialId, partNum)` then `setAddMaterial(draggingAddMaterialId || "", partNum)` (L44200–44201), then `update()`, `history.saveState()`, renderer update, and dispatch `HISTORY_UNDO_REDO` (L44205–44208).
 5. Reset `draggingAddMaterialId = ""`, remove the preview, restore the previous MIH state (L44203/44211/44213).
 
-**Acceptance rule.** A drop only applies when a constructor view is found AND `me.isPlaceMaterialAllowed` is true (L44199). If the ray misses any interactive surface, nothing happens (the state still reverts). There is no per-surface-type rejection — any pickable constructor face accepts any material; the _part_ it lands on is whatever mesh the ray hit.
+**Acceptance rule.** A drop only applies when a constructor view is found AND `me.isPlaceMaterialAllowed` is true — but the check exists only in `mouseUp` (L44199); the `touchEnd` path (guard L44237, `setAddMaterial` call L44240) has **no** `isPlaceMaterialAllowed` guard (quirk: на таче материал применяется и там, где мышиный drop запрещён). If the ray misses any interactive surface, nothing happens (the state still reverts). There is no per-surface-type rejection — any pickable constructor face accepts any material; the _part_ it lands on is whatever mesh the ray hit.
 
 **TConf variant.** In the tile configurator, `TConf.StateDraggingMaterial` (L81019) resolves the drop to an **area** via `field.getAreaByPoint(realPos)` and calls `field.autoFill(area, material)` + `history.save()` (L81045–81051). Its `setDefaultMaterial(matID, addMatID)` (L78119) shows the same color rule: `matID.startsWith('#')` → `area.color`, else `area.matID`; empty falls back to matID `'2013'`.
 
@@ -37,7 +37,7 @@ All IDs are catalog product IDs (strings). A material can also be a **color**, d
 
 ### 2.1 Per-element material fields (`WC.DataObject` subclasses)
 
-Every wall/cover/ceiling/plinth/frame data object carries a flat material block (defaults set per type, e.g. L51623–51624 wall, L51730–51731 cover, L51843 cap, L51894 wall-frame):
+Every wall/cover/ceiling/plinth/frame data object carries a flat material block (defaults set per type, e.g. L52764–52765 wall (`WC.DataWall`), L51623–51624 area (`WC.DataArea`), L51730–51731 cover, L51843–51844 cap (`materialID`/`addMaterialID`), L51894 wall-frame):
 
 | Field                    | Meaning                                                                                                                                  |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
@@ -46,15 +46,17 @@ Every wall/cover/ceiling/plinth/frame data object carries a flat material block 
 | `materialRotation`       | UV rotation in radians (a.k.a. serialized `mr`).                                                                                         |
 | `materialX`, `materialY` | UV offset in **pixels** (serialized `mx`, `my`).                                                                                         |
 
-Serialization mapping is explicit: `DC.materialRotation = parseFloat(ci.mr)`, `materialX = parseFloat(ci.mx)`, `materialY = parseFloat(ci.my)` (L53771–53773; same for axis `ai.*` at L53970–53972; clipboard paste at L69288–69289). Defaults come from `R2D.default.getDefaultMaterialByKey(type)` / `getDefaultAddMaterialByKey(type)` keyed by `wall|cover|ceiling|cap|plinth|molding` (registry per third agent; `clearMaterial` resets to these, L51300–51305 / L52868–52869).
+Serialization mapping is explicit: `DC.materialRotation = parseFloat(ci.mr)`, `materialX = parseFloat(ci.mx)`, `materialY = parseFloat(ci.my)` (L53771–53773; same for axis `ai.*` at L53970–53972; clipboard paste `mx`/`my` at L69289–69290). Defaults come from `R2D.default.getDefaultMaterialByKey(type)` / `getDefaultAddMaterialByKey(type)` keyed by `wall|cover|ceiling|cap|plinth|molding` (registry L18988–18989; `clearMaterial` resets to these, L51300–51305 / L52868–52869).
 
 ### 2.2 Parts (`WC.Part`, L52441)
 
 A surface is decomposed into **parts**, each carrying its own geometry + material:
 
 ```
+// ctor (L52441–52462) инициализирует только:
 me.materialID = 0; me.addMaterialID = "";
 me.vertices=[]; me.uvs=[]; me.indices=[]; me.triangles=[]; me.area=0;
+// навешиваются владельцем поверх (не в конструкторе):
 me.id            // set by owner; -1 is the "remainder"
 me.materialRotation / materialX / materialY   // per-part UV transform
 ```
@@ -106,7 +108,7 @@ Trivial: `new THREE.MeshPhongMaterial({ color: productId, side: DoubleSide })`, 
 
 ### 3.3 Texture/package material (`R2D.ObjectViewer3DMaterial`, L32115)
 
-- Starts as a grey placeholder `MeshPhongMaterial({color:0x999999}), side=DoubleSide` (L32134), then async-loads the package via `R2D.Pool3D.load(productId)` (L32302).
+- Starts as a grey placeholder `MeshPhongMaterial({color:0x999999}), side=DoubleSide` (L32134), then async-loads the package via `R2D.Pool3D.load(productId)` (L32305).
 - **GLTF path** (`.glb`, L32149): grabs the first Mesh's `material`; optionally downscales every map to `512 × TEXTURE_MULTIPLIER` (÷4 on phones) via `getDownscaledImageFromMap` (L32160–32184); adds a metal env-map when `roughness < 0.5 || metalness > 0.1` (L32187–32190).
 - **Package path** (`ProductPackageParser.parseMaterial`, L26784 → `raw`): binary TLV format yielding `scaleX/scaleY/scalability, transparent, gloss/metal + intensities, materialType/reflectivity, diffuseData/normalData/specularData` (fields L26786–26808). Mapping to THREE (L32194–32291):
   - repeat = `scalability ? (scaleX, scaleY) : (1,1)`; when non-scalable, raw scales are stashed in `userData.scaleX/Y` (L32199–32208).
@@ -129,7 +131,7 @@ This build uses legacy three.js encodings, and — важно — **их обр�
 
 ### 4.1 Where UVs are generated
 
-The **data** layer (`WC`) produces vertices+UVs per triangle; the **view** layer (`R2D.ObjectConstructor3D`) turns those into meshes. Key generators:
+The **data** layer (`WC`) produces vertices+UVs per triangle; the **view** layer (`R2D.ObjectConstructor3D`) turns those into meshes. Full line-by-line UV/mesh math lives in [`deep-dives/04-3d-mesh-uv.md`](deep-dives/04-3d-mesh-uv.md). Key generators:
 
 **Wall face — `WC.findTriWall(a,b,c, v1,v2, height, reverse, shiftX, shiftY, rotation, centerX, centerY)`** (L52463). Constant `pixPerMeter = 100`.
 
@@ -147,18 +149,18 @@ So the core UV transform (all surfaces) is: **translate by −(offset+center) �
 
 ### 4.2 build3D — data-side geometry rebuild
 
-`build3D()` on each element rebuilds its part buffers. Single-part wall/frame (L51635 / L51895-region): copies `materialID/addMaterialID/materialRotation/materialX/materialY` into `parts[0]`, clears `vertices/uvs`, re-triangulates and re-runs `findTriWall`/`findTriCover` per triangle, then `parts[0].indices = WC.generateIndices(vertices.length/3)`. Multi-part wall (L53126–53213): rebuilds each pattern part (tiled → `findTriWallTile`, else `findTriWall`) accumulating `area`, then appends the `-1` remainder part with the element's material.
+`build3D()` on each element rebuilds its part buffers. Single-part area/frame (`DataArea.build3D` L51635 / wall-frame L51895-region): copies `materialID/addMaterialID/materialRotation/materialX/materialY` into `parts[0]`, clears `vertices/uvs`, re-triangulates and re-runs `findTriWall`/`findTriCover` per triangle, then `parts[0].indices = WC.generateIndices(vertices.length/3)`. A wall (`WC.DataWall`) is always **multi-part** (build3D L53069–53214): rebuilds each pattern part (tiled → `findTriWallTile`, else `findTriWall`) accumulating `area`, then appends the `-1` remainder part with the element's material.
 
 `rotateMaterial(angle[,partNum])` and `moveMaterial(shift)` write the new rotation/offset to the element **and** the target part, then call `build3D()` immediately (L51355–51385; multi-part variant L53221–53239 routes via `configData.setRotationByID`). So dragging the material rotate/move handle triggers a **targeted** rebuild of just that element.
 
 ### 4.3 build3D — 3D view rebuild (targeted vs full)
 
-The view object (`R2D.ObjectConstructor3D`) listens for `WC.ELEMENT_UPDATE` (dispatched by `dispatchUpdate()`, L51345). `elementUpdateEventHandler` (L31141) runs two independent steps:
+The view object (`R2D.ObjectConstructor3D`) listens for `WC.ELEMENT_UPDATE` (dispatched by `dispatchUpdate()`, L51347). `elementUpdateEventHandler` (L31141) runs two independent steps:
 
 - `updateGeometry()` (L31119): dispose old meshes, and for each `parts[i]` build a fresh `BufferGeometry` from `flipGeometryByZ(part)` (indices/vertices/uvs) and stamp `mesh.num = parts[i].id` (L31129–31136).
 - `updateMaterial()` (L31093): for each part, resolve `materialID` (+ `addMaterialID`, with a fallback to the element's `addMaterialID` for non-wall types, L31104) through `PoolMaterials.getMaterial(...)`, assign `meshes[i].material`, and subscribe to the viewer's async `UPDATE`/`MATERIAL_LOADED` so the mesh swaps in the real texture when the package finishes loading (L31106–31116). A partially-visible element is shown with the yellow `#FFFF00` material at reduced opacity (L31107–31110).
 
-**Targeted vs full:** a _material-only_ edit follows `setMaterial → changed=true → dispatchUpdate → elementUpdateEventHandler`, which re-meshes and re-materials **only that element**; async texture load later swaps just that mesh's material in place (no re-triangulation). A **full rebuild** (`setStructure`, per third agent ≈L55475) happens only when room topology changes (walls added/removed/moved), calling `build3D()` on every element. Undo/redo restores each object's material fields then calls `build3D()` + `dispatchUpdate()` on the affected objects (state restore path, ≈L12660–12687).
+**Targeted vs full:** a _material-only_ edit follows `setMaterial → changed=true → dispatchUpdate → elementUpdateEventHandler`, which re-meshes and re-materials **only that element**; async texture load later swaps just that mesh's material in place (no re-triangulation). A **full rebuild** (`setStructure`, L55088; вторая реализация L61476; removeAll → findAxes → createPlinths → build3D → findRoomsForCovers) happens only when room topology changes (walls added/removed/moved), calling `build3D()` on every element. Undo/redo restores each object's material fields then calls `build3D()` + `dispatchUpdate()` on the affected objects (state restore path, ≈L12660–12687).
 
 ---
 
@@ -172,11 +174,11 @@ The view object (`R2D.ObjectConstructor3D`) listens for `WC.ELEMENT_UPDATE` (dis
 
 `splitArea(area, how)` (L78424) режет активную зону надвое, создавая один новый делимитер и одну новую `Area`; **имена инвертированы — не спутать**: `how == Delimiter.HOR` (⇄ `TConf.SPLIT_HOR`, L77562) создаёт **вертикальный** делимитер `new Delimiter(Delimiter.VER, …)` (L78436) — т.е. «горизонтальный сплит» рассекает по X и ставит вертикальную линию; симметрично `Delimiter.VER` ставит `Delimiter.HOR` (L78462). Порог — не режет зону тоньше 5 см (L78434/78460). Новая зона получает следующий `matID` из циклического `matIDs` + `addMatID = getDefaultAddMaterialByKey("cap")` (L78427–78429). Обратная операция — `mergeAreas(delimiter)` (L78283): удаляет делимитер и сливает две смежные зоны.
 
-Каждая `Area` несёт свой материал/цвет и трансформ раскладки: `matID`, `color` (`#hex`), `matRotation`, `angle` (поворот сетки), `shiftX/shiftY` (сдвиг), `margin` (шов, дефолт **0.5 см**, L78968), `random`, `defMaterial`, `tiles[]` (L78934/78962).
+Каждая `Area` несёт свой материал/цвет и трансформ раскладки: `matID`, `color` (`#hex`), `matRotation`, `angle` (поворот сетки), `shiftX/shiftY` (сдвиг), `margin` (шов, дефолт **0.5 см** в конструкторе `Area`, L78929), `random`, `defMaterial`, `tiles[]` (L78934/78962).
 
 ### 4a.2 AutoFill (сетка + рандом + обрезка)
 
-`autoFill(area, mat)` (L77865) заполняет зону плитками `TConf.Tile`: шаг `stepX = material.width + margin`, `stepY = material.height + margin` (L77884), сетка выравнивается по `Math.round(min/step)*step` (L77887) и генерится с запасом (`i,j ∈ [−n−2, n+2]`, L77897), затем `removeOutsideTiles(area)` (L77909) обрезает всё вне контура зоны. Если `area.random` — `randomRotate()` (L77912 → L78948) даёт каждой плитке случайный поворот/отражение (`Tile.randomRotate`, L78953). `autoFillAll` (L77857) перезаливает все зоны с `defMaterial`. Каждая перезаливка шлёт `TConf.FIELD_CHANGED` (L77914).
+`autoFill(area, mat)` (L77865) заполняет зону плитками `TConf.Tile`: шаг `stepX = material.width + margin`, `stepY = material.height + margin` (L77884), сетка выравнивается по `Math.round(min/step)*step` (L77887) и генерится с запасом (`i,j ∈ [−n−2, n+2]`, L77897), затем `removeOutsideTiles(area)` (L77909) обрезает всё вне контура зоны. Если `area.random` — `randomRotate()` (L77912 → L78948) даёт каждой плитке случайный поворот/отражение (`Tile.randomRotate`, определение L79078; call-site L78951). `autoFillAll` (L77857) перезаливает все зоны с `defMaterial`. Каждая перезаливка шлёт `TConf.FIELD_CHANGED` (L77914).
 
 ### 4a.3 Snap (двухуровневый) и undo
 
@@ -194,7 +196,7 @@ The view object (`R2D.ObjectConstructor3D`) listens for `WC.ELEMENT_UPDATE` (dis
 
 - **id `0`/`"0"` = "no material":** `getMaterial` returns null (L36233); GLTF child loop skips `current == "0"` and restores the embedded material instead (L32482–32502); constructor skips `materialsIds[i] == "0"` (L32553).
 - **Empty part:** `addNullData()` injects a degenerate tri so buffers/indices are never zero-length (L52454).
-- **Color vs texture is a string test only:** leading `#` is the sole discriminator (L36201, L32393, L78123, L42501-region) — a texture id and a color id are never structurally typed.
+- **Color vs texture is a string test only:** leading `#` is the sole discriminator (L36201, L32393, L78123) — a texture id and a color id are never structurally typed.
 - **Finish layering:** passing `addMaterial` to `getMaterial` mutates the cached finish viewer's color via `setColor` and returns it (L36236–36238); the base+finish combo is thus resolved at lookup time, not stored as a compound.
 - **Clone-on-tint:** `getMaterial()` clones when a color is present (L32338) to avoid corrupting the shared cached material.
 - **Back face UV mirroring:** `faceRight/reverse` flips U so the two wall sides read correctly; forgetting it mirrors text/patterns.
@@ -206,13 +208,24 @@ The view object (`R2D.ObjectConstructor3D`) listens for `WC.ELEMENT_UPDATE` (dis
 
 ## 6. Confidence & gaps
 
-**High confidence** (read directly, with line numbers): the drag/drop interaction and material-vs-color split (`StateDraggingMaterial`, L44160/L42003); `WC.Part` and the `-1` remainder model (L52441/L53180); part-aware `setMaterial/setAddMaterial` routing and `getPartByID` (L52821–52880); the UV formulas in `findTriWall`/`findTriCover`/`findTriWallTile` (L52463/52564/52677) including the pixPerMeter=100 normalization and rotate-about-center transform; the catalog→THREE pipeline (`PoolMaterials` L36182, `ObjectViewer3DMaterial` L32115, `ProductPackageParser.parseMaterial` L26784, `makeTextureMap` L29326); the targeted-rebuild path (`elementUpdateEventHandler`/`updateGeometry`/`updateMaterial`, L31093–31151) and `mesh.num = part.id` picker bridge (L31134); `SceneObjectModel` frame/bottom fields (L11575).
+**High confidence** (read directly, with line numbers): the drag/drop interaction and material-vs-color split (`StateDraggingMaterial`, L44160/L42003); `WC.Part` and the `-1` remainder model (L52441/L53180); part-aware `setMaterial/setAddMaterial` routing and `getPartByID` (L52821–52880); the UV formulas in `findTriWall`/`findTriCover`/`findTriWallTile` (L52463/52564/52677) including the pixPerMeter=100 normalization and rotate-about-center transform; the catalog→THREE pipeline (`PoolMaterials` L36182, `ObjectViewer3DMaterial` L32115, `ProductPackageParser.parseMaterial` L26784, `makeTextureMap` L29326); the targeted-rebuild path (`elementUpdateEventHandler`/`updateGeometry`/`updateMaterial`, L31093–31151) and `mesh.num = part.id` picker bridge (L31134); `SceneObjectModel` frame/bottom fields (L11575); the default-material registry `getDefaultMaterialByKey`/`getDefaultAddMaterialByKey` (L18988–18989); the `setStructure` full-rebuild entry point (L55088; вторая реализация L61476).
 
-**Medium confidence** (partly via sub-agents, not every line re-read by me): the exact `R2D.default` default-material registry structure and `getDefaultMaterialByKey` (paraphrased ≈L18946+/18985+); the `setStructure` full-rebuild entry point (≈L55475); GLTF per-child hash/material-array binding details (L32480+).
+**Medium confidence** (partly via sub-agents, not every line re-read by me): GLTF per-child hash/material-array binding details (L32480+).
 
 **Gaps / unresolved:**
 
 - **`private_material` does not exist** in this build. No `isPrivate`/`userMaterial` token; the nearest notion is catalog **ownership** via `user_key`/`isOwner()` (≈L17317). If the product spec needs "user/private materials," it is not modeled planner-side here.
 - **sRGB handling is legacy and buggy (verified High):** `GLTFLoader` ставит `sRGBEncoding` на диффуз (L5969), но `Pool3D.__GLTFLoadListener` **перетирает на `LinearEncoding` для всех каталожных GLB** (L36069–36071, выполняется после лоадера) → нетто-диффуз каталожных моделей = **Linear** (недо-коррекция цвета — легаси-баг, не спека). Package-текстуры наследуют output-encoding рендерера без per-texture флага. No `SRGBColorSpace`/`convertSRGBToLinear` — старый three.js. При порте на r185 цвет-пространства задавать явно и НЕ копировать их force-linear.
-- **`materialX/materialY` units**: pixels at 100 px/m; the `mx/my` serialized values are floats in the same pixel space (L53772). Offsets are pre-rotation, about `rotatingCenter` (wall center L53115).
-- **Tile-configurator (`TConf`)** — структура вскрыта в §4a: `Field`/`Area`/`Delimiter`-граф, `splitArea` (⚠️ инверсия SPLIT_HOR→VER, L78432), `autoFill` (сетка+рандом+обрезка, L77865), двухуровневый `Snap` (L79477), снапшот-undo `getData/setData` (L78832), мост `getTiles` в shape-формат отделки (L77917). Не разобрана построчно только математика `mergeAreas` (L78283) и per-tile `randomRotate` (L78953) — принцип ясен, точные формулы не перечитаны.
+- **`materialX/materialY` units**: pixels at 100 px/m; the `mx/my` serialized values are floats in the same pixel space (L53772–53773). Offsets are pre-rotation, about `rotatingCenter` (wall center L53115).
+- **Tile-configurator (`TConf`)** — структура вскрыта в §4a: `Field`/`Area`/`Delimiter`-граф, `splitArea` (⚠️ инверсия SPLIT_HOR→VER, L78432), `autoFill` (сетка+рандом+обрезка, L77865), двухуровневый `Snap` (L79477), снапшот-undo `getData/setData` (L78832), мост `getTiles` в shape-формат отделки (L77917). Не разобрана построчно только математика `mergeAreas` (L78283) и per-tile `randomRotate` (L79078) — принцип ясен, точные формулы не перечитаны.
+
+**Чего не хватает для реализации:**
+
+- **Своя схема ассета материала**: albedo/normal/roughness (+metalness вместо Phong), `scaleX/Y` в метрах-на-повтор, `scalability`, `transparent`; маппинг Phong→`MeshStandardMaterial` проектировать самим.
+- **Env-map**: `EnvironmentMetal` не разобран; в r185 — `scene.environment`/PMREM, свой дизайн.
+- **Registry дефолтных материалов**: механика (`getDefault(Add)MaterialByKey`, L18988–18989) есть, конкретные каталожные ID и источник наполнения — нет.
+- **configData (мост WC↔TConf)**: `setMaterialByID`/… (L78489/78505/78570) и `getData`/`setData` не разобраны — а это пер-парт плитка и её undo/persist.
+- **Схема undo-снапшота материалов** — известна только косвенно через restore-путь (≈L12660–12687).
+- **Пер-модельные материалы GLTF**: откуда `md5` у child-геометрий, формат `materialsObjects`, `restoreEmbeddedMaterial`.
+- **r185-специфика порта**: `SRGBColorSpace`/`NoColorSpace` (не копировать force-linear баг), `MeshStandardMaterial`, merge партов через `BufferGeometryUtils` (identity-index расточителен), геометрический ±1 мм vs `polygonOffset`.
+- Закрыто deep-dive'ами (сюда не дублируем): контракт `TR.triangulateContours` и триангулятор → [`deep-dives/01-triangulation-core.md`](deep-dives/01-triangulation-core.md) + [`deep-dives/08-geometry-predicates.md`](deep-dives/08-geometry-predicates.md); `getHoles()`/`WC.findContourWall` (проёмы → 2D-контуры дыр) → [`deep-dives/06-opening-holes.md`](deep-dives/06-opening-holes.md); `DataCover.build3D` целиком → [`deep-dives/05-cover-build3d.md`](deep-dives/05-cover-build3d.md).

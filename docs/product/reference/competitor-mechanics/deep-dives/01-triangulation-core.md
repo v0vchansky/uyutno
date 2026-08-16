@@ -19,7 +19,7 @@ Evidence for the cdt2d identification:
 
 No patches to the stock libs are visible from the planner side (we only see the call boundary). Any modifications, if present, would be inside the vendor bundle.
 
-> **Verified:** the vendor bundle is `tris.js` — a **browserify bundle of the npm packages `cdt2d` + `clean-pslg`**, exposed via `window.imported_*` wrappers (tris.js:1912–1921). `poly2tri` / `SweepContext` occurrences in the codebase = **0**, confirming poly2tri is _not_ used.
+> **Verified:** the vendor bundle is `tris.js` — a **browserify bundle of the npm packages `cdt2d` + `clean-pslg`**, exposed via `window.imported_*` wrappers (tris.js:1912–1922). `poly2tri` / `SweepContext` occurrences in the codebase = **0**, confirming poly2tri is _not_ used.
 
 Sources for API confirmation: [cdt2d](https://github.com/mikolalysenko/cdt2d), [clean-pslg (npm)](https://www.npmjs.com/package/clean-pslg).
 
@@ -47,7 +47,7 @@ TR.triangulate = function (points, edges) {
 
 Entry point is `TR.triangulateContours(inpOuterContours, inpInnerContours, inpBoundContours, inpSubtrContours, cutPairs)` (line **50926**). Order of operations:
 
-1. **Grid rounding — `TR.roundCoord`** (line **50554**): snaps to a 0.001-cm grid: `Math.round(P.x * 1000) / 1000`. Note: it is _not_ called inside `triangulateContours` itself — it is applied upstream at the many geometry-mutation sites (e.g. 53448, 53510, 53871, 59556, 60466…). By the time contours reach the triangulator, coordinates are already grid-quantized, which kills most near-coincident-point noise before it ever reaches cdt2d.
+1. **Grid rounding — `TR.roundCoord`** (line **50554**): snaps to a 0.001-cm grid: `Math.round(P.x * 1000) / 1000`. Note: it is _not_ called inside `triangulateContours` itself — it is applied upstream at the many geometry-mutation sites (53448, 53510, 53871, 59556; also 53516, 57698, 59563 — note 60466 is a `TR.triangulateContours` call for cover triangulation, not a `roundCoord` site). By the time contours reach the triangulator, coordinates are already grid-quantized, which kills most near-coincident-point noise before it ever reaches cdt2d.
 
 2. **Segment build + duplicate-point / duplicate-edge dedup — `addSeg`** (lines **50932–50965**, closure inside `triangulateContours`): for every contour edge it linearly scans existing `ptCoords` and reuses a point index if within `L_EPS` (1e-8) on both axes (50939–50940); skips zero-length segments (`A.match(B)`, 50934); and skips an edge if the same pair already exists in either direction (50945–50950). This is an O(V·E) dedup but guarantees a shared-vertex, no-duplicate-edge graph.
 
@@ -57,7 +57,7 @@ Entry point is `TR.triangulateContours(inpOuterContours, inpInnerContours, inpBo
 
 5. **Triangulate** (`TR.clear()` then `TR.triangulate`, 50985–50986).
 
-6. **Post: sliver-safe centroid classification** (50993–51089). For each connected triangle group it deliberately **skips narrow/sliver triangles when picking a representative** (`TR.triangleIsNarrow`, guard at 51001) so the inside/outside test isn't run on a degenerate centroid; if a group is all-slivers it is dropped (`if (! trForCenter) continue;`, 51010). The chosen triangle's centroid (`TR.triangleCenter`, 49734) is tested with a ray-cast point-in-contour (`TR.pointInContours` → `TR.pointInContour`, 49616/49629) against outer/inner/bound/subtract contour sets to decide fill vs hole vs empty (the boolean-op logic at 51024–51076 implements bound∩ / subtract set operations). This centroid-labeling is how the `{exterior:true}` faces get correctly assigned — it is the planner's substitute for trusting cdt2d's own exterior removal, because it needs multi-set boolean semantics cdt2d can't express.
+6. **Post: sliver-safe centroid classification** (50993–51089). For each connected triangle group it deliberately **skips narrow/sliver triangles when picking a representative** (`TR.triangleIsNarrow`, guard at 51001) so the inside/outside test isn't run on a degenerate centroid; if a group is all-slivers it is dropped (multi-line block 51010–51014: `if (!trForCenter)` @51010, `continue` @51013). The chosen triangle's centroid (`TR.triangleCenter`, 49734) is tested with a ray-cast point-in-contour (`TR.pointInContours` → `TR.pointInContour`, 49616/49629) against outer/inner/bound/subtract contour sets to decide fill vs hole vs empty (the boolean-op logic at 51024–51076 implements bound∩ / subtract set operations). This centroid-labeling is how the `{exterior:true}` faces get correctly assigned — it is the planner's substitute for trusting cdt2d's own exterior removal, because it needs multi-set boolean semantics cdt2d can't express.
 
 7. **Grouping — `TR.groupTriangles`** (line **50692**): recursive flood-fill (`checkTriangle`, 50709) across shared edges, stopping at `fixed` edges when `separateByFixedEdges` is set (50719). This is what turns the triangle soup back into per-room / per-region polygons (later stitched by `TR.contoursFromGroup`, 50738, via a left-most-point + max-turn-angle boundary walk).
 
@@ -69,8 +69,8 @@ Entry point is `TR.triangulateContours(inpOuterContours, inpInnerContours, inpBo
 
 Two global epsilons (lines **49482–49483**):
 
-- `TR.L_EPS = 1e-8` — "loose"/coordinate-equality epsilon. Used for point-index dedup (50939), colinearity/axis tests in `resplitSegments` (50291, 50305), edge-equality, bbox separation (49802–49805), determinant-degeneracy in line intersection (`|denom| < L_EPS` → parallel, 49898). Applied in **topology/identity** decisions.
-- `TR.B_EPS = 1e-4` — "big"/spatial-tolerance epsilon (0.0001 cm). Default for `pointOnLine` / `pointOnContour` / `match` (49579, 49605), i.e. **geometric on-boundary** decisions.
+- `TR.L_EPS = 1e-8` — "loose"/coordinate-equality epsilon. Used for point-index dedup (50939), colinearity/axis tests in `resplitSegments` (50291, 50305), edge-equality, bbox separation (49802–49805), determinant-degeneracy in line intersection (`|denom| < L_EPS` → parallel, 49898), and the **default accuracy of `Point.match`** (49554). Applied in **topology/identity** decisions.
+- `TR.B_EPS = 1e-4` — "big"/spatial-tolerance epsilon (0.0001 cm). Default for `pointOnLine` (49579) / `pointOnContour` (49605), i.e. **geometric on-boundary** decisions. (`Point.match` defaults to `L_EPS`, not `B_EPS` — which strengthens the "L_EPS = identity" split.)
 - Also a hard-coded `EPS = 1e-6` inside `pointInContour` (49633) for the ray-cast vertex-on-ray test, and `minLen = 0.1` in `triangleIsNarrow` (49746) and `minLen = 5` in `clearContour` (50402).
 
 Edge cases explicitly handled:
@@ -81,7 +81,7 @@ Edge cases explicitly handled:
 - **Collinear overlapping constraints / T-junctions (axis-aligned)**: `resplitSegments`.
 - **General self-intersecting constraint edges + diagonal crossings**: delegated to `clean-pslg`.
 - **Holes-in-holes / nested contours & boolean bound/subtract**: centroid point-in-contour counting with `inside > outside` and bound/subtract set logic (51021–51076).
-- **Zero-area / sliver triangles**: not fed to the classifier (`triangleIsNarrow` guard, 51001); all-sliver groups dropped (51010). `contourValid` (50525) rejects contours below `MIN_CONTOUR_AREA=50` or with bad area/perimeter ratio (`MIN_SP_RATIO=1`).
+- **Zero-area / sliver triangles**: not fed to the classifier (`triangleIsNarrow` guard, 51001); all-sliver groups dropped (51010–51014). `contourValid` (50525) rejects contours below `MIN_CONTOUR_AREA=50` or with bad area/perimeter ratio (`MIN_SP_RATIO=1`).
 - **Contour reconstruction dead-ends / spurs**: `clearDict` prunes degree-1 nodes and dangling refs before walking each contour (50792–50830).
 
 Note the planner does **not** rely on cdt2d's own robustness for exterior removal or hole handling — it re-derives all of that from centroids, which is a deliberate belt-and-suspenders choice.
@@ -116,5 +116,15 @@ Net: **stock cdt2d + a faithful re-implementation of their wrapper's four/five s
 ## Confidence & gaps
 
 - **High confidence** that the raw triangulator is stock **cdt2d + clean-pslg**: exact API/option-flag match (`{exterior:true}`, `(points, edges)` in-place clean), the `imported_` external-global prefix, the single unique call site, and the canonical cdt2d↔clean-pslg pairing all agree.
-- **Gap:** the bodies of `imported_triangulate` / `imported_clean_graph` live in the separate `tris.js` browserify bundle (wrappers at tris.js:1912–1921), not inline in `plannercore.js` (only call sites at 50635 and 50983 there). The bundle is now identified as `cdt2d` + `clean-pslg`, but I have not audited its bundled bodies line-by-line, so I cannot verify from source whether the vendored copies were _patched_ vs stock, nor read cdt2d's internal epsilons/flip logic directly — the "cdt2d = sweep+flip, clean-pslg = split-at-intersections/dedupe" characterization is from the libraries' public docs. `poly2tri`/`SweepContext` = 0 occurrences across the codebase.
+- **Gap:** the bodies of `imported_triangulate` / `imported_clean_graph` live in the separate `tris.js` browserify bundle (wrappers at tris.js:1912–1922), not inline in `plannercore.js` (only call sites at 50635 and 50983 there). The bundle is now identified as `cdt2d` + `clean-pslg`, but I have not audited its bundled bodies line-by-line, so I cannot verify from source whether the vendored copies were _patched_ vs stock, nor read cdt2d's internal epsilons/flip logic directly — the "cdt2d = sweep+flip, clean-pslg = split-at-intersections/dedupe" characterization is from the libraries' public docs. `poly2tri`/`SweepContext` = 0 occurrences across the codebase.
 - **High confidence** on everything in the wrapper (pipeline order, epsilons, recursion, complexity) — all read directly from the source lines cited.
+
+**Missing for implementation** (this doc is sufficient for the "cdt2d vs something else" decision; for actually wiring it into Three.js r185 + TS, still to pin down):
+
+1. **Package versions** are not fixed (likely `cdt2d@1.0.0`; both packages frozen since ~2016).
+2. **Maintainability**: cdt2d/clean-pslg are ~10 years unmaintained, CommonJS, no types (a ~5-line `.d.ts` of our own is needed). An alternative of the same class — `constrainautor` on top of Delaunator (more active, faster) — is not compared here.
+3. **Units**: all thresholds (0.1, 5, 50, the 0.001 grid) are in the competitor's centimeters; rescale if our base unit differs.
+4. **Input contract**: contour orientation (CW/CCW) and who calls `rebuildContours` vs `triangulateContours` directly (covers at 60466 call `triangulateContours` with no bound/subtract).
+5. **Bridge into Three.js**: assembling `BufferGeometry` from the index triples + groups — trivial, but should be written down.
+
+Recommendation: take `cdt2d` + `clean-pslg` from npm, implement the wrapper ourselves following this doc's steps; fix versions/units (items 1–3) before starting.

@@ -44,7 +44,7 @@ roomtodo разделяет **«редактирование» (бесплатн
 ### Своя 3D-модель — `R2D.ModelUploader` (plannercore.js:19173-21255)
 
 - **Всё нормализуется в GLB на клиенте до загрузки.** `save()` (plannercore.js:20306+) собирает `FormData`: `source=scene.glb` (blob от Three.js `GLTFExporter`), `preview=prev.png`, опционально `svg`/`svg_outline` (2D-иконка плана), опционально `metaZip` — постит на `URL_UPLOAD_FILE`, затем вторым вызовом регистрирует сущность на `URL_UPLOAD_ENTITY` (plannercore.js:20328-20385; 24495-24496). Авторизация — заголовки `x-token` / `x-lang`, `withCredentials`.
-- Два пути приёма: **загрузка директории** с рассыпанным glTF-набором (`.gltf`-главный + `.bin` + картинки, plannercore.js:19339-19430) и **`.glb`-файл** (`input.accept='.glb'`, plannercore.js ~20492, 20796 `openUserGlb`). Есть и `.zip`-путь (`input.accept='.zip'`).
+- Два пути приёма: **загрузка директории** с рассыпанным glTF-набором (`.gltf`-главный + `.bin` + картинки, plannercore.js:19339-19430) и **`.glb`-файл** (`input.accept="glb"` — без точки, plannercore.js:20804 в `startUploadLocalGLB`; вход `openUserGlb` @20796). Отдельный инпут `accept=".zip"` (@20491) — это `uploadMetaZip` (метаданные), а НЕ загрузка модели.
 - **Валидация (React, `UploadCustomModelPopup.jsx`):** только `.glb`, **≤ 60 МБ**, **≤ 60 000 треугольников** (`getTotalTriangles`, plannercore.js:20177), **≤ 50 частей/мешей** (`getPartsHashes`, plannercore.js:20187).
 - **Пер-парт назначение материала** (панель uploadModel): каждый меш-«парт» (по хэшу) получает материал либо из встроенной GLB-текстуры («from model»), либо из каталожного банка (`setPartMatId`, `setAllPartsSourcesAsBank`), с UV-трансформами (поворот CW/CCW, флип X/Y). У модели есть мини-кубик-навигатор орбиты (`sceneCube`).
 - **Метаданные:** width/height/depth/elevation (см), теги, мульти-язычные названия, категории, `public`, `isOriginalModel` — сохраняются в сущности (plannercore.js:19196-19204, 20306+).
@@ -67,7 +67,7 @@ roomtodo разделяет **«редактирование» (бесплатн
 - `createNewModel(formData)` → `POST URL_AI_CREATE` (`credentials:'include', mode:'cors'`) → `{status:'ok', data:{taskId}}` (plannercore.js:21262-21298). `taskId` кладётся в watch-список `loadingModels[]`.
 - `checkStatus(id)` → `GET URL_AI_GET` (`{id}` подставляется в шаблон) → `{status, data:{task:{progress}, entityId, status}}` (plannercore.js:21300-21330). Готово, когда есть `entityId` (`data.entityId && status=='ok' && dataStatus=='success'`).
 - **React (`UploadCustomModelAiPopup.jsx`):** вход **JPEG/PNG ≤ 20 МБ**, **1 кредит**, обязательный чекбокс с условиями; поллинг каждые **500 мс** с **5-минутным таймаутом**; прогресс-бар `progress*3`, обрезается до 100. На успехе панель uploadModel переключается в `{type:'change', id: entityId}`, и AI-меш попадает в **тот же пер-парт редактор материалов**, что и обычная загрузка. Если `credits<1` → попап `buyCredits`.
-- Серверный эндпоинт **`/image_with_model_ai/`**: `POST` multipart (image + categoryId) → `{taskId}`; `GET .../{id}` → progress/entity.
+- Серверный эндпоинт **`/image_with_model_ai/`** (литерал **не найден в клиентских файлах** — из внешнего источника, см. «Not found»): `POST` multipart (image + categoryId) → `{taskId}`; `GET .../{id}` → progress/entity.
 
 **Продуктовое решение:** AI-выход **редактируемый, а не чёрный ящик** — генерированный меш падает в тот же UI назначения материалов по частям, что и ручная загрузка. Хороший инстинкт: пользователь дорабатывает результат, а не принимает как есть.
 
@@ -90,6 +90,7 @@ roomtodo разделяет **«редактирование» (бесплатн
 2. `POST` JSON на `R2D.URL.URL_RENDER_NEW` (user.js:1447-1457, `Content-Type: application/json`) с телом:
    `{renderType(3|4|5), renderView(interior|exterior|top), renderOrientation, renderData:{environment:null}, projectData(<base64 zip>), frameData:{screenWidth,screenHeight,frameWidth,frameHeight}, cameraData}`.
    - `cameraData` = `R2D.Viewers.getCameraData()`, `renderOrientation` = `R2D.Viewers.getRenderScreenType()`.
+   - `frameData` — фактически **размер вьюпорта** (`frameWidth/Height` = `screenWidth/Height`): вызов `getRenderFrameData()` (16:9-кроп-рамка) закомментирован (user.js:1503-1509), так что кроп-оверлей остаётся чисто визуальным.
    - `renderView` (user.js:1513): walk-viewer → `interior`; иначе `topView` → `top`; иначе `exterior`.
 3. Сервер отвечает `{status:'ok', data:{renderId}}` → резолвит `renderId`. Ошибка `error:'not_enough_credits'` → `TEXT_RENDERS_NOT_CREDITS` (user.js:1426-1428). **Кредиты списываются на сервере в момент сабмита**, не на клиенте — клиент лишь заново тянет профиль, чтобы показать новый баланс (`Main.jsx:485-496`).
 
@@ -146,7 +147,7 @@ roomtodo разделяет **«редактирование» (бесплатн
 
 **Поллинг статуса экспорта — два раздельных пути:**
 
-- **Не-IFC (серверный экспорт):** `setInterval` **500 мс** (`Export3DProjectPopup.jsx:624`), опрашивает `GET /api2/exporter/status/{taskId}` (user.js:326-387) → `{status, data:{status, file}}`. Успех = `response.status=='ok'` + наличие `file`; ошибка = `response.data.status==-20` (коды из **разных полей** ответа). (Для контраста рендер поллит **15 000 мс**.)
+- **Не-IFC (серверный экспорт):** `setInterval` **500 мс** (`Export3DProjectPopup.jsx:624`), опрашивает `GET /api2/exporter/status/{taskId}` (user.js:326-387) → `{status, data:{status, file}}`. Успех = `"ok"==e.status` + наличие `e.file`; ошибка = `-20==e.numStatus` (поле `numStatus`) — коды из **разных полей** ответа: строковый `status` и числовой `numStatus`. (Для контраста рендер поллит **15 000 мс**.)
 - **IFC — БЕЗ поллинга:** генерится **в браузере** (`R2D.controller.exportToIFC()`), готовность приходит **событием** `ifcStatus` (код `'20'`, `Export3DProjectPopup.jsx:561/574`).
 
 **Форматы (React `exportPopup`):**
@@ -187,7 +188,7 @@ content.json = R2D.controller.scene.getSceneState(true) плюс:
 Zip: JSZip, DEFLATE level 9, отдаётся как **base64 data-URL-строка** в JSON-поле `projectData`.
 
 **makeRender POST body:** `{renderType(3|4|5), renderView(interior|exterior|top), renderOrientation, renderData:{environment:null}, projectData, frameData, cameraData}`.
-**makeExport POST body:** `{format, exportType(0|1), renderData:{environment}, projectData, frameData, cameraData}`.
+**makeExport POST body:** `{format, exportType(0|1), renderData:{environment}, projectData, frameData, cameraData}`; `frameData` экспорта дополнительно несёт `ratioWidth:16, ratioHeight:9` (user.js:~301-303).
 
 **Render item (список):** `{id, renderId, type, status, preview, created, actions:{open:{link}}, error}`. `status ∈ {waiting, created, rendering, taken, start, finished` (все in-progress) `| stored` (успех) `| error` (упало) `| deleted` (служебный)`}`. Терминальны только `stored`/`error`; `finished`, несмотря на имя, in-progress.
 
@@ -228,8 +229,16 @@ Zip: JSZip, DEFLATE level 9, отдаётся как **base64 data-URL-стро�
 
 ## Confidence & gaps
 
-**High (вычитано из кода дословно):** трёхшаговый контракт всех платных выходов (zip-снапшот → task-эндпоинт → поллинг статуса); ценовая лестница `rendersPrices {2k:1,4k:2,360:4}` и AI=1 (`Main.jsx:424-428`); тело `makeRender`/`makeExport` POST и форма ответа `{status, data:{renderId|exportId}}`; статус-машина рендера: in-progress `waiting/created/rendering/taken/start/finished`, терминальные `stored`(успех)/`error`, служебный `deleted` (`finished` — не терминальный, поллинг не стопается); интервалы поллинга (15 с рендеры, 500 мс AI, 2 с кредиты); лимиты загрузок (модель ≤60 МБ/≤60k тр./≤50 частей; картинки ≤20 МБ; форматы файлов); нормализация в GLB на клиенте + двойной пост `URL_UPLOAD_FILE`+`URL_UPLOAD_ENTITY`; путь `URL_UPLOAD_PRIVATE` для материала/ковра/постера с `type_id`; AI create/checkStatus с готовностью по `entityId`; PDF на клиенте (`R2D.pdfCreator.createView2D`) vs 3D на сервере; поллинг серверного экспорта 500 мс (`Export3DProjectPopup.jsx:624`, успех `status=='ok'`+file, ошибка `data.status==-20`) vs IFC без поллинга (событие `ifcStatus` код `'20'`); гейт экспорта по тарифу (3D→pro / 2D→basic-мягкий), а не кредитами (`not_enough_credits` в makeExport — клон-остаток от рендера); списание кредитов на сервере при сабмите рендера (`not_enough_credits`); туры как серверные сущности по хэшу `h` через postMessage-iframe; `RenderFrame` хардкод 16:9; закомментированный frustum-culling (user.js:1465-1470); параметры логотипа и `logoSrcList`/`logoFileNamesList` в сцене.
+**High (вычитано из кода дословно):** трёхшаговый контракт всех платных выходов (zip-снапшот → task-эндпоинт → поллинг статуса); ценовая лестница `rendersPrices {2k:1,4k:2,360:4}` и AI=1 (`Main.jsx:424-428`); тело `makeRender`/`makeExport` POST и форма ответа `{status, data:{renderId|exportId}}`; статус-машина рендера: in-progress `waiting/created/rendering/taken/start/finished`, терминальные `stored`(успех)/`error`, служебный `deleted` (`finished` — не терминальный, поллинг не стопается); интервалы поллинга (15 с рендеры, 500 мс AI, 2 с кредиты); лимиты загрузок (модель ≤60 МБ/≤60k тр./≤50 частей; картинки ≤20 МБ; форматы файлов); нормализация в GLB на клиенте + двойной пост `URL_UPLOAD_FILE`+`URL_UPLOAD_ENTITY`; путь `URL_UPLOAD_PRIVATE` для материала/ковра/постера с `type_id`; AI create/checkStatus с готовностью по `entityId`; PDF на клиенте (`R2D.pdfCreator.createView2D`) vs 3D на сервере; поллинг серверного экспорта 500 мс (`Export3DProjectPopup.jsx:624`, успех `"ok"==e.status`+`e.file`, ошибка `-20==e.numStatus`) vs IFC без поллинга (событие `ifcStatus` код `'20'`); гейт экспорта по тарифу (3D→pro / 2D→basic-мягкий), а не кредитами (`not_enough_credits` в makeExport — клон-остаток от рендера); списание кредитов на сервере при сабмите рендера (`not_enough_credits`); туры как серверные сущности по хэшу `h` через postMessage-iframe; `RenderFrame` хардкод 16:9; закомментированный frustum-culling (user.js:1465-1470); параметры логотипа и `logoSrcList`/`logoFileNamesList` в сцене.
 
 **Inferred (додумано из обращений к полям, не из схемы):** точная серверная JSON-форма item рендера и `ProductData`; контракт `/renders_2k_4k/` (реконструирован из имён констант + тел запросов, но не из спеки); что именно несёт `metaZip` при загрузке модели (SVG-параметры генерации плана? доп. LOD?); auth-детали (`x-token`-заголовок + `credentials:'include'` подтверждены для fetch-путей, но не для каждого XHR-вызова).
 
 **Not found (нет в извлечённых ассетах):** литеральные строки `R2D.URL.URL_*` (эндпоинты server-injected в страницу — `R2D.URL = ${JSON.stringify(R2D.URL)}`, plannercore.js:24583; известны только _пути_ `/renders_2k_4k/`, `/panoramas_360/`, `/image_with_model_ai/`, `/switch_image/` из брифа/страницы); серверный рендер-движок (V-Ray/Cycles/Corona — opaque) и время/глубина очереди рендера; AI-бэкенд image→3D (какой сервис) — не идентифицируется из клиента; платёжный шлюз и точная цена кредит→валюта / по-региональная цена (приходят из `/api/credits/packets` в рантайме); серверная валидация загрузок.
+
+**Чего не хватает для реализации:**
+
+1. **Схема `content.json`** (= `getSceneState(true)`) — весь серверный контракт держится на ней; напрямую релевантна кор-части (наш формат сериализации). Схема разобрана в `10-serialization-save-format.md` — сверяться туда.
+2. **`R2D.ifcCreator` не разобран** — единственный «выход», воспроизводимый без сервера; возможно, самый дешёвый экспорт на MVP; стоит deep-dive.
+3. **`constr`-ветка `PDFCreator`** (векторная перерисовка плана) — для наших чертежей это ядро; код доступен (`71898–72530`), дочитать.
+4. **Серверная сторона — чёрный ящик**: контракт «zip-снапшот → task → поллинг» переносим, сам пайплайн проектируем с нуля.
+5. **Релевантно кор-части**: сериализация сцены, скриншот вьюпорта + кроп-рамка, клиентский PDF, клиентский IFC. Кредиты/туры/платёжные iframe — периферия монетизации.

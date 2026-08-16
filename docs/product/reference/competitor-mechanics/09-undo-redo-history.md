@@ -7,7 +7,7 @@
 There are **two fully independent history stacks**:
 
 1. **`WC.WallsCommander`** (defined `WC.WallsCommander`, line 58140; singleton `WC.wallsCommander`, line 60584) — history of the **2D construction / floorplan graph**: points, walls, rooms, covers, areas. Pure snapshot/memento with an index-relinking trick. Active only while the 2D constructor editor is open.
-2. **`R2D.SceneHistory`** (constructor line 12295; one instance per `R2D.Scene`, created line ~13100 in `R2D.Scene`, exposed as `scene.history`) — history of the **3D scene**: placed products, their transforms/materials, per-construction-surface material state, object groups, and skybox. Snapshot/memento with **stack cap 100** and **label coalescing**.
+2. **`R2D.SceneHistory`** (constructor line 12295; one instance per `R2D.Scene`, created line ~13087 in `R2D.Scene`, exposed as `scene.history`) — history of the **3D scene**: placed products, their transforms/materials, per-construction-surface material state, object groups, and skybox. Snapshot/memento with **stack cap 100** and **label coalescing**.
 
 They are surfaced to the host app as two separate API namespaces — `planner.constr.undo/redo/canUndo/canRedo` (lines 753–756) wire to `WC.wallsEditor`, and `planner.scene.undo/redo/canUndo/canRedo` (lines 786–789) wire to `scene.history`. The host UI decides which stack a global Ctrl+Z hits based on which editor/viewer is active; the two are never merged into one timeline.
 
@@ -19,21 +19,21 @@ They are surfaced to the host app as two separate API namespaces — `planner.co
 
 The floorplan graph (`WC.core.roomPoints / walls / arrRooms / arrCovers / arrAreas`) and the scene graph (placed 3D products, groups, skybox, plus the _finish materials applied to construction surfaces_) are different data models edited by different tools. Rather than one unified command log, each editor owns its own stack:
 
-- The **2D constructor** (`WC.WallsEditor` / `WC.wallsEditor`) mutates the geometry graph. Every committed geometry edit calls `me.save()` (line 61342) → `WC.wallsCommander.save()` + `dispatchHistoryState()`.
+- The **2D constructor** (`WC.WallsEditor` / `WC.wallsEditor`) mutates the geometry graph. Every committed geometry edit calls `me.save()` (line 61343) → `WC.wallsCommander.save()` + `dispatchHistoryState()`.
 - The **3D scene** mutates products/transforms/materials. Every committed edit calls `scene.history.saveState()` (dozens of call sites, e.g. 18550, 42303, 43917, 44206).
 
 ### 1.2 The bridge between them
 
 `R2D.SceneHistory` snapshots do **not** re-clone construction geometry — the geometry graph lives in `WallsCommander`. Instead each scene snapshot stores, per construction surface (wall/cover/ceiling/cut/area/frame/plinth/cap), only **material state** (material id, add-material id, rotation, shift; plus wall `configData`, plinth shape/dims). See `R2D.SceneHistory.makeConstructionObjectsStates`, line 12890. So the two stacks partition responsibility: WallsCommander = _shape of walls_, SceneHistory = _finishes on those walls + everything 3D_.
 
-They are kept consistent by an explicit hand-off. When the 2D constructor closes (`me.disable`, line 62331):
+They are kept consistent by an explicit hand-off. When the 2D constructor closes (`me.disable`, line 62330):
 
 1. `wallsData.setStructure(me.getStructure())` pushes the final geometry back into the shared `WC.WallsData`.
 2. `scene.history.getUndo().length < 1 && scene.history.getRedo().length < 1 && scene.history.updateConstructionData()` (line 62350) — **only when the scene history is otherwise empty**, it refreshes the current scene snapshot's `constructionStateObjects` (`scope.updateConstructionData`, line 12369) so the baseline scene state reflects the just-edited construction. When scene history is non-empty they deliberately do _not_ rewrite past snapshots (that would corrupt older undo entries whose material state was captured against a different wall set).
 
 ### 1.3 Order of operations on a geometry commit
 
-`WC.WallsEditor.save` (line 61342): `WC.wallsCommander.save()` first, then `me.dispatchHistoryState()` (fires `WC.HISTORY_STATE` with `{undo, redo}` for toolbar buttons, line 61379).
+`WC.WallsEditor.save` (line 61343): `WC.wallsCommander.save()` first, then `me.dispatchHistoryState()` (fires `WC.HISTORY_STATE` with `{undo, redo}` for toolbar buttons, line 61379).
 
 ---
 
@@ -47,14 +47,14 @@ They are kept consistent by an explicit hand-off. When the 2D constructor closes
 - **`getData()`** (line 58198) builds a deep, self-contained clone of the entire graph. The clever part is **relinking by temporary index**:
   - Each source `roomPoint` / `coverPoint` is assigned `.num = i` (its array index) and cloned via `CPoint.clone()` (line 56857 — clones only `x, y, type`, drops live references like `contour`, `children`, `areas`).
   - Rooms/covers/areas are rebuilt as fresh `WC.CRoom` / `WC.CCover` / `WC.CArea`; their `points[]` are re-pointed to the _cloned_ points by looking up `dataObj.roomPoints[srcPoint.num]`, and back-references are re-established (`P.contour = clonedRoom`, `P.areas.push(clonedArea)`). `triangles` and `data` are copied by reference.
-  - Walls are rebuilt as fresh `WC.CWall(clonedP1, clonedP2, data)` using `point1.num` / `point2.num` as the index into the cloned point array (line 58317).
+  - Walls are rebuilt as fresh `WC.CWall(clonedP1, clonedP2, data)` using `point1.num` / `point2.num` as the index into the cloned point array (line 58266; the matching wall re-clone in `setData` is at 58338).
   - So a snapshot is a coherent object graph with no shared mutable references to the live graph, reconstructed purely from integer indices.
-- **`setData(dataObj)`** (line 58270) is the mirror image: it rebuilds `WC.core.*` from the snapshot the same way — re-cloning points, re-pointing contours/walls/areas by `.num`. It is a **full replacement** of the live construction graph (`WC.core.roomPoints = new Array(...)`, etc.), not a diff.
+- **`setData(dataObj)`** (line 58272) is the mirror image: it rebuilds `WC.core.*` from the snapshot the same way — re-cloning points, re-pointing contours/walls/areas by `.num`. It is a **full replacement** of the live construction graph (`WC.core.roomPoints = new Array(...)`, etc.), not a diff.
 - **`undo()`** (58158): guard `if (pointer < 1) return;` then `pointer--; setData(stack[pointer])`. **`redo()`** (58165): guard `if (pointer >= stack.length - 1) return;` then `pointer++; setData(stack[pointer])`.
 - **`canUndo()` = `pointer >= 1`**, **`canRedo()` = `pointer < stack.length - 1`** (lines 58172, 58177).
-- **`clear()`** resets `stack = []; pointer = -1` (line 58348).
+- **`clear()`** resets `stack = []; pointer = -1` (line 58349).
 
-Note: because `save()` pushes state 0 at editor init (`me.save()` at end of constructor, line 61407) and `canUndo` requires `pointer >= 1`, the initial state is a non-undoable baseline.
+Note: because `save()` pushes state 0 at editor init (`me.save()` at end of constructor, line 61405) and `canUndo` requires `pointer >= 1`, the initial state is a non-undoable baseline.
 
 ### 2.2 SceneHistory — two-stack model with a live `currentState`
 
@@ -79,8 +79,8 @@ Note: because `save()` pushes state 0 at editor init (`me.save()` at end of cons
 1. `statesRedo = []` — any redo branch is discarded on a new edit.
 2. If a `currentState` exists, push it onto `statesUndo` **unless coalescing applies** (see §3).
 3. `currentState = makeState(scene); currentState.label = label`.
-4. `updatePrevState()` (line 12441) — propagates `willBeChanged` flags backward onto the previous undo entry's wall states (see §4.2).
-5. `scene.getConstructor().setAllElementsUnchanged()` (clears wall `.changed`, line 55059).
+4. `updatePrevState()` (line 12443) — propagates `willBeChanged` flags backward onto the previous undo entry's wall states (see §4.2).
+5. `scene.getConstructor().setAllElementsUnchanged()` (clears wall `.changed`, line 55060).
 6. `checkStates()` (fires UNDO/REDO active/inactive events, §5).
 7. `R2D.controller.savedLastChanges = false` — marks the project dirty (autosave hook, §7).
 
@@ -88,11 +88,11 @@ Note: because `save()` pushes state 0 at editor init (`me.save()` at end of cons
 
 `currentState` is the present. `undo()` (12380): if `statesUndo` empty, warn and return; else `newState = statesUndo.pop()`, push `currentState` onto `statesRedo`, apply `setState(scene, currentState, newState, false)`, then `currentState = newState`. `redo()` (12406) is symmetric with `statesRedo`/`statesUndo` swapped and `forward = true`. Both fire `STATE_UPDATE` before and `STATE_UPDATED` after, run `checkStates()`, mark dirty, and call `scene.checkIfHiddenElementsWasReturnedOrDeleted()` + `scene.checkForLightObjectsToEnableOrDisable()` to reconcile visibility/light side effects.
 
-There is also `removeUndoState()` (12428): pops one undo state and applies it _without_ pushing to redo — used to silently roll back a transient/aborted action.
+There is also `removeUndoState()` (12430): pops one undo state and applies it _without_ pushing to redo — used to silently roll back a transient/aborted action.
 
 ### 2.4 Stack cap (~100)
 
-`maxActions = 100` is declared (line 12300). **In this build the cap is not actively enforced in `saveState`** — `statesUndo.push` has no trim. So the intended cap is 100 but the guard appears vestigial/commented-out; treat 100 as the design target and add an explicit `if (statesUndo.length > maxActions) statesUndo.shift()` in our implementation. WallsCommander has no cap at all.
+`maxActions = 100` is declared (line 12299). **In this build the cap is not actively enforced in `saveState`** — `statesUndo.push` has no trim. So the intended cap is 100 but the guard appears vestigial/commented-out; treat 100 as the design target and add an explicit `if (statesUndo.length > maxActions) statesUndo.shift()` in our implementation. WallsCommander has no cap at all.
 
 ---
 
@@ -114,7 +114,7 @@ Meaning: when the **new** save and the **current** state both carry label `'prod
 
 ### How the drag itself avoids spamming states
 
-The size/rotation setters gate on an `isMouseDown` argument and **skip `saveState()` entirely during the drag**: e.g. `setCurrentModelWidth(vWidth, keepRatio, isMouseDown)` ends with `!isMouseDown ? scope._scene.history.saveState() : null` (lines 42838, 42856, 42875, 42885; rotation at 42799). So during a live drag no state is saved at all; on release one state is saved. The `'productSizes'` label is the second layer of protection for the case where multiple discrete field edits land back-to-back. **Caveat / gap:** in this build no call site is passing the literal `'productSizes'` label to `saveState` (searched — only the guard references it), so the coalescing is scaffolding that the `isMouseDown` gate largely supersedes. Our implementation should wire the label explicitly at the size-field commit.
+The size/rotation setters gate on an `isMouseDown` argument and **skip `saveState()` entirely during the drag**: e.g. `setCurrentModelWidth(vWidth, keepRatio, isMouseDown)` ends with `!isMouseDown ? scope._scene.history.saveState() : null` (lines 42837, 42856, 42875, 42885; rotation at 42800). So during a live drag no state is saved at all; on release one state is saved. The `'productSizes'` label is the second layer of protection for the case where multiple discrete field edits land back-to-back. **Caveat / gap:** in this build no call site is passing the literal `'productSizes'` label to `saveState` (searched — only the guard references it), so the coalescing is scaffolding that the `isMouseDown` gate largely supersedes. Our implementation should wire the label explicitly at the size-field commit.
 
 ---
 
@@ -145,10 +145,10 @@ Guard: `if (!stateNew) return;`
 `setConstructionState` (line 12631) walks each surface list from `stateNew.constructionStateObjects` and calls `setMaterial / setAddMaterial / setMaterialRotation / setMaterialShift`, then `build3D()` + `dispatchUpdate()` on the live `constructionObject`.
 
 - **Walls** are optimized: on `forward` (redo) it `continue`s unless `stateObject.wasChanged`; on backward (undo) it `continue`s unless `stateObject.willBeChanged`. So only walls that actually changed between the two states are rebuilt — a perf optimization to avoid rebuilding every wall's 3D geometry. Walls also restore `configData` (rebuilt from `configData.getData()`).
-- **Plinths** additionally restore `exists`, `visible`, `shapeNum`, `d`, `h` and run `scene.constructor.checkPlinthVisible`.
-- Covers/ceilings/cuts/areas/frames/caps restore materials unconditionally (no change-flag gate — the frame gate is commented out).
+- **Plinths** additionally restore `exists`, `visible`, `shapeNum`, `d`, `h` and run `scene.constructor.checkPlinthVisible`. **Competitor bug — do not copy:** the restore writes `visible` (line 12749) but `makeConstructionObjectsStates` never captures `visible` for plinths (13000–13010), so every undo/redo assigns `undefined` to plinth visibility.
+- Covers/ceilings/cuts/areas/frames/caps restore materials unconditionally (no change-flag gate). Frames actually do store `wasChanged`/`willBeChanged` in their snapshots (12990–12991), but their gate is commented out both in `setConstructionState` (12722–12731) and in `updatePrevState` (12452–12459) — the flags are written, never used.
 
-`updatePrevState()` (line 12441) is what feeds the wall optimization: after a save it copies the _current_ snapshot's per-wall `wasChanged` into the _previous_ undo entry's `willBeChanged`, so an undo knows which walls to rebuild when stepping back to that entry.
+`updatePrevState()` (line 12443) is what feeds the wall optimization: after a save it copies the _current_ snapshot's per-wall `wasChanged` into the _previous_ undo entry's `willBeChanged`, so an undo knows which walls to rebuild when stepping back to that entry.
 
 ### 4.3 Groups: full rebuild
 
@@ -156,7 +156,7 @@ Guard: `if (!stateNew) return;`
 
 ### 4.4 WallsCommander restore
 
-By contrast the 2D constructor restore (`setData`, 58270) is a **full graph replacement** — it rebuilds `WC.core.roomPoints/coverPoints/arrRooms/arrCovers/arrAreas/walls` entirely from the snapshot. No diffing; the 2D canvas is redrawn (`me.draw()` after `me.state.undo()`, line 61353).
+By contrast the 2D constructor restore (`setData`, 58272) is a **full graph replacement** — it rebuilds `WC.core.roomPoints/coverPoints/arrRooms/arrCovers/arrAreas/walls` entirely from the snapshot. No diffing; the 2D canvas is redrawn (`me.draw()` after `me.state.undo()`, line 61353).
 
 ---
 
@@ -197,7 +197,7 @@ The 2D side dispatches `WC.HISTORY_STATE` (`'historyState'`, line 60513) via `di
 
 ## 7. Autosave interaction
 
-`saveState`, `undo`, and `redo` all set `R2D.controller.savedLastChanges = false` (lines 12363, 12401, 12425) — i.e. any history mutation marks the project as having unsaved changes. `wasChanged()` returns `!(sceneIsEmpty() || savedLastChanges)` (line 16397). A successful server/storage save sets `savedLastChanges = true` (lines 15693, 15793, 16147) and triggers `sceneAutoSaveStorage()` (line 15701). So history and autosave are coupled only through this dirty flag: **history does not trigger autosave directly, but every undo/redo re-dirties the project**, so an autosave cycle will re-persist the post-undo state. On project load, `scene.history.clear()` then `saveState()` (lines 15574–15576) establishes a fresh baseline; on error during load, `clearSceneAutoSaveStorage()` is called.
+`saveState`, `undo`, and `redo` all set `R2D.controller.savedLastChanges = false` (lines 12363, 12401, 12425) — i.e. any history mutation marks the project as having unsaved changes. `wasChanged()` returns `!(sceneIsEmpty() || savedLastChanges)` (line 16397). A successful server/storage save sets `savedLastChanges = true` (lines 15693, 15793, 16147) and triggers `sceneAutoSaveStorage()` (line 15701). So history and autosave are coupled only through this dirty flag: **history does not trigger autosave directly, but every undo/redo re-dirties the project**, so an autosave cycle will re-persist the post-undo state. On project load, `scene.history.clear()` then `saveState()` (lines 15574–15576) establishes a fresh baseline (note `clear()` also calls `scene.getConstructor().setAllElementsChanged()`, line 12343, marking every wall changed for the next snapshot); on error during load, `clearSceneAutoSaveStorage()` is called.
 
 The autosave **cadence** itself (localStorage `r2d_project_<hash>` diff-write every 5 s; server save every 60 s gated on `projectId` + `wasChanged()` + owner) lives in two `setInterval` loops in the controller — documented in `10-serialization-save-format.md` §Autosave cadence, not here.
 
@@ -211,7 +211,7 @@ Two entry points: `planner.scene.undo/redo` (3D scene) and `planner.constr.undo/
 
 ### Snapping & constraints
 
-**n/a to history itself.** Snapping/alignment is a live-editing concern in the 2D editor (`WC.snapTool`, `findSnap`, line 61134) and is not part of any snapshot; snapshots store already-resolved point coordinates. Restore does not re-run snapping.
+**n/a to history itself.** Snapping/alignment is a live-editing concern in the 2D editor (`WC.snapTool`, defined line 59131+; `findSnap` call sites 63134, 63900, 63973) and is not part of any snapshot; snapshots store already-resolved point coordinates. Restore does not re-run snapping.
 
 ### Data model (snapshot shape)
 
@@ -238,6 +238,16 @@ Two entry points: `planner.scene.undo/redo` (3D scene) and `planner.constr.undo/
 
 ### Confidence & gaps
 
-- **High confidence**: two-stack architecture and independence; SceneHistory three-slot (undo/redo/current) model; coalescing rule (exact one-line guard, 12351); product diff-restore; wall change-flag optimization; UNDO/REDO active/inactive edge-triggered events; `HISTORY_UNDO_REDO` as the app-facing signal; dirty-flag coupling to autosave; WallsCommander index-relinking clone. All cited to concrete line numbers.
+- **High confidence**: two-stack architecture and independence; SceneHistory three-slot (undo/redo/current) model; coalescing rule (exact one-line guard, 12351); product diff-restore; wall change-flag optimization; UNDO/REDO active/inactive edge-triggered events; `HISTORY_UNDO_REDO` as the app-facing signal; dirty-flag coupling to autosave; WallsCommander index-relinking clone. All cited to concrete line numbers (validation pass corrected two anchors: wall clone in `getData` = 58266, `findSnap` = 63134+; and confirmed the plinth-`visible` restore bug flagged in §4.2 as competitor-only, not to copy).
 - **Medium confidence**: exact intended trigger for the `'productSizes'` label — the guard exists but no live call site passes that label in this build, so real coalescing today rides mostly on the `isMouseDown` gate; treat the label path as designed-but-dormant scaffolding to wire deliberately in our build.
 - **Gaps**: (1) `maxActions = 100` is not enforced in the visible `saveState`; whether a trim was removed or lives elsewhere is unconfirmed — assume we must implement the cap. (2) The concrete toolbar button-enable handlers (`historyStageEvent`, `historyStateListener`) are stubbed in this file, so the _presentation_ layer of button availability lives in host code not present in `plannercore.js`; we inferred it is pull-style via `canUndo/canRedo` refreshed on `HISTORY_UNDO_REDO`. (3) The precise host policy for routing a single Ctrl+Z between the 2D vs 3D stack is host-side and not in this file.
+
+**Чего не хватает для реализации** (сверх гэпов выше — лимит стека и роутинг Ctrl+Z уже названы, их проектируем сами):
+
+1. **Владение объектами в снапшотах**: у конкурента живые ссылки (утечки geometry/material до `clear()`). Выбрать: живые ссылки + дисциплинированный dispose, либо ID + фабрика восстановления (чище, но требует полной сериализации). Из реверса не выводится.
+2. **История не переживает reload** — персистентную историю проектировать с нуля.
+3. **Нет транзакций**: только `isMouseDown`-гейт и спящий label. Нужен `beginTransaction`/`endTransaction` или `saveState` из commit-точек команд (у них ~60 ручных call sites).
+4. **Вместо ручных change-флагов** — diff материал-стейта по значению (надёжнее, закрывает их недоделку с frames).
+5. **Пост-restore инварианты** (`checkIfHiddenElements…`, `checkForLightObjects…`) не раскрыты — определить свои (видимость/свет/выделение). Паттерн «deselect на `STATE_UPDATE` до мутации» (41809–41814) — брать.
+6. **Не копировать баги**: plinth-`visible` (undefined на каждом undo/redo); неиспользуемый `stateId`.
+7. **Стоимость снапшота**: `makeState` — полный O(n) на каждый commit; для больших сцен — structural sharing или command-паттерн (реверс даёт только memento).

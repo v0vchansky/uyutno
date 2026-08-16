@@ -63,7 +63,7 @@ Z = pivotPoint.z + a.x * Math.cos(angle);
 
 So the local `x` (0..wallLength) is rotated into world XZ along the wall direction; local
 `y` becomes world `Y` unchanged. **`y=0` base / `y=height` top** come straight from the
-triangulated rectangle's `y`. Covers/ceilings (`findTriCover`, 52655) instead lay flat:
+triangulated rectangle's `y`. Covers/ceilings (`findTriCover`, 52564) instead lay flat:
 `X=a.x, Y=elevation, Z=-a.y` — the `z=-y` plan mapping again, `Y` is a constant elevation
 (0 for floor, `me.height` for ceiling).
 
@@ -194,7 +194,8 @@ both sides (54654–54671), giving the reveal thickness.
 **Corner connectors:** wall endpoints share world coords (`v1=(point1.x,0,-point1.y)`), so
 adjacent walls meet exactly; there is no dedicated corner-fill geometry in the mesh path —
 corners are handled upstream in the 2D contour solve (`me.axes` / `finalContours`), and the
-plug/box helper (`DataPlug`, 54507) stitches parallel walls with two `findTriWall` quads.
+plug/box helper (`DataPlug`, class at 52053; the plug builder's `findTriWall` call-site is
+54507–54508) stitches parallel walls with two `findTriWall` quads.
 
 ---
 

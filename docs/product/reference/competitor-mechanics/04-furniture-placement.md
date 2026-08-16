@@ -38,7 +38,7 @@
 
 ### Границы значений (клэмпинг)
 
-`checkValues()` (11288) при каждом `update()` зажимает координаты (`OBJECT_X_MIN..MAX` и т.д., 11466–11471), высоту `y ∈ [0, 1000]`, и корректирует масштаб так, чтобы линейный размер попадал в **`OBJECT_SIZE_MIN=1` … `OBJECT_SIZE_MAX=1000` см** (`__getCorrectScale`, 11478). Т.е. любой товар нельзя сделать меньше 1 см или больше 10 м по стороне.
+`checkValues()` (11288) при каждом `update()` проверяет координаты и высоту. Клэмп по X/Z фактически **no-op**: `OBJECT_X_MIN/MAX` и `OBJECT_Z_MIN/MAX` = `±Infinity` (11466–11471). Высота (11294–11300): `y < −3` → сброс в исходный `position.y`; `−3 ≤ y < 0` → `y = 0`; `y > 1000` → **сброс в исходную позицию** (не клэмп в 1000; сами константы 0/1000 верны). Масштаб корректируется так, чтобы линейный размер попадал в **`OBJECT_SIZE_MIN=1` … `OBJECT_SIZE_MAX=1000` см** (`__getCorrectScale`, 11478). Т.е. любой товар нельзя сделать меньше 1 см или больше 10 м по стороне.
 
 ### Footprint для снаппинга/бокса
 
@@ -55,7 +55,7 @@
 | Состояние                                                       | Назначение                                              | start / stop                                                     | Выходы                                                                                                                   |
 | --------------------------------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | **stateMain** (43532)                                           | Простой/хит-тест под выбор                              | —                                                                | клик по товару → `stateSelectedProduct`; по группе → `stateSelectedGroup`; по конструкции → `stateSelectedConstr`        |
-| **stateSelectedProduct** (44583)                                | Товар выбран; хостит 3D-гизмо вращения, инициирует драг | `isClicked=false`                                                | драг тела → `stateDraggingProduct`; Ctrl-клик другого товара → группа → `stateSelectedGroup`; клик пустоты → `stateMain` |
+| **stateSelectedProduct** (44583)                                | Товар выбран; хостит 3D-гизмо вращения, инициирует драг | start: сброс `downPos`/`downObjectData` (~44660); `isClicked=false` ставится в mouseUp (44981) | драг тела → `stateDraggingProduct`; Ctrl-клик другого товара → группа → `stateSelectedGroup`; клик пустоты → `stateMain` |
 | **stateDraggingProduct** (43774)                                | Перемещение уже стоящего товара                         | start: `updateSnap2d`, гасит титулы/линейки, `.active` на canvas | mouseUp → `stateSelectedProduct`                                                                                         |
 | **stateDraggingProdFromCatalog** (44260)                        | Размещение только что брошенного из каталога            | start: `view3DObject=null`, `updateSnap2d`, гасит титулы/линейки | mouseUp → `stateMain`                                                                                                    |
 | **stateDraggingMaterial** (44160)                               | Перетаскивание свотча материала на поверхность          | гасит титулы/линейки                                             | drop → возврат в `prevState`                                                                                             |
@@ -118,7 +118,7 @@
 
 ### Снап товар-к-товару (`snapPolygonToBox`, 9937)
 
-Вершина footprint → ближайший угол чужого бокса, порог те же 15 см (9982). **Гейты соразмерности**: пропускаем бокс если `height/box.height > 5` **или** `area/box.area > 25` (9966) — крупное не липнет к сильно мелкому.
+Вершина footprint → ближайший угол чужого бокса, порог те же 15 см (9982). **Гейты соразмерности**: пропускаем бокс если `height/box.height > 5` (9966) **или** `area/box.area > 25` (9967) — крупное не липнет к сильно мелкому.
 
 ### Клиренс и «свободное место» (`findFreeSpace`, 10094)
 
@@ -131,7 +131,7 @@
 | `dropElement` радиус         | **10 см**             | 43890, 14038 | привязка к оси стены при сбросе          |
 | Параллельность               | **0.2 рад**           | 9846         | отсев параллельных стен в перпенд.-снапе |
 | Height-гейт бокса            | **5×**                | 9966         | не липнуть к сильно ниже                 |
-| Area-гейт бокса              | **25×**               | 9966         | не липнуть к сильно меньше по площади    |
+| Area-гейт бокса              | **25×**               | 9967         | не липнуть к сильно меньше по площади    |
 | `findFreeSpace` margin       | **1.5**               | 10096        | допуск пересечения при замере            |
 | click-vs-drag                | **5 px**              | 43537        | выбор vs драг                            |
 | start-drag                   | **≥1 px**             | 44959        | старт перемещения выбранного             |
@@ -163,11 +163,11 @@
 
 ### Ресайз / масштаб
 
-Внутри самого MIH scale-гизмо нет, но **на канвасе (в 2D-плане) ресайз-хендлы ЕСТЬ** — отдельный оверлей `R2D.ProductTransform2D` (**77330**, вне MIH, управляется `ProductTransform2DHelper` 41430+; полная механика — в `05-selection-transform-grouping.md` §2): **4 рёберных грипа** R/B/L/T (`size=7` px), односоставный ресайз от противоположного грипа, минимум **`minRealSize=2` см**, пишет `width/depth` в `sceneObject` (progress 41485, finish 41502). Показывается в 2D при **выключенном** fixed-size (`getIsFixedSizeEnabled()===false`, 41529/41541); для настенного MODEL — только L+R (ширина). Ресайз также доступен **числами** через поля quick-/right-panel, дёргающие `sceneObject.setWidth/Height/Depth` (11384) и `history.saveState('productSizes')`. **Коалесинг undo** (**12351**): `if (label !== 'productSizes' || currentState.label !== 'productSizes') statesUndo.push(currentState)` — подряд идущие ресайз-коммиты с одной меткой `'productSizes'` **сливаются в одну запись undo** (быстрые правки размера не засоряют историю). `keepRatio` фиксирует `scaleDir="All"` (пропорц.), иначе только по одной оси; параметрика ставит `updateParametric=true`.
+Внутри самого MIH scale-гизмо нет, но **на канвасе (в 2D-плане) ресайз-хендлы ЕСТЬ** — отдельный оверлей `R2D.ProductTransform2D` (**77330**, вне MIH, управляется `ProductTransform2DHelper` 41430+; полная механика — в `05-selection-transform-grouping.md` §2): **4 рёберных грипа** R/B/L/T (`size=10` px; в файле два определения `R2D.ProductTransform2DButton` — первое, div с `size=7` (77158/77163), перекрыто вторым, SVG-polygon с `size=10` (77215/77223), в рантайме действует последнее), односоставный ресайз от противоположного грипа, минимум **`minRealSize=2` см**, пишет `width/depth` в `sceneObject` (progress 41485, finish 41502). Показывается в 2D при **выключенном** fixed-size (`getIsFixedSizeEnabled()===false`, 41529/41541); для настенного MODEL — только L+R (ширина). Ресайз также доступен **числами** через поля quick-/right-panel, дёргающие `sceneObject.setWidth/Height/Depth` (11384) и `history.saveState('productSizes')`. **Коалесинг undo** (**12351**): `if (label !== 'productSizes' || currentState.label !== 'productSizes') statesUndo.push(currentState)` — подряд идущие ресайз-коммиты с одной меткой `'productSizes'` **сливаются в одну запись undo** (быстрые правки размера не засоряют историю). `keepRatio` фиксирует `scaleDir="All"` (пропорц.), иначе только по одной оси; параметрика ставит `updateParametric=true`.
 
 ### Элевация / изменение высоты
 
-`setCurrentModelElevation(vElevation, isMouseDown)` (**42878**): `sceneObject.y = vElevation`, обновляет линейки, `saveState()` только на mouseUp (не на каждый тик). `changeCurrentModelElevation(val)` (42993) — инкремент `y += val`. Высота зажата `[0, 1000]` (11296).
+`setCurrentModelElevation(vElevation, isMouseDown)` (**42878**): `sceneObject.y = vElevation`, обновляет линейки, `saveState()` только на mouseUp (не на каждый тик). `changeCurrentModelElevation(val)` (42993) — инкремент `y += val`. Высота проверяется в `checkValues` (11294–11300): `<0` → 0, `>1000` → откат в исходную позицию.
 
 ---
 
@@ -186,10 +186,10 @@
 
 ## 6. Настенные vs напольные элементы (`forWall`)
 
-`forWall` (геттер в подклассах, 11597 / 11857 / 12089) = `productData.property.appointment == APPOINTMENT_WALL` ("wall" vs "scene", 11473). Настенные MODEL проецируются на ближайшую **ось стены**:
+`forWall` (геттер в подклассах, 11597 / 11857 / 12089) = `productData.property.appointment == APPOINTMENT_WALL` ("wall" vs "scene", 11474). Настенные MODEL проецируются на ближайшую **ось стены**:
 
 - `scene.add` (14033): если `forWall`, сразу `getObjectDataForWallElement` → `dropElement(dataForWall, radiusDropElement=10, sceneObject)` (14038) → `setDropDataToWallElement`.
-- `me.dropElement(dataObj, snapDist=10, sceneObject)` (**55172**): центр `(x, z)` ищет ближайшую ось `getAxis(center, snapDist)` (55338) — минимум `|distanceBetweenPointAndLine|` по всем `axes`, **отказ если `minDist > snapDist`** (55357, возвращает `null` = отвергнуто). При успехе — проекция центра на ось (`projectionPointOnLine`, 55181), `modelData.rotation = axis.angle` (55186), `depth = axis.depth`, регистрация в `axis.models`, пересборка врезок/стен/плинтусов. Возвращает `{x, y, rotation, depth}`.
+- `me.dropElement(dataObj, snapDist=10, sceneObject)` (сигнатура **55172**, дефолт `snapDist=10` на **55174**): центр `(x, z)` ищет ближайшую ось `getAxis(center, snapDist)` (55338) — минимум `|distanceBetweenPointAndLine|` по всем `axes`, **отказ если `minDist > snapDist`** (55357, возвращает `null` = отвергнуто). При успехе — проекция центра на ось (`projectionPointOnLine`, 55181), `modelData.rotation = axis.angle` (55186), `depth = axis.depth`, регистрация в `axis.models`, пересборка врезок/стен/плинтусов. Возвращает `{x, y, rotation, depth}`.
   - **Поворот двери/окна — две разные формулы для драга и врезки, не путать.** Во время ДРАГА (`moveElement`) в снап-объект кладётся `rotation = Math.PI + ang`, где `ang = -atan2(dy, dx)` по точкам оси (55164, 55168) — явный `+π`. При финальной ВРЕЗКЕ (`dropElement`) пишется `modelData.rotation = axis.angle` (55186), без явного `+π`. Разворот при этом всё равно получается: для **внешней** стены `axis.angle` считается по свопнутому порядку точек (55395–55404), и своп сам даёт π. То есть в драге поворот берётся из явного `+π`, а в дропе тот же π приходит через своп точек оси — **не сводить обе ветки к «rotation = axis.angle»**.
 - `setDropDataToWallElement` (14791): пишет `x, z`, `rotationY` (если `updateRotation`), `setDepth(dropData.depth + 1)` — толщина элемента подгоняется под толщину стены + 1 см.
 - Снятие: `remove`/drag-start вызывает `pickElement(id)` (55241) — убирает модель с оси и пересобирает стену.
@@ -209,11 +209,11 @@
 
 ### 7.1 Параметрический ресайз каталожных моделей (`ParametricScaler`, 30138)
 
-`R2D.Tool.ps` — это класс `ParametricScaler` (**30138**), который перестраивает геометрию каталожной модели (мебель/двери/окна) под `width/height/depth` **без искажения деталей**: ножки/рамки/фурнитура держат свои размеры, тянется только «тело». Вызывается из `configurate(objectViewer3D)` (**30163**) при каждом ресайзе параметрического товара (тот самый `R2D.Tool.ps.configurate`, упомянутый в §7 и §0). Кэширует эталон в `pool[productId]` и пропускает пересчёт, если `width/height/depth` не изменились (`prevParamsMap`, 30177).
+`R2D.Tool.ps` — это класс `ParametricScaler` (**30138**), который перестраивает геометрию каталожной модели (мебель/двери/окна) под `width/height/depth` **без искажения деталей**: ножки/рамки/фурнитура держат свои размеры, тянется только «тело». Вызывается из `configurate(objectViewer3D)` (**30163**) при каждом ресайзе параметрического товара (тот самый `R2D.Tool.ps.configurate`, упомянутый в §7 и §0). Кэширует эталон в `pool[productId]` и пропускает пересчёт, если `width/height/depth` не изменились (`prevParamsMap`, объявление 30159, сравнение 30178).
 
 - **Разметка мешей.** Модель параметрична, если у **каждого** меша в `userData` есть `scale` и `fix` (`isModelParametric`, 30691). `userData.scale ∈ {no, horizontal, vertical, all}` — какие оси меша тянутся; `userData.fix ∈ {left, right, top, bottom, topLeft/…, axis, topAxis, bottomAxis, no}` — где у меша якорь-anchor (что остаётся на месте при растяжении). Разметка приходит из самой glTF (кладётся дизайнером модели), собирается в `configInfoModel` (30242).
 - **Три оси через `params/modelSize`.** `scaleX/Y/Z = params.{width,height,depth} / modelSize.{...}` (30503) — общий множитель модели; `deltaX/Y` (30507) — абсолютный прирост по X/Y. Глубина (`z`) у всех вершин всегда домножается на `scaleZ` (тело просто масштабируется в глубину). Ширина/высота считаются **по-меш**: `newMeshWidth = params.width − dists.left − dists.right` → `scaleX = newMeshWidth / size.width` (30591), где `dists` — зазоры меша до габаритов модели (30296). Так растягивается только внутренняя часть, а поля до краёв сохраняются.
-- **«Шовные точки» (`commonPoints`, 30147).** Перед первым ресайзом `ParametricScaler` находит вершины, **общие** для смежных мешей (`isPointAtPointsList`, 30368), и раскладывает их по бакетам `topLeftArr/topRightArr/bottomLeftArr/bottomRightArr/topAxisArr/bottomAxisArr/axisArr/leftArr/rightArr` через `scaleFixMap` (30319, ключ = комбинация `outerFix → innerScale → innerFix`). Вершина, попавшая в бакет, при ресайзе сдвигается **жёстко на `±deltaX/2` / `+deltaY`** синхронно с соседом (30517–30588), а не масштабируется — поэтому шов между двумя деталями не расходится.
+- **«Шовные точки» (`commonPoints`, 30147).** Перед первым ресайзом `ParametricScaler` находит вершины, **общие** для смежных мешей (`isPointAtPointsList`, метод 30790, вызов 30369), и раскладывает их по бакетам `topLeftArr/topRightArr/bottomLeftArr/bottomRightArr/topAxisArr/bottomAxisArr/axisArr/leftArr/rightArr` через `scaleFixMap` (30319, ключ = комбинация `outerFix → innerScale → innerFix`). Вершина, попавшая в бакет, при ресайзе сдвигается **жёстко на `±deltaX/2` / `+deltaY`** синхронно с соседом (30517–30588), а не масштабируется — поэтому шов между двумя деталями не расходится.
 - **UV-коррекция (`updateModelUV`, 30817).** После пересборки позиций UV правятся на `ratioUV = 0.01` от прироста вершины (`p.A.u ± deltaA·ratioUV`, 31013–31027), чтобы текстура не тянулась вместе с растянутым мешем (аналог `updateUV` по `scaleDir` для непараметрических, но точечно по вершинам).
 - **Санитайзеры.** `chekMeshesScale` (30206): если у меша `scale.x > 90` (артефакт экспорта в мм/см), масштаб «запекается» в геометрию и обнуляется до 1. Геометрия переводится в non-indexed (`toNonIndexed`, 30287), чтобы поштучно двигать вершины.
 
@@ -224,11 +224,11 @@
 ## 8. Edge cases
 
 - **Отменённый сброс**: объект, не сдвинувшийся со спавна `x=3000,z=3000`, удаляется на mouseUp (44349).
-- **Настенный не влез**: `dropElement` вернул `null` (нет оси в радиусе 10 см) → объект убирается из сцены + `OBJECT_DRAG_OUT_OF_WALL` (43906).
+- **Настенный не влез**: `dropElement` вернул `null` (нет оси в радиусе 10 см) → объект убирается из сцены + `OBJECT_DRAG_OUT_OF_WALL` (43907).
 - **Ctrl/Cmd при драге**: отключает `snapPolygon` (43935) — свободное позиционирование без магнетизма.
 - **Shift при драге**: осевая блокировка (`moveObjectStraight`), но игнорируется для настенных (43926).
 - **Заблокированные объекты**: `isLockedOnScene` / `partialVisible` защищены от выбора/драга по всему коду.
-- **Клэмпинг размера**: сторона всегда в [1, 1000] см (`__getCorrectScale`), высота в [0, 1000].
+- **Клэмпинг размера**: сторона всегда в [1, 1000] см (`__getCorrectScale`); высота: `y<−3` → откат в исходный `y`, `−3≤y<0` → 0, `y>1000` → откат в исходную позицию (11294–11300); клэмп по X/Z — no-op (`±Infinity`, 11466–11471).
 - **glTF-постер**: если пакет `.glb`, постер трактуется как MODEL (18047) со всей модельной логикой.
 - **Коалесинг undo**: серия ресайзов = одна undo-запись (12351); но первый ресайз после иного действия создаёт новую запись.
 - **Смена стены у настенного при драге**: если найденная ось сменила поворот, позиция пересчитывается от чистой точки удара, чтобы не «прилипнуть» к старой оси (43991).
@@ -242,10 +242,11 @@
 
 - Иерархия `SceneObject`/подклассы/фабрика/вьюеры и поля объекта (11230–12291, 18035, 31864) — читано напрямую.
 - Три режима перемещения (`moveObjectHorizontal`/`Smart`/`Straight`) и их ветвление по типу/модификаторам (43922–44152) — читано напрямую.
-- Пороги: снап 15 см (41668), настенный 20 см (43989), dropElement 10 см (55174), click-vs-drag 5 px (43537), start-drag ≥1 px (44959), гейты бокса 5×/25× (9966), параллельность 0.2 рад (9846) — числа из кода.
+- Пороги: снап 15 см (41668), настенный 20 см (43989), dropElement 10 см (55174), click-vs-drag 5 px (43537), start-drag ≥1 px (44959), гейты бокса 5×/25× (9966/9967), параллельность 0.2 рад (9846) — числа из кода.
 - Проекция настенного на ось (`dropElement`/`getAxis`, 55172–55360) и `setDropDataToWallElement` (14791) — читано напрямую.
 - Коалесинг undo по метке `productSizes` (12351) — читано напрямую.
 - Смарт-стекинг по нормали грани (44036–44074) — читано напрямую.
+- Грип 2D-ресайза = **10 px**: второе определение `ProductTransform2DButton` (SVG-polygon, 77215/77223) перекрывает первое (div, 7 px, 77158/77163); клэмп X/Z — no-op (`±Infinity`, 11466–11471), ветвление высоты в `checkValues` (11294–11300) — перепроверено по исходнику.
 
 **Средняя уверенность (частично через суб-агентов / соседний контекст):**
 
@@ -255,8 +256,18 @@
 
 **Пробелы / не проверено:**
 
-- Точная математика `shiftVectors` / `getVectorsSides` (полуразмеры вдоль нормали при стекинге) — механика ясна, формула построчно не разобрана.
+- Точная математика `shiftVectors` / `getVectorsSides` (полуразмеры вдоль нормали при стекинге) — **закрыто**: разобрана построчно в [`deep-dives/10-furniture-stacking.md`](deep-dives/10-furniture-stacking.md).
 - `R2D.Tool.ps.configurate` — вскрыт в §7.1 (`ParametricScaler`, 30138): разметка `scale`/`fix`, шовные точки `commonPoints`, UV-коррекция `ratioUV`. Не разобрана построчно только математика `axis/topAxis`-веток с `dists.toOY` (30596–30684) — общий принцип (якорь + по-меш `scaleX`) ясен, точная формула симметрии относительно OY не перечитана.
 - Копипейст/дублирование и групповые трансформации — вынесены в `05-selection-transform-grouping.md`, здесь не покрывались.
 - Поведение `moveElement(pos, 20)` для настенных (внутренняя реализация в конструкторе) — вызов и радиус подтверждены, тело не перечитано.
 - Сетка (grid snap) как отдельный механизм не найдена: снаппинг идёт к стенам/боксам/углам, а не к регулярной сетке — если grid есть, он не в `SNAP.Snap2D`.
+
+**Чего не хватает для реализации:**
+
+- **Picking-инфраструктура**: `_object3DMoving` (невидимая плоскость), `getMousePointForPicker`, `interactiveObjects`/`constructorWalls` не специфицированы. Для нас: `Raycaster` + `ray.intersectPlane` вместо меша-плоскости.
+- **Коллизии**: у конкурента их нет (только `findFreeSpace`-зазоры); если нужны — проектировать с нуля (SAT по rotated-rect footprint из `get2DRectPoints`).
+- **Touch-жесты**: пороги/поведение не разобраны (41975+).
+- **Группы**: снап-исключение «текущий объект + его группа» (41645–41647) закладывать сразу; детали — в `05-selection-transform-grouping.md`.
+- **Протокол DOM-драга из каталога** (payload, превью, drop-зона) не описан и по plannercore не восстанавливается.
+- **Undo-гранулярность**: label-based merge подтверждён только для `'productSizes'`; полный список label'ов не собран.
+- Закрыто deep-dive'ами (сюда не дублируем): математика стекинга `G.shiftVectors`/`getVectorsSides` и взаимодействие снапа с элевацией (переход smart↔horizontal, сброс y) → [`deep-dives/10-furniture-stacking.md`](deep-dives/10-furniture-stacking.md); модель осей стен (`WC.Axis`: point1/point2/depth/angle/models, `boxFromWalls`, пересборка врезок после `dropElement`) → [`deep-dives/07-wall-axes-pipeline.md`](deep-dives/07-wall-axes-pipeline.md).

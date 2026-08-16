@@ -37,7 +37,7 @@
 Выделение хранится **не в дескрипторе**, а в полях сцены (устанавливаются в сеттерах):
 
 - `setActiveObjectProduct` (42138): `scene.currentView3DObject`, `scene.currentSceneObject = view.sceneObject`; подписывается на `Event.UPDATE` объекта; зовёт `currentViewer.selectedObject(view)` (включает обводку — см. §2); строит 3D‑линейки (`_ruler3d`). Ранний выход, если объект `isLockedOnScene`/`partialVisible`.
-- `setActiveObjectConstructor` (42230): `currentView3DObject`, `currentPartNum`, `currentConstructorElementData`; дополнительно семплит `find3DObject(mx±1)` по осям, чтобы получить `vectorsForMatMove` (базис для сдвига материала стрелками). Возвращает `{state:"stateSelectedConstr", type: view.getType(), quickPanel:{x:mx, y:my-30}}`.
+- `setActiveObjectConstructor` (42230): `currentView3DObject`, `currentPartNum`, `currentConstructorElementData`; дополнительно семплит `find3DObject` в точках `(mx+1, my)` и `(mx, my+1)` (42236–42237), чтобы получить `vectorsForMatMove` (базис для сдвига материала стрелками). Возвращает `{state:"stateSelectedConstr", type: view.getType(), quickPanel:{x:mx, y:my-30}}`.
 - `setActiveGroup` (42108): `scene.currentGroup = group`; линейки строятся вокруг группы.
 - Снятие: `unsetActiveObjectProduct` (42170) зовёт `currentViewer.unselectedObject(...)`, чистит линейки, обнуляет `currentView3DObject/SceneObject`; `unsetActiveGroup` (42123); `unsetActiveObjectConstructor` (42251). `unsetActiveObject` (42259) диспатчит по текущему состоянию и переводит в `stateMain`.
 
@@ -54,7 +54,7 @@
 - `STATE_SELECTED_GROUP` payload `{pos:{x,y}}` (45055, при Ctrl‑слиянии).
 - `SHOW_OBJECT_QUICK_PANEL` / `HIDE_OBJECT_QUICK_PANEL` (пустой payload) — показать/скрыть панель после жеста вращения / при старте драга (45017, 44683).
 - `QUICK_PANELS_HIDE` (пустой) — «скрыть всё» при клике по пустоте/линейке (43589 и др.).
-- **Стены/комнаты в правой панели идут по pull‑модели**: событий `SET_ACTIVE_WALL/ROOM` нет; панель сама запрашивает активный элемент через `NEEDS_ACTIVE_WALL/ROOM/FILL/FLOOR/...` (58454–58466).
+- Событий `SET_ACTIVE_WALL/ROOM` нет. ⚠️ Регистрации `NEEDS_ACTIVE_WALL/ROOM/FILL/FLOOR/...` (58454–58472) и их обработчик `pageConstructionListener` (58615) лежат внутри **закомментированного блока** — в `plannercore.js` это мёртвый код; реальный механизм правой панели живёт в UI‑слое (`react.js`) и по ядру не восстанавливается (см. Confidence & gaps).
 
 ---
 
@@ -62,13 +62,13 @@
 
 ### Обводка выделения — `OutlineFilter`
 
-`OutlineFilter` (стр. 76049) — пост‑процесс на трёх проходах: `DepthPass` → `OutlinePass` (контуры по глубине) → `OverlayPass` (наложение). Настраивается при инициализации рендера (36607/19798): `setInsideColor(1,1,1,0)`, `setOutsideColor(1,1,1,0)`, **`setStrokeColor(1.0, 0.7, 0.0, 1.0)`** — жёлто‑оранжевая обводка (RGBA 255/178/0). Рендерится в петле (36679–36746) для каждого выделенного объекта: `filterSelect.setComponents(sceneSelect, camera, renderer); filterSelect.render()`. Т.е. «хайлайт» — это обводка контура, а не bounding‑box гизмо.
+`OutlineFilter` (стр. 76049) — пост‑процесс на трёх проходах: `DepthPass` → `OutlinePass` (контуры по глубине) → `OverlayPass` (наложение). Создаётся при инициализации рендера (`new OutlineFilter()`, 36607/19798) и настраивается: `setInsideColor(1,1,1,0)`, `setOutsideColor(1,1,1,0)`, **`setStrokeColor(1.0, 0.7, 0.0, 1.0)`** (36623/19801) — жёлто‑оранжевая обводка (RGBA 255/178/0). Рендерится в петле (36679–36746) для каждого выделенного объекта: `filterSelect.setComponents(sceneSelect, camera, renderer); filterSelect.render()`. Т.е. «хайлайт» — это обводка контура, а не bounding‑box гизмо.
 
 ### Move (перетаскивание) — click‑vs‑drag порог
 
 - **Порог клика/драга: `maxMoveDist = 5` px** (объявлен в каждом `stateSelected*`, напр. 44589). Ниже 5px евклидовых (`TR.euclDistP(up,down)`) — это клик; выше — драг/ничего.
 - Старт драга происходит уже при **сдвиге ≥ 1 px** в `stateSelectedProduct.mouseMove` (44959): если под курсором тот же `currentView3DObject`, зовётся `stateDraggingProduct.startDraggingProduct(...)` и `changeState(stateDraggingProduct)` (возврат `{state:"stateDraggingProduct", quickPanel:{x,y}}`). Заблокировано для `isLockedOnScene`/`partialVisible` и при активном лого‑редакторе.
-- `StateDraggingProduct` (43775): `moveProduct → moveObjectHorizontal(view, mx, my, useSnap)` (43952). Дельта считается как `intersection.point + oldPosition − pointIntersect` (интерсект с горизонтальной плоскостью `_object3DMoving` на высоте объекта). Настенные объекты (`getForWall()`) прилипают к стенам через `_constructor.moveElement(pos, 20)`; на дропе — `dropElement(...,10)`.
+- `StateDraggingProduct` (43774): `moveProduct → moveObjectHorizontal(view, mx, my, useSnap)` (43952). Дельта считается как `intersection.point + oldPosition − pointIntersect` (интерсект с горизонтальной плоскостью `_object3DMoving` на высоте объекта). Настенные объекты (`getForWall()`) прилипают к стенам через `_constructor.moveElement(pos, 20)`; на дропе — `dropElement(...,10)`.
 - На `mouseUp` — `stopDraggingProduct` (43864): восстанавливает контроллеры, для настенных пересчитывает `dropElement`, `history.saveState()`, `changeState(stateSelectedProduct)`, диспатч `HISTORY_UNDO_REDO`.
 
 ### Rotate — 3D‑кольца (гизмо вращения)
@@ -82,9 +82,9 @@
 
 ### Scale / ресайз — 2D‑оверлей `R2D.ProductTransform2D` (стр. 77330)
 
-В самом MIH scale‑гизмо нет, но **на канвасе (в 2D‑плане) есть отдельный оверлей ресайза** `R2D.ProductTransform2D` (77330) — он живёт вне MIH, управляется `ProductTransform2DHelper` (41430+), привязан к выделенному продукту (`updateProduct` 47554/47557).
+В самом MIH scale‑гизмо нет, но **на канвасе (в 2D‑плане) есть отдельный оверлей ресайза** `R2D.ProductTransform2D` (77330) — он живёт вне MIH, управляется `ProductTransform2DHelper` (41416), привязан к выделенному продукту (`updateProduct` 47554/47557).
 
-- **4 рёберных грипа** R/B/L/T на серединах сторон повёрнутого бокса (`buttonR/B/L/T.update`, 77358–77366); каждый — `<div class="tool-transform-2d-button">` размером `size=7` px (77163). Углового/поворотного/move‑хендла нет.
+- **4 рёберных грипа** R/B/L/T на серединах сторон повёрнутого бокса (`buttonR/B/L/T.update`, 77358–77366); каждый грип — div `size=7` px (`R2D.ProductTransform2DButton`, 77158/77163; в файле рядом лежит закомментированная SVG‑polygon версия с `size=10`, 77215–77326 в блоке `/* … */` — не действует). Углового/поворотного/move‑хендла нет.
 - **Односоставный ресайз** (одна ось за раз, без сохранения пропорций): `leftMouseMove` меряет дистанцию от **противоположного** грипа вдоль оси объекта и сдвигает центр на половину дельты (77368–77384). Минимум — `minRealSize = 2` см (77350/77355/77381), максимума нет.
 - **Пишет обратно в `sceneObject`**: на прогрессе `width/depth` живьём (41485–41488), на финише — `setWidth`/`setDepth` + `history.saveState()` (41502–41508).
 - **Когда показывается**: только когда у объекта выключен fixed‑size (`getIsFixedSizeEnabled()===false`, 41529/41541); `useButtons(r,b,l,t)` (41443): во время вращения — ни одного; настенный MODEL — только L+R (ширина); иначе все 4.
@@ -97,7 +97,7 @@
 
 - Базовый шаг `dist = 1`; **Shift** → 10; **Shift+Ctrl/Cmd** → 0.1 (единицы см; в имперской системе — дюймы/футы через `DimensionSystem`).
 - Диспатч по типу выделения: `moveSelectedObject` (продукт), `moveSelectedMaterial` (конструктив — двигает материал по грани через `vectorsForMatMove`), `moveSelectedGroup` (группа). Если ничего не выделено — те же стрелки двигают камеру.
-- `keyUp` для WASD в не‑`stateMain` вызывает `history.saveState()` + `HISTORY_UNDO_REDO` (45565).
+- `keyUp` для WASD в не‑`stateMain` вызывает `history.saveState()` + `HISTORY_UNDO_REDO` (`keyUpEventHandler`, 28564–28567).
 
 **Удаление** (keydown‑листенер, 46029): `Delete`/`Backspace` (не в `input`) → `unsetActiveMesh()`, диспатч `HISTORY_UNDO_REDO {removeQuickPanel:true}`, `scene.removeCurrentObject()`.
 **Esc** (46049): по состоянию — снять продукт/распустить группу/снять конструктив, вернуться в `stateMain`, диспатч `RETURN_TO_DEFAULT_MODE`.
@@ -129,7 +129,7 @@
 - `addUnchanged`/`removeUnchanged` (35341/35360) — добавить/убрать без пересчёта пивота и без наследования трансформа (для загрузки/paste/undo): переносят `object3d` между `productObjects` и `container`, ставят/снимают `objView.group`.
 - `add`/`remove` (35382/35454) — «умные»: при входе/выходе переносят флип/поворот/масштаб группы на `sceneObject` члена (напр. `sceneObject.rotationY -= k·floor(toDeg(_rotation))`, ширина / `_sx`), чтобы объект унаследовал/сбросил трансформ группы. Back‑pointers: `objView.group = me`, `objView.object3d.group = container` — по ним везде определяется членство.
 - `validSceneObject(obj)` (35849): группируются только `type ∈ {'2','3','4'}` и **не** `forWall` — настенные объекты в группу не берутся.
-- `setWidth/setHeight/setDepth` (35790): резайз группы через **множитель масштаба** (`_sx *= val/oldWidth`) на `container.scale`, не по‑объектно.
+- `setWidth/setHeight/setDepth` (`setHeight` 35790, `setWidth` 35800, `setDepth` 35811): резайз группы через **множитель масштаба** (`_sx *= val/oldWidth`) на `container.scale`, не по‑объектно.
 
 ### Трансформы группы
 
@@ -145,7 +145,7 @@
 ### Хелперы `ProductSceneHelper` (40472+)
 
 - `addGroup(merged=true)` (40472): `new ObjectViewer3DGroup()`, пушит в `scene.groups`, добавляет контейнер в `productObjects`.
-- `addObjToGroup(obj, group?)` / `removeObjToGroup` (40495/40502).
+- `addObjToGroup(obj, group?)` / `removeObjFromGroup` (40495/40502; последний используется в ctrl‑toggle, 45429).
 - `removeGroup(group)` (40481): вынимает все объекты, убирает контейнер, чистит `scene.groups`.
 - `removeGroupsWithOne()` (40510): подчищает вырожденные группы ≤ 1 объекта.
 
@@ -210,7 +210,7 @@
 Дублирование живёт **не** в CopyPaste, а на MIH (`planner.scene.duplicateCurrentModel/Group`, 887–888):
 
 - **`duplicateCurrentModel`** (42306): `sceneObject.clone()` + **пространственный офсет** (в отличие от paste). Для настенных — пробует ±`getWidth()` (повёрнуто на `-rotationY`) и берёт сторону, которую принимает `moveElement`. Для свободностоящих — ищет свободную соседнюю ячейку по дистанциям линеек, офсет на `getWidth()`/`getDepth()`; иначе «Not enough space»/«Out of bounds». Копирует `lightInfo`, `scene.add(clone)`, save, `ESTIMATION_SEND`.
-- **`duplicateCurrentGroup`** (42389): `addGroup()` + `newGroup.copyFrom(currentGroup)` (глубокий клон каждого `sceneObject.clone()` и `addUnchanged`, 35756), save, `ESTIMATION_SEND`. Явного офсета нет.
+- **`duplicateCurrentGroup`** (42389): `addGroup()` + `newGroup.copyFrom(currentGroup)` (глубокий клон каждого `sceneObject.clone()` и `addUnchanged`, 35756), save, `ESTIMATION_SEND`. В самой функции (42389) офсета нет, но `copyFrom` (35756) сдвигает копию вбок на ширину bbox (`x = gr.x + bbox.width`, см. §4) — дубль ложится рядом, а не поверх оригинала.
 
 Прочие `clone()` в файле — THREE.js/GEOM (геометрия/материалы/точки), к фиче copy/paste отношения не имеют.
 
@@ -260,8 +260,24 @@
 
 **Пробелы / средняя уверенность:**
 
+- Pull‑модель правой панели для стен/комнат по ядру **не восстанавливается**: регистрации `NEEDS_ACTIVE_WALL/ROOM/...` (58454–58472) и обработчик `pageConstructionListener` (58615) лежат в закомментированном блоке (`/*` открывается в регионе 58454, закрывается ~58485) — в `plannercore.js` это мёртвый код. Факт «событий `SET_ACTIVE_WALL/ROOM` нет» остаётся верным; живой механизм — в UI‑слое (`react.js`), вне ядра.
+
 - Ресайз на канвасе **найден и подтверждён** (`R2D.ProductTransform2D`, 77330, 4 рёберных грипа, min 2 см, пишет `width/depth`) — прочитан построчно (High). Это отдельный от MIH оверлей, показывается в 2D при выключенном fixed‑size.
 - Точная отрисовка тулбар‑кнопок и их набор — в UI‑слое (вне `plannercore.js`); дескриптор несёт только `state`/`type`, без `id`/`buttons`.
 - Внутренности `Scene.makeSceneObjectData`/`makeSceneGroupData`/`Creator.makeFromLoadedData` прочитаны через агентское резюме, не построчно целиком — набор полей достоверен, но крайние ветки (parametric/light configInfo) могли быть не полностью раскрыты.
 - WC 2D‑редактор (точки/стены/комнаты/зоны/cover) покрыт по quickPanel и приоритету хит‑теста; полная механика правки — в `01-walls.md`.
 - Payload‑поля некоторых apiScene‑событий (`ESTIMATION_SEND`, `GROUP_COUNT_UPDATE`) не раскрыты по содержимому — известно только имя и место диспатча.
+
+**Чего не хватает для реализации:**
+
+- **Шейдеры обводки**: GLSL/параметры `OutlineFilter` не раскрыты. Для r185 — `OutlinePass` из examples или свой edge-detect; копировать не нужно.
+- **Модель выделения**: у конкурента размазана по полям + FSM. Нам — единый typed selection-store (discriminated union) с событиями.
+- **Undo/redo групп**: `makeGroupsStates` хранит живые ссылки — хрупко; взять ID-based (как `makeSceneGroupData`) единообразно для истории и клипборда. Полной карты вызовов `saveState` нет.
+- **Гизмо вращения**: геометрия колец (радиусы, сегменты, `updateRingsDirAndZoom`, масштаб от зума) не раскрыта — своё гизмо или `TransformControls` как база.
+- **Raycast-детали**: сортировка/фильтрация/layers не разобраны.
+- **Quick-панели**: состав кнопок/приоритеты — в `react.js`, не разобрано; контракт `{state, type?, quickPanel:{x,y}}` достаточен, UX — из скриншотов/фич-спеки.
+- **Границы сцены**: `OBJECT_X/Z_MIN/MAX = ±Infinity` (клэмп — фактически no-op, см. `04-furniture-placement.md`) — свои лимиты задавать осознанно.
+- **Тач-жесты**: long-press/двухпальцевые не покрыты.
+- **`ProductTransform2D` привязан к пиксельной математике 2D-вьюера** — для нас: чистая screen-space overlay-система, формулы дословно не переносить.
+- **`Creator.makeFromLoadedData`** (async-реинстанс при paste) не разобран — нужен свой фабричный слой.
+- **`vectorsForMatMove`**: базис UV-сдвига по 3 точкам вывести самостоятельно.

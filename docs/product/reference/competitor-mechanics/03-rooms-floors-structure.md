@@ -111,16 +111,16 @@ return new TR.Point(Math.round(P.x * 1000) / 1000, Math.round(P.y * 1000) / 1000
 1. Optionally `TR.filterContours` each input set (`TR.clearContour` removes degenerate/collinear points, L50913).
 2. `TR.triangulateContours(outer, inner, bound, subtr, cutPairs)` (L50926): builds a segment graph — deduped points (match within `TR.L_EPS = 1e-8`, L50939) and deduped edges, adds all contour edges + `cutPairs`, then `TR.resplitSegments` (splits crossing/overlapping segments at intersections), `imported_clean_graph`, and finally a constrained Delaunay `TR.triangulate`. Produces `TR.groupedTriObjects`, plus `fillTrs`/`holeTrs` classification and `TR.fillGroups`.
 3. `TR.groupTriangles(trs, separateByFixedEdges)` (L50692) — **flood fill**. Iterative DFS (`checkTriangle`): starting from an unvisited triangle, recurse across each shared edge into the neighbor triangle **unless** the edge is `fixed` and we're separating by fixed edges, or the edge is a boundary (`edges.length <= 1`). Each connected component becomes one group = one candidate room/cover region. `separateContacting=true` (used for covers) makes fixed edges act as walls between touching regions.
-4. `TR.contoursFromGroup(group, onlyFixedEdges, findInner)` (L50738) — **contour tracing** of a triangle group:
+4. `TR.contoursFromGroup(group, onlyFixedEdges, findInner)` (L50738) — **contour tracing** of a triangle group (line-by-line algorithm: [`deep-dives/03-contour-tracing.md`](deep-dives/03-contour-tracing.md)):
    - Builds an adjacency dict of point→neighbors using only `fixed` edges (the real walls) when `onlyFixedEdges`.
-   - `getOneContour()` starts at the **left-most point** (min X) and walks the boundary via `nextPt()` which, at each vertex, picks the neighbor with **max turn angle for CW** outer traversal / **min angle for CCW** inner holes (`TR.angleBetweenLines`, L50869-50909). This is a classic "wall-follower" boundary walk.
+   - `getOneContour()` starts at the **left-most point** (min X) and walks the boundary via `nextPt()` which, at each vertex, picks the next neighbor by turn angle (`TR.angleBetweenLines` def L49754, called from `nextPt` L50869-50909): **CCW/min-angle only on the very first step of a hole contour** (`var CW = !(inner && res.length == 0)`, L50858); every other step — including all subsequent hole steps — uses **CW/max-angle**. This is a classic "wall-follower" boundary walk.
    - After extracting the outer loop it `clearDict()`s (removes dead-ends and consumed points) and loops to pull additional inner contours (holes) until the dict empties (L50772-50789).
    - Guards against infinite loops: if the walked contour exceeds the point count it returns `null` (L50856).
-5. Assemble: first traced loop of each fill group → `outerContours`; hole groups → `innerContours` (skipping any hole adjacent to the total outline, `TR.contoursAdjacent`, L51153). Returns `[outerContours, innerContours, outerGroups]` in **point-index form** (values live in global `TR.points`).
+5. Assemble: first traced loop of each fill group → `outerContours`; hole groups → `innerContours` (skipping any hole adjacent to the total outline, `TR.contoursAdjacent` def L51161, called L51153). Returns `[outerContours, innerContours, outerGroups]` in **point-index form** (values live in global `TR.points`).
 
 ### Contour classification `TR.compareContours(A,B)` (L50001)
 
-Returns one of: `OUTSIDE / CONTACT / BELONG / CONTACT_BELONG / CONTAIN / INTERSECT` (constants L49473-49479). Algorithm:
+Returns one of **8** constants: `OUTSIDE / CONTACT / BELONG / CONTACT_BELONG / CONTAIN / CONTACT_CONTAIN / INTERSECT / COINCIDE` (L49473-49480; `CONTACT_CONTAIN` and `COINCIDE` are genuinely used, e.g. L67425). Algorithm:
 
 1. Fast reject: `checkMinMaxOutside` bbox test → `OUTSIDE`.
 2. If any edge of A crosses any edge of B (`lineIntersectLine`, proper crossing) → `INTERSECT` (L50019).
@@ -158,7 +158,7 @@ Removes the related covers from `arrCovers`, re-triangulates just their union vi
 
 ### `findCoverHoles()` (L60406)
 
-Sorts outer covers by area **descending** (largest last→reversed to smallest-first, L60423-60425), then for each outer cover claims any inner cover it `CONTAIN`s (`TR.compareContoursOnePoint`) as a hole, consuming it. Leftover inner covers with no parent are **deleted** (L60444-60446).
+Sorts outer covers by area with `sortByArea` (descending: `s1>s2` → -1, L59492-59521), then `.reverse()` → **ascending / smallest-first, largest-last** (L60423-60425; comment `// o -> O`), then for each outer cover claims any inner cover it `CONTAIN`s (`TR.compareContoursOnePoint`) as a hole, consuming it. Leftover inner covers with no parent are **deleted** (L60444-60446).
 
 ### `findAllCoverTriangles()` / `findCoverTriangles(cover)` (L60450, L60458)
 
@@ -172,7 +172,7 @@ Re-triangulates each cover with its hole contours as inner contours (`triangulat
 
 ### Floor material
 
-Default cover material `getDefaultMaterialByKey("cover")` (L51730); ceiling default `"ceiling"`. Material rotation/shift/rotate handled by the shared `WC.DataObject` (moveMaterial/rotateMaterial rebuild 3D immediately, L51355-51385).
+Default cover material `getDefaultMaterialByKey("cover")` (L51730). `DataCeiling`'s own default material key is **`"wall"`** (L51793-51794); the `"ceiling"` key is the default of `CCover.data.ceiling.materialID` (L56994-56995). Material rotation/shift/rotate handled by the shared `WC.DataObject` (moveMaterial/rotateMaterial rebuild 3D immediately, L51355-51385).
 
 ---
 
@@ -214,7 +214,7 @@ On `stop` (L65228):
 - Areas store their edges as **cut pairs** fed into room triangulation, so drawing an area actually re-partitions the rooms it sits in (a low zone becomes its own room region).
 - `delIntersectedAreas` (L60101) and `resetAreas` (L60221): an area is **deleted** if its cut edges cross a room wall, if it self-intersects (`contourSelfIntersected`), or if any of its points can't be re-snapped onto a room point after rebuild (`findNearest` within `L_EPS` fails → bad → deleted, L60262-60276). Areas thus can only live _snapped to the room graph_.
 - `StateSelectedArea` (L67638): thin select state; height set via `setCeilingHeight` on all selected areas.
-- `findAreasTriangles` (L60072): after rebuild, an area's triangles = all fill-group triangles whose centers are `pointInContour(area.points)`.
+- `findAreasTriangles` (L60072): after rebuild, area triangles are assigned per fill group — only the center of the **first** triangle of each group is tested (`fillGroups[j][0]`, L60079-60087) with `pointInContour(area.points)`; on a hit the **whole group** is attached to the area.
 
 ---
 
@@ -227,9 +227,9 @@ A _cut_ is the vertical surface generated where an area (or opening) edge slices
 ### Plinths / skirting & crown (`DataPlinth`, `createPlinths`, L51436, L55411)
 
 - Two per wall: `bottomPlinth` (skirting, material key `"plinth"`) and `topPlinth` (crown molding, material key `"molding"`); created when a wall is built (`DW.topPlinth/bottomPlinth = new WC.DataPlinth(DW, top)`, L53704-53705). Shape/height/depth come from `WC.plinthCreator` (`PlinthCreator`, L56405) by `shapeNum`; top plinths force `shapeNum ≥ 8` (a separate profile bank) and auto-set `distToCeiling` (L51514-51522).
-- **Profile bank is hardcoded, not runtime-parsed SVG (correction to the note above).** `PlinthCreator.PoolPlinthShape` (L56412) is a fixed table of **16** `PlinthShape(defDepth, defHeight, path, distToCeiling)` objects (`PlinthShape`, L56396), IDs `0..15`. The `path` field is the **cross-section profile as an already-normalized `[0..1]` polygon baked into source** — e.g. shape 0 = `[[0,1],[1,1],[1,0]]`, shape 7 = a 15-vertex stepped profile. IDs **0–7 = bottom (skirting)** with Y in `[0..1]`; IDs **8–15 = top (crown)** with Y in `[−1..0]` and the vertex list `.reverse()`d (so the swept profile faces down from the ceiling). `getShapePath(id)` (L56575) just returns `PoolPlinthShape[id].path`; `getDefDepth/getDefHeight/getDistToCeiling` read the other fields. The separate `loadSVG`/`getImgSrc` path (L56564-56566, L56591+) fetches only **catalog thumbnail imagery / the material entity**, not the sweep geometry — the profile that `WC.findPlinthSegment` extrudes along the wall contour is the hardcoded normalized polygon, not a parsed SVG path.
+- **Profiles ARE runtime-parsed SVG for catalog products; only the 16 defaults are hardcoded.** `loadSVG(id)` (L56691-56699) → `createPlinthShape(id)` (L56701-56778) **downloads the catalog product's SVG** (`productData.source.body.package`), extracts the path's `d=` attribute (`getPathFromSVG`), parses its M/V/H/L commands, normalizes the resulting polygon into `[0..1]` (plinths) / `[0..−1]` (moldings) and stores it as a `new PlinthShape(...)` in `PoolPlinthShape[id]` (L56778) — `DataPlinth.build3D` extrudes exactly that parsed profile. The hardcoded part is only the **16 default shapes**: `PlinthCreator.PoolPlinthShape` (L56412) is pre-seeded with `PlinthShape(defDepth, defHeight, path, distToCeiling)` objects (`PlinthShape`, L56396), IDs `0..15` — e.g. shape 0 = `[[0,1],[1,1],[1,0]]`, shape 7 = a 15-vertex stepped profile; IDs **0–7 = bottom (skirting)** with Y in `[0..1]`, IDs **8–15 = top (crown)** with Y in `[−1..0]` and the vertex list `.reverse()`d (so the swept profile faces down from the ceiling). The fallback to a default shape applies only while the catalog SVG hasn't loaded yet (`!isSVGLoaded`, L51508-51522). `getShapePath(id)` (L56575) returns `PoolPlinthShape[id].path`; `getDefDepth/getDefHeight/getDistToCeiling` read the other fields.
 - `createPlinths` (L55411) iterates every room's walls, and for each wall computes **mitered inner-offset corner points** (`perpendicularPoint` by depth `d=1`, intersect adjacent offset lines; fall back to the plain perpendicular point if the miter is farther than `maxDist = 2d`, L55460-55464). Both plinths of a wall share those `B,C,Bx,Cx` points (`setPoints`).
-- **Gaps around openings**: `findPlinthGaps` / L53290-53333 — for each opening (axis `finalContours`) it projects the opening's footprint onto the wall line and pushes `[proj1,proj2]` into `bottomPlinth.gaps`, but only if the opening reaches below the plinth height (`-bounds.maxY >= bottomPlinth.h`). `DataPlinth.build3D` (L51505) then emits plinth segments **around** those gaps (segment before first gap, between gaps, after last gap; L51552-51568) so skirting stops at door openings.
+- **Gaps around openings**: `findPlinthGaps` / L53290-53333 — for each opening (axis `finalContours`) it projects the opening's footprint onto the wall line and pushes `[proj1,proj2]` into `bottomPlinth.gaps` — unless `-bounds.maxY >= bottomPlinth.h`, which is the **skip** condition (`continue`, L53301): a gap is created only when the opening reaches below the plinth height (`-bounds.maxY < h`). `DataPlinth.build3D` (L51505) then emits plinth segments **around** those gaps (segment before first gap, between gaps, after last gap; L51552-51568) so skirting stops at door openings.
 - `build3D` produces the mesh via `WC.findPlinthSegment` per segment, computes `length = dist(point1,point2)`, and stores selection `contours` (a 3D quad) for hit-testing.
 
 ### Connectors / plugs (`WC.createConnectors`, L54382)
@@ -253,7 +253,7 @@ Fills the small triangular gaps where two wall axes meet at a corner (the "cap" 
 
 - Every structural element has a `build3D()` that turns cached 2D `triangles` into vertex/uv/index buffers. Floors sit at z=0, ceilings at `ceiling.height`, area caps at `area.height`, cuts span `low→height`, walls/plinths/plugs extrude between their point elevations.
 - `WC.findTriCover(a,b,c, elevation, flipNormal, materialX,Y,rotation, centerX,centerY)` is the common floor/ceiling triangle→3D mapper; `WC.findTriWall(...)` the vertical-surface mapper (walls/cuts/plugs). UVs derive from material shift/rotation and a per-element `rotatingCenter` (bbox center) so materials tile consistently.
-- The full 3D scene rebuild (`build3D` at L55475) order: walls → cuts → plinth gaps → plinths → ceilings → covers → connectors, each dispatching `ELEMENT_CREATE` events the scene layer listens to.
+- The full 3D scene rebuild (`build3D` at L55475) order: walls → cuts → `findPlinthGaps` → plinths → covers (each cover and its ceiling built in the same loop iteration, cover first) → areas/caps → connectors (L55633), each dispatching `ELEMENT_CREATE` events the scene layer listens to.
 
 ---
 
@@ -265,7 +265,7 @@ Fills the small triangular gaps where two wall axes meet at a corner (the "cap" 
 | `TR.B_EPS` (L49483)                   | `1e-4`            | looser snap when re-snapping area/traced vertices onto room points (`findNearest`, L65294).                           |
 | `TR.roundCoord` grid (L50558)         | `0.001`           | all room/cover points rounded to 1/1000 unit before triangulation.                                                    |
 | `WC.SNAP_DIST` (L60604)               | `10`              | base cursor snap radius, **divided by view scale** → constant screen pixels. Used by `getSnapPoint` in making states. |
-| `WC.POINT_SIZE`                       | (hit radius)      | `/scale` → point pick radius in `StateSelectedCover`.                                                                 |
+| `WC.POINT_SIZE` (L60605)              | `6`               | `/scale` → point pick radius in `StateSelectedCover`.                                                                 |
 | close-polygon `eps`                   | `0.1` (manhattan) | making states auto-close when new point ≈ first/last vertex.                                                          |
 | size-input `minLen`                   | `45` px           | live dimension inputs shown only when both open edges ≥ 45 screen px.                                                 |
 | `maxConnectorLength` (L54384)         | `40`              | corner gaps ≤ 40 get a connector; larger are treated as openings.                                                     |
@@ -298,11 +298,11 @@ Fills the small triangular gaps where two wall axes meet at a corner (the "cap" 
 
 - The whole room-detection pipeline: `rebuildWallsAndCovers` → round → `rebuildWalls`/`rebuildCovers`/`findAutoCovers` → `connectAllPoints`/`findCoverHoles`/`findAllCoverTriangles` (L59533-60009).
 - `TR.rebuildContours` = triangulate → `groupTriangles` (flood-fill) → `contoursFromGroup` (turn-angle boundary walk) (L50692-51159).
-- `compareContours` / `compareContoursByArea` semantics and the OUTSIDE/CONTACT/BELONG/CONTAIN/INTERSECT constants (L49473, L49963, L50001).
+- `compareContours` / `compareContoursByArea` semantics and the 8 relation constants (OUTSIDE/CONTACT/BELONG/CONTACT_BELONG/CONTAIN/CONTACT_CONTAIN/INTERSECT/COINCIDE, L49473-49480, L49963, L50001).
 - Grid rounding 0.001, EPS values 1e-8/1e-4, SNAP_DIST 10, maxConnectorLength 40, default heights 280/100, area overlap rejection, cover merge/prompt logic — all cited above.
 - Data models CRoom/CCover/CArea/CContour and Data* build3D methods (L51212-51836, L56890-57163).
 - Cover-point↔room-point parent/child sharing (L60285).
-- Plinth generation, gaps around openings, connectors (L54382, L55411, L53290).
+- Plinth generation, gaps around openings, connectors (L54382, L55411, L53290); plinth profiles confirmed **runtime-parsed from catalog SVG** (`loadSVG`/`createPlinthShape`, L56691-56778) with the 16 default shapes as the only hardcoded bank.
 - Attribute re-attach by `compareContoursByArea == INTERSECT` (L59695, L59983).
 
 **Inferred (behavior deduced, not spelled out):**
@@ -315,7 +315,11 @@ Fills the small triangular gaps where two wall axes meet at a corner (the "cap" 
 **Not found / not covered:**
 
 - Persistence/serialization format of room `data` beyond that it's an opaque object copied across rebuilds (load path around L53506-53987 was only skimmed).
-- `WC.POINT_SIZE` numeric value (used as a pick radius; referenced but its literal not located).
 - Exact ceiling _visibility_ interaction with "instrument hiding" (`isHiddenByInstrument`) — flag exists, its toggler not traced.
 - `StateDraggingCoverPoint`/`StateDraggingCoverSide` full drag math (only their existence and that they commit via `rebuildWallsAndCovers` confirmed).
 - Undo/redo model beyond the per-making-state `undoPoints`/`order` vertex stack.
+
+**Missing for implementation** (validation gaps; items since closed by later deep-dives are linked):
+
+- Closed by deep-dives: the CDT question is settled — stock `cdt2d` (`{exterior:true}` is load-bearing) + `clean-pslg` from npm → [dd01](deep-dives/01-triangulation-core.md); `pointInContour`/`pointOnContour`/`checkContact` and the epsilon policy behind `compareContours` → [dd08](deep-dives/08-geometry-predicates.md); UV math of `findTriCover`/`findTriWall`/`findPlinthSegment` → [dd04](deep-dives/04-3d-mesh-uv.md) + [dd05](deep-dives/05-cover-build3d.md); the "drawn wall → primary contour" pipeline (axes/thickness/`faceRight`, `resetWalls`) → [dd07](deep-dives/07-wall-axes-pipeline.md).
+- Port decisions left to us: the flood-fill recursion must become an **explicit stack** in TS (mandatory); preserve `sortByArea` ordering (descending, eps=10 tie-break for outer) — it affects room order, hit-testing and `findCoverHoles`; full re-triangulation on every commit (14+ call sites) is fine as a starting point, but plan a debounce/worker for large plans.

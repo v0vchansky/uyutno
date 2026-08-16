@@ -52,7 +52,7 @@ Two distinct upload paths: (a) **procedural packages** (material/poster/carpet/O
 
 ### `ProductData` (metadata, lives in `R2D.Pool`)
 
-Parsed from `URL_CATALOG_SEARCH` JSON `data.items` by `R2D.ProductDataParser.parseJSON` (plannercore.js:17948). Key fields observed in use:
+Parsed from `URL_CATALOG_SEARCH` JSON `data.items` by `R2D.ProductDataParser.parseJSON` (defined plannercore.js:26694; call site 17948). Key fields observed in use:
 
 - `productId` — pool key (`addProductData` refuses entries without it, plannercore.js:17889).
 - `type` — one of ProductType.
@@ -78,7 +78,7 @@ State: `__queue=[]`, `__exist={}` (queued/in-progress guard), `__loaded={}` (don
   - **binary**: `new R2D.XHRLoader().load(url, ..., "GET", ..., "arraybuffer", false)` — raw ArrayBuffer (plannercore.js:36131-36134).
   - Dispatches `START(productId)`.
 - `__loaderEventHandler` (binary complete, plannercore.js:36024): clears `__current*`, `__queue.shift()`, deletes `__exist[id]`; on COMPLETE stores `__data[id]=loader.data` (the ArrayBuffer), `__loaded[id]=true`, dispatches `FINISH(id)`; else `ERROR(id)`. Then `__checkLoad()` to advance the queue.
-- `__GLTFLoadListener(gltf)` (plannercore.js:36055): same queue bookkeeping; **pre-processes the parsed scene** — `traverse` all meshes: `obj.castShadow=true`, force `map.encoding`/`normalMap.encoding = LinearEncoding`, and zero `metalness` for POSTER products (plannercore.js:36065-36079). Stores the whole `gltf` object in `__data[id]`; `FINISH(id)`.
+- `__GLTFLoadListener(gltf)` (plannercore.js:36055): same queue bookkeeping; **pre-processes the parsed scene** — `traverse` all nodes: sets `obj.position.y=0` on every traversed node (plannercore.js:36066), `obj.castShadow=true`, forces `map.encoding`/`normalMap.encoding = LinearEncoding`, and zeroes `metalness` for POSTER products (plannercore.js:36065-36079). Stores the whole `gltf` object in `__data[id]`; `FINISH(id)`.
 - `getData(id)` → `__data[id]` (ArrayBuffer for binary, gltf object for glTF). `clearData(id)` deletes `__data`+`__loaded` (plannercore.js:36175) — the raw payload is intentionally dropped after the first instantiation to free memory (see Geometry rebuild).
 - `isLoaded(id)` gate is checked before every `load` (plannercore.js:36143).
 
@@ -96,7 +96,7 @@ A **third pool**: `{ productId → parsedModelData }` holding the CPU-side geome
 
 Parser: `R2D.ProductPackageParser` (plannercore.js:26737). Written by `R2D.ProductPackageCreator.*` (plannercore.js:71581). All multi-byte values are **big-endian DataView defaults** (`getInt32`/`getFloat32` with no littleEndian arg).
 
-**Header (fixed 12 bytes):**
+**Header (fixed 16 bytes — 8 magic + 4 type + 4 version):**
 
 | offset | bytes | meaning                                                                                |
 | ------ | ----- | -------------------------------------------------------------------------------------- |
@@ -150,13 +150,13 @@ Clears existing children, then three branches:
 
 **B. custom binary model** (else branch, plannercore.js:32763): if `__geometriesRAW[id]` exists reuse it; else `raw = R2D.ProductPackageParser.parseModel(R2D.Pool3D.getData(id))`, **immediately `R2D.Pool3D.clearData(id)`** (drop the ArrayBuffer) and cache `raw` in `__geometriesRAW[id]` (plannercore.js:32764-32772). Then for each raw geometry create an empty `THREE.BufferGeometry` + `THREE.Mesh` with the shared default material (`DoubleSide`, cast+receive shadow), add to `object3d`, push `raw.geometries[i].md5` to `geometriesHash` (plannercore.js:32776-32789). `updateGeometry()` fills the actual attributes.
 
-### `updateGeometry()` for custom-binary models (plannercore.js:32598)
+### `updateGeometry()` for custom-binary models (plannercore.js:32575)
 
-Reads `raw = __geometriesRAW[id]`, optionally `flipGeometriesByX/Z` per `sceneObject.flipX/flipZ`, then `R2D.Tool.makeModelGeometries(geometriesRaw)` → array of `THREE.BufferGeometry` and assigns `mesh.geometry = geometries[i]` for each child (plannercore.js:32599-32621).
+Reads `raw = __geometriesRAW[id]`, optionally `flipGeometriesByX/Z` per `sceneObject.flipX/flipZ`, then `R2D.Tool.makeModelGeometries(geometriesRaw)` → array of `THREE.BufferGeometry` and assigns `mesh.geometry = geometries[i]` for each child (plannercore.js:32575-32625).
 
 ### `R2D.Tool.makeBufferGeometry(index, vertex, uv, normal)` (plannercore.js:28984)
 
-The primitive rebuild: `setIndex(Uint32Array)`, `position` (Float32, itemSize 3), `uv` (Float32, itemSize 2), `normal` (Float32, itemSize 3) — and if no normals supplied, `computeVertexNormals()`. Always `computeBoundingBox()` + `computeBoundingSphere()` (plannercore.js:28987-29004). `makeModelGeometries` just maps this over the raw array (plannercore.js:29231).
+The primitive rebuild: `setIndex(Uint32Array)`, `position` (Float32, itemSize 3), `uv` (Float32, itemSize 2), `normal` (Float32, itemSize 3) — and if no normals supplied, `computeVertexNormals()`. Always `computeBoundingBox()` + `computeBoundingSphere()` (plannercore.js:28987-29005). `makeModelGeometries` just maps this over the raw array (plannercore.js:29231).
 
 ### Posters/carpets at runtime
 
@@ -173,7 +173,7 @@ Flow (e.g. `uploadPoster`/`uploadMaterial`, plannercore.js:293-360, 515-589):
 1. A preview is scaled to a small canvas (`prevSize=240`, `toDataURL`).
 2. `new R2D.MaterialCreator()` / `PosterCreator` / `CarpetCreator` is wired; caller sets `diffuse = srcFile` and `setMaterialSizeCM(w,h)`; `createData()` fires.
 3. Internally `R2D.MaterialCreator` composes `MaterialSetting` + `MaterialTexturesManager` + `MaterialMaker` + `MaterialScene`, and a `R2D.ProductPackageCreator.Material` (plannercore.js:72541-72547). On completion it hands a `ByteArray` **`package`**.
-4. `packageCompleteListener` reads the package `Blob` as a data-URL (`FileReader.readAsDataURL`), and POSTs to **`URL_UPLOAD_PRIVATE`** a form-encoded body: `{type_id, source: <base64 of ROOMTODO bytes>, preview: <base64 png>, width, height[, depth][, category_id | material_bank_category_id]}` (plannercore.js:334-352, 554-575). `type_id` ∈ `R2D.CustomUploader.UPLOAD_*` (`1` wall-mat, `5` floor-mat, `3` poster, `4` carpet, `6` color-picker, `7` model-material, plannercore.js:594-599).
+4. `packageCompleteListener` reads the package `Blob` as a data-URL (`FileReader.readAsDataURL`), and POSTs to **`URL_UPLOAD_PRIVATE`** a form-encoded body: `{type_id, source: <base64 of ROOMTODO bytes>, preview: <base64 png>, width, height[, depth][, category_id | material_bank_category_id]}` (plannercore.js:334-352, 554-575). `type_id` constants live on `R2D.CustomUploader` with an `UPLOAD_` prefix (exception: `COLOR_PICKER`): `UPLOAD_WALL_MATERIAL='1'`, `UPLOAD_FLOOR_MATERIAL='5'`, `UPLOAD_POSTER='3'`, `UPLOAD_CARPET='4'`, `COLOR_PICKER='6'`, `UPLOAD_MODEL_MATERIAL='7'` (plannercore.js:594-599).
 
 ### The binary writers — `R2D.ProductPackageCreator.*` (plannercore.js:71586-71897)
 
@@ -193,7 +193,7 @@ Each builds a `ByteArray`, writes the body records, then prepends the 8-byte `"R
 
 ### Raw glTF/GLB user upload
 
-Distinct from the procedural path: user glTF assets are zipped (`JSZip`, DEFLATE level 9) and multipart-POSTed to **`URL_UPLOAD_FILE`** with headers `x-token`, `x-lang` and a `FormData` field `"models.zip"`; the server returns `data.modelsZip` (a URL) which becomes the product's `source.body.package` (plannercore.js:40683-40718). Logo images use the same `URL_UPLOAD_FILE` endpoint with field `logoImg` (plannercore.js:18424-18443). Metadata for user glTF products then flows through the normal `URL_CATALOG_SEARCH?ids=` path and `.glb` sets `isGLTF`.
+Distinct from the procedural path: user glTF assets are zipped (`JSZip`, DEFLATE level 9) and multipart-POSTed to **`URL_UPLOAD_FILE`** with headers `x-token`, `x-lang` (hardcoded to `"en"` on this path, plannercore.js:40710) and a `FormData` field `"models.zip"`; the server returns `data.modelsZip` (a URL) which becomes the product's `source.body.package` (plannercore.js:40683-40718). Logo images use the same `URL_UPLOAD_FILE` endpoint with field `logoImg` (plannercore.js:18424-18443). Metadata for user glTF products then flows through the normal `URL_CATALOG_SEARCH?ids=` path and `.glb` sets `isGLTF`.
 
 ### glTF decoders (DRACO / KTX2 / meshopt)
 
@@ -219,8 +219,18 @@ The bundled `THREE.GLTFLoader` (plannercore.js:3282) supports `setDRACOLoader` /
 
 ## Confidence & gaps
 
-**High confidence:** the `ROOMTODO` header layout and all four body-record tag maps (parser and creator are mirror images and cross-check exactly); the two-tier `Pool`/`Pool3D` caching + sequential single-flight queue; `PoolMaterials` dispose discipline; OBJ vertex-dedup + md5 formula and duplicate-rejection; the `URL_CATALOG_SEARCH` "one endpoint, many query params" model; favorites PUT/DELETE with `add_data` color; the material/poster/carpet/OBJ-model → base64 → `URL_UPLOAD_PRIVATE` upload path; the glTF vs custom-binary rebuild branches and `__geometriesRAW` reuse.
+**High confidence:** the `ROOMTODO` header layout (validated: 16 bytes total — magic 8 + int32 type @8 + int32 version @12, per `parse` @26764 `getInt32(8)`) and all four body-record tag maps (parser and creator are mirror images and cross-check exactly); the two-tier `Pool`/`Pool3D` caching + sequential single-flight queue; `PoolMaterials` dispose discipline; OBJ vertex-dedup + md5 formula and duplicate-rejection; the `URL_CATALOG_SEARCH` "one endpoint, many query params" model; favorites PUT/DELETE with `add_data` color; the material/poster/carpet/OBJ-model → base64 → `URL_UPLOAD_PRIVATE` upload path; the glTF vs custom-binary rebuild branches and `__geometriesRAW` reuse.
 
 **Medium confidence:** exact server JSON shape of `ProductData` (inferred from field accesses, not from a schema); which DRACO/KTX2/meshopt decoders are wired where (DRACO confirmed only on the preview viewer, not the Pool3D path).
 
 **Gaps / not found in extracted regions:** the literal string values of the `R2D.URL.URL_*` constants (endpoints referenced by name only — their definitions live in a config file not in these two sources); server-side handling/validation of uploads; where KTX2/meshopt `setKTX2Loader`/`setMeshoptDecoder` are actually invoked (present in the bundle, no call site seen); pagination `total`/response envelope for catalog search beyond `data.items`; the `PLINTH` (type 5) asset pipeline (declared but no package parser/creator for it here).
+
+**Чего не хватает для реализации** (что заменяем / проектируем самим):
+
+1. Формат `ROOMTODO` не переносим — берём GLB (+DRACO/KTX2/meshopt); из их пайплайна забираем паттерны: md5-dedup, version-gated фиксапы, embedded-материалы → GLB extras/extensions.
+2. r185: `map.encoding` не существует с r152 → `texture.colorSpace`; их GLTF-постобработку дословно не переносить.
+3. Sequential single-flight `Pool3D` — узкое место; делаем параллельную очередь (2–4), приоритеты по видимости, AbortController.
+4. Шаринг геометрии вместо клонов (InstancedMesh / общая ссылка); `__geometriesRAW`-паттерн заменяется.
+5. Схема `ProductData` восстановлена только по обращениям к полям — для своего API нужна своя zod-схема.
+6. Копировать как есть: dispose-дисциплина `PoolMaterials.remove`, двухуровневый in-flight dedup, metadata-first / geometry-lazy.
+7. Не покрыто реверсом: `PLINTH` (type 5) пайплайн, серверная валидация загрузок, ценообразование / `x-country`.

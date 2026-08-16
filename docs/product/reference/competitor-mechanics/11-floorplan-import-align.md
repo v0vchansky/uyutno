@@ -45,7 +45,7 @@ Pointer sub-states (mutually exclusive flags):
 ### Entering the length
 
 - Clicking the on-line size label enters `action:"alignerWidthSet"` and sets `changeH=true` (`67942`).
-- The host UI reads the current value via `planner.constr.getPlanAlignLength()` → `getAlignerValue()` (returns `distanceH` while `changeH`, else `NaN`; `68034`) and writes the entered value via `planner.constr.setPlanAlignLength(length)` → `setAlignerValue(val)` (`68041`). `setAlignerValue` accepts `parseInt(val) >= 0`, stores it into `distanceH`, clears `changeH/changeV`, redraws. The dialog value is parsed through `R2D.DimensionSystem.fromString` and unit choice via `WindowChooseUnits` (`58492`–`58503`).
+- The host UI reads the current value via `planner.constr.getPlanAlignLength()` → `getAlignerValue()` (returns `distanceH` while `changeH`, else `NaN`; `68034`) and writes the entered value via `planner.constr.setPlanAlignLength(length)` (public API bridge, `741`) → `setAlignerValue(val)` (`68041`). `setAlignerValue` accepts `parseInt(val) >= 0`, stores it into `distanceH`, clears `changeH/changeV`, redraws. The dialog value is parsed through `R2D.DimensionSystem.fromString` and unit choice via `WindowChooseUnits` (`58492`–`58503`) — **dead wiring in this build**: that code sits inside the commented-out `alignerSizeListener` (`58486`), so the live dialog drives the same `getPlanAlignLength`/`setPlanAlignLength` API from host UI instead (see Confidence).
 
 ### Committing / leaving
 
@@ -55,7 +55,7 @@ Pointer sub-states (mutually exclusive flags):
 
 ### Alternate: `WC.StateAlignDrawingByArea` (`68434`)
 
-A second, area-based aligner. User traces a closed contour; scale is derived from a typed area: `addScale = sqrt(areaValue / contourArea)` then `drawingScale *= addScale` (`68575`). Shares the same drawing transform. Secondary path; the primary is the known-length line.
+A second, area-based aligner. User traces a closed contour; scale is derived from a typed area: `addScale = sqrt(areaValue / contourArea)` (`68577`) then `drawingScale *= addScale` (`68578`). Shares the same drawing transform. Secondary path; the primary is the known-length line.
 
 ---
 
@@ -83,7 +83,7 @@ Underlay lives on `WC.wallsEditor` (the 2D sub-editor):
 Lifecycle:
 
 - `setImageDrawing(img)` (`62089`) sets the image and derives centering; `delImageDrawing()` (`62099`) nulls it, calls `stateAlignDrawing.initValues()`, fires `WC.DRAWING_REMOVED` + `dispatchDrawingChanged()`.
-- Events: `WC.DRAWING_UPLOADED`, `WC.DRAWING_CHANGED`, `WC.DRAWING_REMOVED`, `WC.DRAWING_ALIGNED`.
+- Events: `WC.DRAWING_UPLOADED`, `WC.DRAWING_CHANGED`, `WC.DRAWING_REMOVED`, `WC.DRAWING_ALIGNED`. Note: the `DRAWING_UPLOADED` dispatch inside `startUploadDrawing` is commented out (`62124`) — in this build the event actually fires only from `setDrawingData` (`55290`), i.e. on project load, not on fresh upload.
 
 ### Persistence
 
@@ -93,6 +93,7 @@ Lifecycle:
   Note: `drawingX/Y` (centering) and `drawingPosition/display` are **not** in this object — display is round-tripped separately (below), and X/Y are recomputed from image size on reload.
 - `setDrawingData(data)` (`55276`): restores `drawingScale`, `drawingRotation`, maps `data.drawing.display` (2/1/0) → ABOVE/BELOW/HIDE, then async-loads `data.drawing.source` via `R2D.ImageUrlLoader`; on complete calls `setImageDrawing`, fires `DRAWING_UPLOADED`+`DRAWING_CHANGED`. Finally `stateAlignDrawing.setRulersData(data.rulers)` — which re-runs `scaleDrawing()`, so **restoring the rulers re-applies the scale** (see edge cases).
 - Scene-level (`R2D.commonSceneHelper`) round-trips `floorplanData['drawing']['display'] = drawingHelper.state` (`15664`/`15751`) and reads it back on load (`15547`). So layer/visibility persists as an integer 0/1/2.
+- Data-URL round-trip nuance: at save time the `data:image/...;base64,` prefix is **stripped** — only the raw base64 payload is stored via `split(',')[1]` (`15662`); at load time the prefix is re-added (`15543`) or the string is passed through `makeURL` (`15541`). Any external reader of the wire format must re-attach the prefix itself.
 
 So: **yes, the underlay persists** across save/load (source pixels + scale + rotation + rulers + display layer).
 
@@ -114,8 +115,9 @@ Layering & opacity are keyed off `drawingPosition` in each editor state's `draw(
 - `DRAWING_ABOVE` → `drawBG(0.5)` after walls (`63805`), so image sits over walls at 50%.
 - The align state itself draws the underlay at full `drawBG(1)` (`68256`).
 - `DRAWING_HIDE` → neither branch fires → not drawn.
+- Exception: `WC.StateDraggingCoverSide` uses its own values — BELOW is drawn fully opaque `drawBG(1.0)` (`64503`) and ABOVE at `drawBG(0.3)` (`64518`), so while dragging a cover side the underlay contrast flips.
 
-Opacity is therefore **fixed per layer (0.3 below / 0.5 above)**, not a user slider.
+Opacity is therefore **fixed per state** (0.3 below / 0.5 above in the main editing states; overridden per special state as above), not a user slider.
 
 ### Scale computation — `scaleDrawing()` (`68220`) — the core of alignment
 
@@ -158,6 +160,15 @@ For the 3D view the same image becomes a textured plane: `makePlaneGeometry(near
 
 **High confidence:** upload flow and immediate transition into `stateAlignDrawing` (`62115`); the two-handle known-length ruler interaction and thresholds (`67692`–`68012`); the scale/rotate math in `scaleDrawing` (`68220`); underlay transform + layer/opacity rendering in `drawBG` (`63499`); persistence shape of `getDrawingData/setDrawingData` (`55276`); constants (`SNAP_DIST=10`, DRAWING_* enums); confirmed **no image analysis / wall auto-detection** (no OpenCV/edge/contour-from-image path; the only contour usage is the manual area-trace aligner).
 
-**Medium confidence:** exact length-entry dialog wiring — the `alignerSizeListener` body I read is commented out (`58490`), so the live UI likely drives `setAlignerValue` through the same `getPlanAlignLength/setPlanAlignLength` API (`740`) but the current dialog widget wasn't pinned down. The double-`scaleDrawing` on load is inferred from call order, not observed at runtime.
+**Medium confidence:** exact length-entry dialog wiring — the `alignerSizeListener` body I read is commented out (`58486`), so the live UI likely drives `setAlignerValue` through the same `getPlanAlignLength/setPlanAlignLength` API (public bridge `741`) but the current dialog widget wasn't pinned down. The double-`scaleDrawing` on load is inferred from call order, not observed at runtime.
 
 **Gaps / not traced:** (1) whether `drawingPosition` opacity (0.3/0.5) is ever user-adjustable elsewhere — appears hard-coded. (2) The full `R2D.ImagesLoader`/`ImageUrlLoader` internals (assumed standard async image load). (3) Whether large-PDF rasterization has size caps. (4) `distanceV`/vertical-ruler code is present but dead in this build — no evidence it is reachable. (5) Interaction between `rotateDrawing` flag source (which UI toggle passes `rotate` into `stopAlignDrawing`) not located.
+
+**Чего не хватает для реализации** (из реверса не выводится / у конкурента отсутствует — проектировать самим):
+
+1. PDF-растеризация не прослежена — брать pdf.js (стр. 1 → canvas → texture) или не принимать PDF в v1.
+2. Рендер-стратегия: вместо дублирования 2D/3D-путей — единый ortho-слой `Mesh` + `MeshBasicMaterial(map, transparent, opacity)`; их `DrawingHelper.Drawing` — образец.
+3. Inline-base64 подложки в проекте (bloat) не копировать — upload в asset-store + URL.
+4. Double-apply масштаба при загрузке (см. Edge cases) — хранить итоговый transform и rulers раздельно.
+5. Нет undo/redo трансформа подложки, нет лимитов размера/DPI — проектировать с нуля.
+6. Слайдер прозрачности — дешёвое улучшение (у конкурента хардкод по стейтам).

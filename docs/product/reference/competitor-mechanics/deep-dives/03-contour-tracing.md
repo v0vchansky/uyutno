@@ -198,10 +198,10 @@ For our fresh TS build:
 - **High confidence** on the custom triangulate+flood-fill+turn-angle-walk verdict, the boundary
   walk mechanics, the recursion risk, and the fuzzy area-overlap re-attach — all read directly
   from the un-minified source with cited line numbers.
-- **Gap:** `imported_triangulate` and `imported_clean_graph` (50635, 50983) are **external bundled
-  functions not present in this file** — their exact dedup/CDT behavior (which library, how it
-  handles crossing constraints and coincident points) is inferred, not read. If those details
-  matter for our build we'd need the bundle that defines them.
+- **Gap (since closed):** `imported_triangulate` and `imported_clean_graph` (50635, 50983) are
+  external bundled functions not present in this file. The bundle has since been identified:
+  stock **cdt2d + clean-pslg** (`tris.js:1912–1921`) — see
+  [dd01](01-triangulation-core.md) for the full audit of the triangulator and its wrapper.
 - **Minor gap:** hole→room association is asserted from group membership + caller wiring
   (`rebuildContours` 51128-51156); I did not exhaustively trace every downstream consumer of the
   `[outer, inner, groups]` triple, so an edge case in cover/area flows (findAutoCovers, 59714+)

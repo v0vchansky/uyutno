@@ -14,7 +14,7 @@ There are **two independent ruler subsystems** plus an **automatic wall-dimensio
 | Inline editable dimension | `SizesFromKeyboard` (`WC.SFK`)         | DOM `<input>` over canvas       | n/a                             | type a number to move geometry                                            |
 | Transient 3D object ruler | `R2D.Ruler3D` (line 38226)             | 3D viewport                     | no                              | live spacing hints while dragging furniture                               |
 
-The `WC.Ruler` list and the `R2D.CustomRulers` list are two views of the **same stored data** (`wallsData.customRulers`), rebuilt from it whenever you switch view. Both live in the 2D plan: `R2D.CustomRulers.updateComponents` (line 38651) shows its components only when `viewer == R2D.view2d` and hides them otherwise — so manual rulers appear **only in 2D**, never in the 3D fly-over or walk views. (`R2D.RulerAB` has no own visibility guard; its parent `CustomRulers` controls it.) The unrelated `R2D.Ruler3D` (auto wall-size hints, §E) is a **different** entity — not the manual ruler.
+The `WC.Ruler` list and the `R2D.CustomRulers` list are two views of the **same stored data** (`wallsData.customRulers`), rebuilt from it whenever you switch view. Both live in the 2D plan: `R2D.CustomRulers.updateComponents` (line 38644) shows its components only when `viewer == R2D.view2d` and hides them otherwise — so manual rulers appear **only in 2D**, never in the 3D fly-over or walk views. (`R2D.RulerAB` has no own visibility guard; its parent `CustomRulers` controls it.) The unrelated `R2D.Ruler3D` (live distance-to-objects hints while dragging furniture, §E) is a **different** entity — not the manual ruler.
 
 ---
 
@@ -29,22 +29,22 @@ The `WC.Ruler` list and the `R2D.CustomRulers` list are two views of the **same 
 
 ### Formatting (`toString`, cm in → string)
 
-- **MetricCM** (line 10836): `toFixed(1)`, then strips a trailing `0` and trailing `.` → e.g. `250` → `"250"`, `250.5` → `"250.5"`.
-- **MetricM** (line 10858): divides by 100, `toFixed(3)`, strips up to three trailing zeros → `"2.5"`.
-- **MetricMM** (line 10896): `Math.round(cm * 10)` → integer mm string.
-- **ImperialFT** (line 11178): splits cm into feet + inches + fraction and prints `5' 3 1/2"` style. Uses constants `_FOOT_TO_CM = 30.48`, `_INCH_TO_CM = 2.54`, symbols `'` and `"`. Fractions are rounded to the nearest **1/16 inch** (`_approximate = 0.0625`, line 10925). Fraction reduction uses a binary-GCD helper `_getGCD` (line 10942) and `_getFractionString` (line 10967). Carry handling: if the residual fraction is within `0.001` of a whole inch it rounds up and rolls inches→feet. Output branches on the 8 combinations of (feet? inch? fraction?) — e.g. `0'`, `3/4"`, `7"`, `7 3/4"`, `5'`, `5' 3/4"`, `5' 3"`, `5' 3 3/4"`.
+- **MetricCM** (line 10830): `toFixed(1)`, then strips a trailing `0` and trailing `.` → e.g. `250` → `"250"`, `250.5` → `"250.5"`.
+- **MetricM** (line 10860): divides by 100, `toFixed(3)`, strips up to three trailing zeros → `"2.5"`.
+- **MetricMM** (line 10893): `Math.round(cm * 10)` → integer mm string.
+- **ImperialFT** (line 11178): splits cm into feet + inches + fraction and prints `5' 3 1/2"` style. Uses constants `_FOOT_TO_CM = 30.48`, `_INCH_TO_CM = 2.54`, symbols `'` and `"`. Fractions are rounded to the nearest **1/16 inch** (`_approximate = 0.0625`, line 10914). Fraction reduction uses a binary-GCD helper `_getGCD` (line 10948) and `_getFractionString` (line 10959). Carry handling: if the residual fraction is within `0.001` of a whole inch it rounds up and rolls inches→feet. Output branches on the 8 combinations of (feet? inch? fraction?) — e.g. `0'`, `3/4"`, `7"`, `7 3/4"`, `5'`, `5' 3/4"`, `5' 3"`, `5' 3 3/4"`.
 
 ### Parsing (`fromString`, string → cm)
 
 - **Metric**: replaces `,`→`.` then `parseFloat`; MetricM multiplies by 100, MetricMM divides by 10 (lines 10826, 10852, 10890).
-- **Imperial** is a full tolerant parser: `_normalizeString` (line 10995) → `_parseImperial` (line 11119) → cm.
+- **Imperial** is a full tolerant parser: `_normalizeString` (line 10971) → `_parseImperial` (line 11138) → cm.
   - Accepts `ft/feet/foot`, `in/inch/inches`, `'`, `"`; unicode primes (`′ ″ ‘`) normalised; unicode vulgar fractions (`¼ ½ ¾ ⅓…`) expanded; mixed numbers `5 3/4"`; thousands separators.
-  - Returns an **error object** `{error: "…"}` (localized Ukrainian strings) on: empty, `≥3` prime chars, negative when not allowed, a bare number with no unit, ambiguous decimal, out-of-range (`_MAX_INCHES = 12000`). A **unit-less number is interpreted as feet** (line ~11085).
+  - Returns an **error object** `{error: "…"}` (localized Ukrainian strings) on: empty, `≥3` prime chars, negative when not allowed, a bare number with no unit, ambiguous decimal, out-of-range (`_MAX_INCHES = 12000`). A **unit-less number is interpreted as feet** (line 11050, `const unitlessAs = 'foot'`).
   - Callers check `fromString(...).error` and, if present, dispatch `SHOW_ALERT_POPUP` instead of applying (see the input Enter handler below).
 
 ### Area formatting (`squareToString`, cm² → string)
 
-- MetricCM (line 10841): `(sqrt(v)/100)² .toFixed(2) + " m²"`. MetricM/MM: `v/10000 .toFixed(2) + " m²"`. Imperial (line 11249): `v/10000 / 0.0929 .toFixed(2) + " sq. ft."`.
+- MetricCM (line 10836): `(sqrt(v)/100)² .toFixed(2) + " m²"`. MetricM/MM: `v/10000 .toFixed(2) + " m²"`. Imperial (line 11222): `v/10000 / 0.0929 .toFixed(2) + " sq. ft."`.
 
 ---
 
@@ -53,7 +53,7 @@ The `WC.Ruler` list and the `R2D.CustomRulers` list are two views of the **same 
 ### Interaction
 
 - Drawn automatically on every room/wall segment on the 2D constructor canvas. Toggle flag `WC.wallsEditor.sizesVisible`, default **true** (line 60530). A toolbar button flips it (line 59195) and updates its face.
-- Entry: main `draw()` (~line 63819) calls `drawPolygonSizes(room)` for each room in `WC.core.arrRooms`.
+- Entry: main `draw()` (line 63787) calls `drawPolygonSizes(room)` for each room in `WC.core.arrRooms`.
 
 ### Rebuild / render
 
@@ -68,7 +68,7 @@ The `WC.Ruler` list and the `R2D.CustomRulers` list are two views of the **same 
 
 - **`minLen = 30` px** (line 63170): if `dist * scale < 30` and not at max zoom, skip the label entirely.
 - **Text-fit gate** (line 63229): if the on-screen segment length `< measureText(text).width + 30` px, skip — prevents labels overflowing a short wall.
-- At `scale == maxScale` (max zoom, `maxScale = 20`, line 79201) both gates are bypassed so labels always show when fully zoomed in.
+- The `scale != maxScale` guard in both gates (lines 63172, 63229) is **dead code**: `WC.wallsEditor.maxScale` is never assigned anywhere (0 occurrences), so the condition is always true and the intended max-zoom bypass never fires. (The `me.maxScale` at line 79202 belongs to `TConf.Editor` — the tile-configurator, constructor at 79153 — and equals the last element of its `scaleValues`, not a literal 20.) The walls editor's own zoom is a discrete table of 41 values 0.05…10.11 (`scaleVaues`, line 60571; `scalePointer` starts at index 20 = 1.0), so its max scale is **10.11**.
 
 ### Not present
 
@@ -92,7 +92,7 @@ me.aligner2 = {center: TR.Point, dragPt: TR.Point, state: 'up'}
 - `setCoordsToRulerPoints(A,B)` sets the two centers.
 - `calcDragPoints()` (line 57202) computes hit-test drag points 1px above each center (in scale units) and initializes `hover.state = false`.
 - Extra fields added at render time: `me.angle`, `me.value` (last formatted string), `me.bounds` (4-corner label rect), `me.isHovered`, `me.selected`.
-- All rulers live in the array `WC.wallsEditor.rulers` (line 60664).
+- All rulers live in the array `WC.wallsEditor.rulers` (line 60660).
 
 **Placing a ruler — `WC.StateMakingRuler` (line 68648):**
 
@@ -101,14 +101,14 @@ me.aligner2 = {center: TR.Point, dragPt: TR.Point, state: 'up'}
 3. `findSnap()` (line 68721): `WC.snapTool.snapPolygon([cursor], …, WC.SNAP_DIST/scale)` where `WC.SNAP_DIST = 10` (line 60604). Result feeds `WC.snapPos` and up to 3 alignment guides `WC.aligners`.
 4. First `mouseUp()` (line 68736): commits `startPoint` (snapped unless Ctrl held).
 5. Second `mouseUp()`: `tmpRuler.calcDragPoints()`, `rulers.push(tmpRuler)`, transition to `stateEditing`.
-6. `draw()` (line 68753): draws all existing rulers, an "up" pin icon at the free endpoint, and — while dragging the second point — the temp ruler **dashed**, plus an editable length input over the midpoint. **Angle snapping** (line 68779): unless Ctrl is held, the free endpoint is snapped to the nearest of 0°/45°/90°/135°/180°/225°/270°/315° (each within a ±1°–2° window) by recomputing `endPoint = start + dist*(cos θ, sin θ)`.
+6. `draw()` (line 68753): draws all existing rulers, an "up" pin icon at the free endpoint, and — while dragging the second point — the temp ruler **dashed**, plus an editable length input over the midpoint. **Angle snapping** (line 68779): unless Ctrl is held, the free endpoint is snapped to the nearest of 0°/45°/90°/135°/180°/225°/270°/315° (each within a strict ±1° window) by recomputing `endPoint = start + dist*(cos θ, sin θ)`.
 
 **Dragging an endpoint — `WC.StateDraggingRuler` (line 68823):** grabs the clicked aligner, snaps while dragging (`snapPolygon`, Ctrl disables snap), and on release goes to `stateSelectedRuler` (`selectedType = "aligner"`) if it was a click, else back to `stateEditing`. A sibling `WC.StateDraggingRulerLine` (line 64114) drags the whole line (`selectedType = "line"`).
 
 **Selecting / nudging / deleting — `WC.StateSelectedRuler` (line 68959):**
 
 - `moveLeft/Right/Top/Bottom(dist)` nudge either one aligner (`selectedType=="aligner"`) or both (`"line"`) by keyboard.
-- `delSelectedRuler()` (line 69089): finds the ruler whose aligner (or the ruler itself) matches `currentAligner` and `rulers.splice(i,1)`, then returns to `stateEditing`. The editor's global delete key also routes here (line 60806).
+- `delSelectedRuler()` (line 69083): finds the ruler whose aligner (or the ruler itself) matches `currentAligner` and `rulers.splice(i,1)`, then returns to `stateEditing`. The editor's global delete key also routes here (line 60806).
 
 **2D rendering — `drawRuler` / `drawRulerLabel` / `drawRulers` (lines 63564 / 63664 / 63737):**
 
@@ -119,12 +119,12 @@ me.aligner2 = {center: TR.Point, dragPt: TR.Point, state: 'up'}
 
 ### C.2 — `R2D` ruler (`R2D.CustomRulers` / `R2D.RulerAB`)
 
-> Despite living in the `R2D`/`scene3d`/`THREE` namespace, this ruler is **displayed only in 2D** (`view2d`) — `updateComponents` (line 38651) hides it in the 3D fly/walk views. The "3D" nature here is only the geometry/DOM implementation, not where the user sees it.
+> Despite living in the `R2D`/`scene3d`/`THREE` namespace, this ruler is **displayed only in 2D** (`view2d`) — `updateComponents` (line 38644) hides it in the 3D fly/walk views. The "3D" nature here is only the geometry/DOM implementation, not where the user sees it.
 
 - Manager `R2D.CustomRulers(scene3d, wallsData, api)` (line 38555), singleton via `.init` / `._instance`; reached as `mih._customRulers` / `scope._scene3d.customRulers`. Holds `rulers[]`, `creating`, `newVectors[]`, `selectedRuler`, `selectedAligner`, `draggingRuler`.
 - **State glue — `R2D.MIH.StateCreatingRuler` (line 43716):** `start()` on desktop calls `addRuler()` (arm creation); on phone `createNewRuler()` + back to `stateMain`. `mouseUp/touchEnd` → `addPoint(e)`; when `isCreating()` turns false → `stateMain`. `stop()` → `_cancel()`. Drag/select states call `_customRulers.disableRulers()/activateRulers()` so rulers don't fight furniture dragging (lines 43788/43795 etc.).
 - **Creation:** `addRuler()` (line 38708) arms; `addPoint(e)` (line 38881) raycasts onto the scene mid-plane, storing `newVectors[0]` then `newVectors[1]`; on the 2nd point builds `new R2D.RulerAB(v0, v1, this)`, pushes to `rulers[]`, adds `r.line` to `scene3d` "top" layer. `createNewRuler()` (line 38926) auto-creates one from the camera look-direction down to terrain (phone one-tap).
-- **`R2D.RulerAB` (line ~39716):** endpoints `A`,`B` as `THREE.Vector3` with **y = 0**; `length = A.distanceTo(B)`; DOM overlay elements `elemA`,`elemB` (endpoint flag icons), `elemVal` (dimension text), `elemInput` (editable length); dashed red 3D line via `THREE.LineDashedMaterial`.
+- **`R2D.RulerAB` (line 39719):** endpoints `A`,`B` as `THREE.Vector3` with **y = 0**; `length = A.distanceTo(B)`; DOM overlay elements `elemA`,`elemB` (endpoint flag icons), `elemVal` (dimension text), `elemInput` (editable length); dashed 3D line via `THREE.LineDashedMaterial` — the material is named `__lineDashedMaterialRed`, but its color is `0xF92FDD` (**magenta**, same as the 2D ruler; lines 31755-31756), hover `0xbae51f` (line 38592).
 - **Live length:** `viewUpdate()` (line 39324) projects each ruler's center to the camera viewport and repositions the HTML label; text = `R2D.DimensionSystem.toString(ruler.length)`.
 - **Endpoint drag:** `elemDownListener`→`elemDragListener`→`elemUpListener` (lines 39231/39254/39305). Drag raycasts to a new scene point; **angle snap** to 8 directions unless Ctrl; a <200 ms press is treated as a **click → select** the aligner, longer → move. Re-adds the line and calls `viewUpdate`.
 - **Delete:** `delRuler(ruler)` (line 39405) removes the 3D line + all DOM elements and `rulers.splice(...)`. `_cancel()` (line 39579) aborts an in-progress creation.
@@ -162,13 +162,13 @@ The click-a-dimension-and-type-a-number system. `WC.SFK = new SizesFromKeyboard(
   - Imperial: `fromString(value)`; if falsy or `.error`, dispatch `SHOW_ALERT_POPUP` and abort.
   - Call `this.state.updateConstruction(target)` then `afterUpdateConstruction()`; hide inputs (except in `stateMakingRect`, which keeps them for the next segment); fire `CHANGE_AREA_VALUE`.
 - **Delta convention (all states):** a leading `+`/`-` means _relative_ (`delta = ±fromString(rest)`); otherwise _absolute_ (`delta = fromString(new) − fromString(oldValue)`). `dx = delta·cos(ang)`, `dy = delta·sin(ang)`.
-- **`SelectedWall.updateConstruction` (line 70110):** editing the length input moves **both** endpoints symmetrically by half: `pointAtStart.move(-dx/2,-dy/2)`, `pointAtEnd.move(+dx/2,+dy/2)`. Editing the **width** input translates both endpoints perpendicular by the full delta. `afterUpdateConstruction` (line 70152) rebuilds walls/covers and saves.
-- **`SelectedPoint.updateConstruction` (line 70375):** moves only the selected endpoint by the full `dx,dy` (the one that isn't fixed).
+- **`SelectedWall.updateConstruction` (line 70115):** editing the length input moves **both** endpoints symmetrically by half: `pointAtStart.move(-dx/2,-dy/2)`, `pointAtEnd.move(+dx/2,+dy/2)`. Editing the **width** input translates both endpoints perpendicular by the full delta. `afterUpdateConstruction` (line 70152) rebuilds walls/covers and saves.
+- **`SelectedPoint.updateConstruction` (line 70379):** moves only the selected endpoint by the full `dx,dy` (the one that isn't fixed).
 - **`MakingWalls.updateConstruction` (line 70862):** while drawing, recomputes the angle from the previous point, and repositions the just-placed point to `prev + delta·(cosθ,sinθ)`; auto-closes the contour if the new point lands within `wallsWidth` of the last, or within `0.1` of the first point.
 - **`BaseState.updateConstruction` (line 69887, used by MakingRoom/Area/Cover):** input1 moves the last-placed point along the drawing direction; input2 (shown once the contour has >2 points) moves the **first** point, extending the chain from the other end.
 - **`MakingRuler.updateConstruction` (line 71216):** moves `aligner2` by the full delta along the ruler angle (grow/shrink from the fixed start); `calcDragPoints()`; `afterUpdateConstruction` pushes the temp ruler into `rulers` and returns to `stateEditing`.
-- **`SelectedRuler.updateConstruction` (line 70727):** edits an existing ruler's length by moving **both** aligners symmetrically ±dx/2, ±dy/2; `calcDragPoints()`; save.
-- `SelectedRuler` reuses the same `inputDomEl1` HTML box, positioned over the ruler-label midpoint (`updateInput`, line 70753), so editing a ruler feels identical to editing a wall dimension.
+- **`SelectedRuler.updateConstruction` (line 70732):** edits an existing ruler's length by moving **both** aligners symmetrically ±dx/2, ±dy/2; `calcDragPoints()`; save.
+- `SelectedRuler` reuses the same `inputDomEl1` HTML box, positioned over the ruler-label midpoint (`updateInput`, line 70667), so editing a ruler feels identical to editing a wall dimension.
 
 ### Live thresholds during wall/rect drawing (min on-screen px)
 
@@ -186,7 +186,7 @@ The click-a-dimension-and-type-a-number system. `WC.SFK = new SizesFromKeyboard(
 
 - **Auto wall dimensions**: 2D only (canvas `drawSize`), toggled by `sizesVisible`.
 - **Room name/area**: DOM overlay, visible in 2D and 3D viewers via independent per-viewer flags.
-- **Manual rulers**: **2D only.** Both `WC.Ruler` and `R2D.RulerAB` (the latter built on `scene3d`/`THREE`) share one persisted list, but `R2D.CustomRulers.updateComponents` (line 38651) shows its components only when `viewer == R2D.view2d` and hides them in the 3D fly/walk views. `RulerAB` has no own visibility guard (the parent `CustomRulers` rules it). The `RulerAB` form projects HTML labels into the viewport while drawing a dashed line, but only within the 2D view.
+- **Manual rulers**: **2D only.** Both `WC.Ruler` and `R2D.RulerAB` (the latter built on `scene3d`/`THREE`) share one persisted list, but `R2D.CustomRulers.updateComponents` (line 38644) shows its components only when `viewer == R2D.view2d` and hides them in the 3D fly/walk views. `RulerAB` has no own visibility guard (the parent `CustomRulers` rules it). The `RulerAB` form projects HTML labels into the viewport while drawing a dashed line, but only within the 2D view.
 - **Transient object spacing** (`R2D.Ruler3D`, line 38226): 3D-only, auto-generated while dragging furniture, never saved.
 
 ---
@@ -194,10 +194,10 @@ The click-a-dimension-and-type-a-number system. `WC.SFK = new SizesFromKeyboard(
 ## F. Edge cases
 
 - **Ctrl held** disables snapping (both endpoint-snap and 8-way angle snap) in both ruler code paths (`WC.Ruler` and `R2D.RulerAB`); note manual ruler drawing is reachable only in the 2D view.
-- **Angle snap windows** are tight (±1°–2°) so free-angle rulers are still easy to draw.
+- **Angle snap windows** are tight (strictly ±1° in both code paths, lines 68779+ / 39289+) so free-angle rulers are still easy to draw.
 - **Imperial parse errors** never crash: they return `{error}` and surface a popup; the geometry is left unchanged.
 - **Imperial rounding** to 1/16" can make a committed length differ slightly from the typed decimal; carry logic rolls 12" → 1'.
-- **Very short segments**: label hidden below 30px (or 45/70 while drafting) and when the text can't fit; both gates lifted at max zoom (`scale == maxScale`, 20×).
+- **Very short segments**: label hidden below 30px (or 45/70 while drafting) and when the text can't fit; the intended max-zoom bypass (`scale != maxScale`, 63172/63229) never fires — `WC.wallsEditor.maxScale` is never assigned, so the gates always apply (see §B).
 - **Off-screen walls**: `drawSize` clips the segment to the canvas rect so the midpoint label is still visible.
 - **Axis remap on save**: 2D `y` is persisted as `z`; a re-implementation must keep this mapping or 2D/3D rulers will disagree.
 - **Deletion**: 2D matches by aligner identity (`splice`); 3D also tears down DOM overlay elements — forgetting either leaks nodes.
@@ -207,6 +207,18 @@ The click-a-dimension-and-type-a-number system. `WC.SFK = new SizesFromKeyboard(
 
 ## G. Confidence & gaps
 
-- **High confidence**: dimension-system unit math and formatting (read directly, §A); auto wall-dimension `drawSize` + thresholds 30/45/70px (read directly, §B/§D); 2D `WC.Ruler` data model, `StateMakingRuler`/`StateSelectedRuler`, `drawRuler`/`drawRulerLabel`, delete (read directly, §C.1); the `SizesFromKeyboard` commit pipeline and per-state `updateConstruction` geometry moves (read directly, §D); persistence pairs `[A,B]` and the 2D-`y`↔3D-`z` remap (read directly).
+- **High confidence**: dimension-system unit math and formatting (read directly, §A); auto wall-dimension `drawSize` + thresholds 30/45/70px (read directly, §B/§D) — but the previously claimed "maxScale = 20 bypass at max zoom" was **wrong**: `WC.wallsEditor.maxScale` is never assigned (the `maxScale` at 79202 belongs to the tile-configurator `TConf.Editor` and is the last element of its `scaleValues`), so `scale != maxScale` (63172/63229) is always true and the bypass is dead code; the walls editor's zoom is a 41-value table 0.05…10.11 (60571); 2D `WC.Ruler` data model, `StateMakingRuler`/`StateSelectedRuler`, `drawRuler`/`drawRulerLabel`, delete (read directly, §C.1); the `SizesFromKeyboard` commit pipeline and per-state `updateConstruction` geometry moves (read directly, §D); persistence pairs `[A,B]` and the 2D-`y`↔3D-`z` remap (read directly).
 - **Medium confidence**: `R2D.CustomRulers` / `RulerAB` 3D internals (endpoint drag <200ms click threshold, `viewUpdate` projection, import/export, `_cancel`) — sourced from a focused sub-agent sweep with cited line numbers but not every method re-read line-by-line here. Exact DOM structure of the 3D ruler input and its Enter handler was not opened directly (assumed to mirror `RulerAB.elemInput`).
 - **Gaps / not confirmed**: whether the 3D ruler length input reuses the same imperial/metric validation as `WC.SFK` (likely, but not verified); the precise contents of `R2D.STYLE.DRAWING_RULER_ICON_*` assets; the exact interior-point search used to place room-name/area labels (only outline seen); and whether any keyboard step (`getStep`) is applied to ruler nudging vs. free movement. No automatic angle labels or exterior dimension chains exist (confirmed absent).
+
+**Чего не хватает для реализации:**
+
+- **Max-zoom bypass** — у оригинала мёртвый код (`WC.wallsEditor.maxScale` не присваивается, см. §B); осознанно не реализовывать или реализовать честно.
+- **Enter/commit 3D-линейки**: `onChangeRulerWidth`/`onRulerSizeInput` (~43804, `addTmpRuler` 39027+) не разобраны; логично переиспользовать конвенцию `WC.SFK`.
+- **Рендер-слои**: `scene3d.add(line, 'top')` — именованные слои; в r185 мапить на `renderOrder`/`depthTest:false` или отдельную сцену.
+- **DOM-оверлеи vs canvas** — конкурент смешивает оба механизма; выбрать один.
+- **Undo/redo линеек** — у оригинала вне истории (`canUndo=false`); решить, включать ли в командный стек.
+- **Ассеты иконок** — свои SVG + правило поворота `angle−π`.
+- **Локализация**: парсер должен возвращать коды ошибок, а не украинский текст.
+- **Интерьерная точка лейбла комнаты** — свой алгоритм (например polylabel).
+- Контракт `snapPolygon` (формат `[offset, g1..g3]`, приоритеты) — **закрыт**: реализация разобрана в [`deep-dives/10-furniture-stacking.md`](deep-dives/10-furniture-stacking.md) (§«Взаимодействие со Snap2D»); внутренности снапа 2D-конструктора стен — [`deep-dives/09-wall-snap-internals.md`](deep-dives/09-wall-snap-internals.md).

@@ -13,12 +13,12 @@
 - **Аккаунт.** Email+пароль, Facebook, Google. Сессия — bearer-**токен** (`x-token`), лежит в localStorage (`r2d_token`). Аккаунт **не нужен, чтобы пользоваться** планировщиком: анонимное («гостевое») редактирование работает полностью; **сохранение на сервер — первый жёсткий гейт** за логином.
 - **Две ортогональные денежные механики** (это ключевая развилка — не смешивать):
   1. **Подписки** — `free` → `basic` → `pro` (плюс разовая покупка «premium project» на один проект). Гейтят: число проектов, премиум-товары каталога, шеринг «view-only», 2D-экспорт.
-  2. **Кредиты** — расходуемая валюта, тратится **только** на облачные рендеры (2K / 4K / 360°). Скриншоты бесплатны.
+  2. **Кредиты** — расходуемая валюта, тратится на облачные рендеры (2K / 4K / 360°) **и AI-загрузку модели** (image→3D). Скриншоты бесплатны.
 - **White-label.** Серверный объект `config` превращает приложение во встроенную партнёрскую поверхность: делегирует логин (`merchant_login`) и «мои проекты» родительскому окну через `postMessage`, подсовывает кастомную форму сбора лида вместо регистрации и переключает почти любой элемент UI.
 
 Всё аккаунтное состояние живёт в **ядре** (`R2D.UserCore`, singleton, импортируется как `user`), а React-слой зеркалит тонкий срез (`userSlice`: `logged`, `profile`, `projectActive.plan`). Это **двойной источник правды** и боль (см. «Что не копируем»).
 
-**Бесплатный потолок — 3 проекта.** `free` показывает «использовано N из **3**» (ProjectsPopup), премиум-товары и «view-only»-шеринг закрыты, экспорт ограничен. `basic`/`pro` снимают потолки и открывают фичи по флагам (ниже).
+**Бесплатный потолок — 3 проекта** (наблюдение UI: «3» — серверное значение `maxProjects`, литерала в клиенте нет). `free` показывает «использовано N из 3» (ProjectsPopup), премиум-товары и «view-only»-шеринг закрыты, экспорт ограничен. `basic`/`pro` снимают потолки и открывают фичи по флагам (ниже).
 
 ---
 
@@ -64,7 +64,7 @@
 
 ### Мост React ↔ ядро (postMessage)
 
-React-приложение и iframe планировщика обмениваются JSON-сообщениями. Auth-релевантные исходящие из `Main.jsx`: `merchant_login`, `my_projects`, `project_saved`. Входящие: `{token}` (SSO), `{plan}` (ставит `projectActive.plan`). Успех логина в React-попапах ре-синхронизирует redux через `saveLoggedStatus` + `setProfileData` после вызова `user.*`.
+React-приложение и iframe планировщика обмениваются JSON-сообщениями. Auth-релевантные исходящие из `Main.jsx`: `merchant_login`, `my_projects`, `project_saved`. Входящие: `{action:"set_token", token}` (SSO), `{plan}` (ставит `projectActive.plan`). Успех логина в React-попапах ре-синхронизирует redux через `saveLoggedStatus` + `setProfileData` после вызова `user.*`.
 
 ---
 
@@ -136,31 +136,32 @@ React-приложение и iframe планировщика обмениваю
 | Фича                                    | Гейт                                                                                                 |
 | --------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | Сохранение проекта на сервер            | требует логина (`Main.jsx:499`)                                                                      |
-| Число сохранённых проектов              | потолок `maxProjects`; free показывает «использовано N из **3**» (ProjectsPopup)                     |
+| Число сохранённых проектов              | потолок `maxProjects` (гейт `maxProjects>0 && count>=maxProjects`); free показывает «N из 3» — «3» серверное, в клиенте литерала нет |
 | Премиум-товары каталога (`plan:['basic' | 'pro']` на товаре)                                                                                   | размещение/вставка/копирование премиум-объекта требует совпадающего плана (`Main.jsx:522-527, 14342-14344`) |
 | Загруженные/свои модели (`isOwner`)     | free заблокировано; basic заблокировано для типа MODEL                                               |
 | Шеринг «view only»                      | только pro (SharePopup)                                                                              |
 | Экспорт проекта                         | по **тарифу**, НЕ кредиты: 2D→basic (мягкий гейт, поток не блокируется), 3D→pro (`Main.jsx:636-666`) |
 | Recurring помесячно/погодно             | `RECURRING_PLANS[plan][month=1                                                                       | year=12]`                                                                                                   |
 
-**Upgrade-воронка.** Превышение лимита или несовпадение плана диспатчит `upgradePlan` (мелкий confirm) → `payPro` (полноэкранный **iframe `/{lang}/pricing_iframe/`**). Все платёжные формы — **серверно-рендеренные same-origin iframe** (`get_form`, `URL_PAY_FORM`), получают `token`/`lang` query-параметрами; результат сигналится обратно через `postMessage` (`buy_finish`, `credits_buy_finish`). После покупки приложение **поллит** `checkIsLogged`/`loadProjects` каждые 2 с (макс 5 попыток), пока план/проект не переключится. Локализованные iframe-нотификации (`wait_/ok_/error_.html|php`).
+**Upgrade-воронка.** Превышение лимита или несовпадение плана диспатчит `upgradePlan` (мелкий confirm) → `payPro` (полноэкранный **iframe `/{lang}/pricing_iframe/`**). Все платёжные формы — **серверно-рендеренные same-origin iframe** (`get_form`, `URL_PAY_FORM`), получают `token`/`lang` query-параметрами; результат сигналится обратно через `postMessage` (`buy_finish`, `credits_buy_finish`). После покупки приложение **поллит** `checkIsLogged`/`loadProjects` каждые 2 с (guard `n>5` → фактически ~6 тиков), пока план/проект не переключится. Локализованные iframe-нотификации (`wait_/ok_/error_.html|php`).
 
 > **Платёжный провайдер в клиенте не назван** — полностью абстрагирован за same-origin серверными iframe. «PayPro» — только внутреннее имя компонента, _не_ обязательно гейтвей PayPro Global (хотя нейминг намекает). Paddle/Stripe/PayProGlobal из клиентского кода не подтвердить → открытый вопрос.
 
 ### Экономика кредитов (единственная расходуемая валюта)
 
-Тратится исключительно на облачные рендеры. Стоимость (`render`, `Main.jsx:424`):
+Тратится на облачные рендеры и AI-загрузку модели. Стоимость (`render`, `Main.jsx:424`):
 
 ```
-2K рендер   = 1 кредит  (activeFormat 3)
-4K рендер   = 2 кредита (activeFormat 4)
-360° тур    = 4 кредита (activeFormat 5)
-Скриншот    = БЕСПЛАТНО  (activeFormat 0, client-side canvas-экспорт)
+2K рендер     = 1 кредит  (activeFormat 3)
+4K рендер     = 2 кредита (activeFormat 4)
+360° тур      = 4 кредита (activeFormat 5)
+AI image→3D   = ≥1 кредит (upload-попап: гейт credits<1 → buyCredits)
+Скриншот      = БЕСПЛАТНО  (activeFormat 0, client-side canvas-экспорт)
 ```
 
 `makeRender` (`user.js:1420`) зипует сцену (`content.json` + zip моделей + preview PNG), POST-ит на `URL_RENDER_NEW`; сервер возвращает `renderId` или `not_enough_credits`. UI пред-проверяет баланс и поднимает `BuyCredits`, если не хватает (`Main.jsx` render `:467-472`).
 
-**Покупка кредитов** — через `BuyCredits`: пакеты тянутся из `POST /api/credits/packets`, UI показывает тиры **5/10/20/50/100** (дефолт 20), цена — _per-credit × count_ с сервера, оплата через iframe `/api/credits/get_form?credits=N&lang=&token=`. «Buy more» → `mailto:sales@roomtodo.com`. GTM: `choice_credit`, `order_credit`, `buy_credit`, `cancel_order_credit`.
+**Покупка кредитов** — через `BuyCredits`: пакеты тянутся из `POST /api/credits/packets`, UI показывает тиры **5/10/20/50/100** (дефолт «20» в бандле не найден — unverified, наблюдение UI), цена — _per-credit × count_ с сервера, оплата через iframe `/api/credits/get_form?credits=N&lang=&token=`. «Buy more» → `mailto:sales@roomtodo.com`. GTM: `choice_credit`, `order_credit`, `buy_credit`, `cancel_order_credit`.
 
 ---
 
@@ -168,7 +169,7 @@ React-приложение и iframe планировщика обмениваю
 
 Два независимых механизма (`plannercore.js`) — не путать:
 
-- **Local-storage автосейв (гость-безопасный):** `trySaveProjectToStorage` (`:15806`) + `setInterval` на 5 с (`:16302`), пишет `r2d_project` / `r2d_project_<hash>`. Служит, чтобы пронести гостевую работу через стену логина и восстановить на reload (`tryLoadProjectFromStorage` `:15816`). Когда гость регистрируется/логинится, заначенный проект можно ре-применить к свежесозданному серверному проекту (`applyAndSaveDataFromStorage` `:15842`, под защитой `projectUserKey == user.getKey()`).
+- **Local-storage автосейв (гость-безопасный):** `trySaveProjectToStorage` (`:15806`) + 5-секундный `setInterval` в `sceneAutoSaveStorage` (`:16295-16303`), который **пишет только при изменении** (diff-guard, не слепо каждый тик) в `r2d_project` / `r2d_project_<hash>`. Служит, чтобы пронести гостевую работу через стену логина и восстановить на reload (`tryLoadProjectFromStorage` `:15816`). Когда гость регистрируется/логинится, заначенный проект можно ре-применить к свежесозданному серверному проекту (`applyAndSaveDataFromStorage` `:15842`, под защитой `projectUserKey == user.getKey()`); читает он при этом **отдельный** storage-ключ `r2d_project_data_to_paste_into_opened_project`, а не основной автосейв-ключ.
 - **Server-автосейв (залогинен, opt-in):** `sceneAutoSaveServer(userKey)` (`:16317`) — `setInterval` на 60 с, зовёт `saveCurrentScene(null, true)` **только если** у проекта есть id, он менялся и `userKey == getProjectUserKey()` — т.е. автосейв **scoped на владельца.** Тумблер — флаг `autoSave` через `user.autoSaveUpdate({auto_save})`. `AutoSaveEnablePopup` спрашивает единожды (`user.data.autoSave == null`) сразу после первого удачного сохранения (`Main.jsx:543`).
 
 ---
@@ -185,7 +186,7 @@ React-приложение и iframe планировщика обмениваю
 
 - Серверный `config` переключает почти любой элемент UI и включает merchant-режим.
 - Логин делегируется родителю: исходящий `merchant_login` postMessage вместо внутреннего попапа; «мои проекты» — исходящий `my_projects`.
-- SSO: родитель шлёт `{token}` внутрь iframe → `user.saveToken(token, false)` (не персистится) → `checkIsLogged()` (`Main.jsx:455`).
+- SSO: родитель шлёт `{action:"set_token", token}` внутрь iframe → `user.saveToken(token, false)` (не персистится) → `checkIsLogged()` (`Main.jsx:455`).
 - Кастомная форма-лид (`CustomRegistrationPopup` + `R2D.getCustomRegistration()`, `plannercore.js:101`) постит проект-как-заявку на `URL_SEND_PROJECT_CALC` (`R2D.sendRequestToCalc`, `plannercore.js:160`).
 
 ### Второй, интеграционный API для мерчантов — `R2D.API.*`
@@ -237,6 +238,8 @@ React-приложение и iframe планировщика обмениваю
 
 **High confidence** (вычитано из кода дословно, с номерами строк): паттерн singleton `UserCore` + список менеджеров и их эндпоинтов; модель `UserCore.data` и `userSlice`; флоу email/Facebook/Google-логина, forgot/reset, смены пароля; токен/сессия (`saveToken`/`loadToken`, `x-token`, `R2D.Storage` неймспейс, SSO-postMessage); матрица гейтов планов и триггеры (сохранение, `maxProjects`, премиум-товары, view-only, экспорт); экономика кредитов (стоимости 1/2/4, тиры 5/10/20/50/100, `makeRender` → `URL_RENDER_NEW` / `not_enough_credits`); оба механизма автосейва и их owner-scope; GA/GTM-события воронок; `ErrorReporting` = `console.log`-заглушка; интеграционный `R2D.API.*` (`:17264+`) с фильтром сметы/товаров по `user_key` мерчанта (`:17302, :17355, :17391`).
 
+> **Оговорка про якоря React-слоя:** ссылки вида `Main.jsx:NNN` / `userSlice.js:NN` / имена попапов непроверяемы по номерам строк — исходных `.jsx` нет, `react.js` минифицирован. Поведение этих мест подтверждено по литералам минифицированного бандла (строки сообщений, значения, имена action-ов), не по строкам исходника.
+
 **Medium confidence / gaps:**
 
 - **Платёжный гейтвей непрозрачен** — целиком спрятан за same-origin `get_form`/`pricing_iframe` серверными страницами. PayPro Global / Paddle / Stripe / кастомный merchant of record — из клиента не различить. Нужен серверный/сетевой захват.
@@ -246,3 +249,9 @@ React-приложение и iframe планировщика обмениваю
 - **Флаг `render` vs кредиты** — `data.render` (boolean) существует отдельно от `credits`; вероятно легаси-capability «можно ли рендерить вообще», текущий эффект неясен.
 - **Контракт merchant-SSO** — handshake `merchant_login` / token-postMessage с родительскими фреймами виден только со стороны iframe; **протокол на стороне родителя внешний** и здесь не прослеживается.
 - **Промокоды** (`URL_PROMO`) выдают кредиты (login-ветка `promoCredits`); выпуск/лимиты — серверные.
+
+**Чего не хватает для реализации:**
+
+- **Не выводимо из клиента**: серверная матрица планов (`maxProjects`, `plan_features`, цены), платёжный контракт, полный протокол merchant-SSO на стороне родителя, флоу активации email.
+- **Релевантно кор-части** (переносим паттерны): двухслойный автосейв (local 5 с только-при-изменении + сервер 60 с owner-scoped); владение через `projectUserKey == user.getKey()`; перенос гостевого проекта через логин (отдельный storage-ключ); токен/сессия + поллер авто-логина + namespacing по site-key; антипаттерны XHR-слоя (что НЕ делать); `R2D.API` как образец отдельного read-API.
+- **Периферия монетизации** (не кор): планы/гейты/кредиты/платёжные iframe/воронки/промо; white-label лид-форма — пограничная.

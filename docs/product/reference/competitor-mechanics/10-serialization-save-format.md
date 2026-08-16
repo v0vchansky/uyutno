@@ -28,7 +28,7 @@ All line numbers below refer to those two files. This is a functional spec writt
   - Note the double-encoding: the JSON string is `encodeURIComponent`-ed here, and `makeParamsString` (`user.js:2946`) does **not** re-encode — so the value is encoded exactly once.
 
 - **Envelope assembly** happens before `save` is called, in the controller's save promise (`plannercore.js:15640+`). Sequence:
-  1. `scene.getSceneState()` builds the plan object (→ internally `R2D.Scene.getSceneState`, `plannercore.js:~13899`, which assembles `res` at `13899`).
+  1. `scene.getSceneState()` builds the plan object (→ internally `R2D.Scene.getSceneState`, `plannercore.js:13878`, which assembles `res` at `13900`).
   2. A **preview screenshot** is taken (`R2D.Viewers.makePreviewScreenShot()`), base64, and the data-URI prefix is stripped: `sceneData.preview = preview.split(',')[1]`.
   3. Floorplan drawing source is likewise stripped of its data-URI prefix only when it changed (`WC.wallsEditor.floorPlanDrawingsChanged[0]`).
   4. `R2D.SceneParser.projectMissingDataCorrector.checkSceneDataBeforeSend(res)` runs a last-chance defaulting pass over walls/covers/areas (`plannercore.js:26315+`) so no `null`/`NaN` material fields go out.
@@ -56,7 +56,7 @@ All line numbers below refer to those two files. This is a functional spec writt
 
 The controller drives autosave with **two separate `setInterval` loops** (both armed after a 5 s startup delay). Independent of the manual/full save (which also snapshots a preview screenshot, §Save):
 
-- **localStorage every 5 s (diff-guarded)** — `scope.sceneAutoSaveStorage(hash)` (`plannercore.js:16295`). Immediately writes `R2D.Storage.save('r2d_project_<hash>', JSON.stringify({...getObjDataForStorage(), hash}))`, then a `setInterval(…, 5000)` re-serializes and **writes only if the JSON differs** from what's already stored (a cheap dirty-diff, not the history dirty-flag). Key is `r2d_project_<hash>` when a project hash exists (from URL `/project/<hash>` or the passed `hash`), else the bare `r2d_project`. Cleared by `clearSceneAutoSaveStorage()` (`16310`, `clearInterval` + removes both keys). This is the localStorage recovery source that `SceneLoader.loadFromString` reads back.
+- **localStorage every 5 s (diff-guarded)** — `scope.sceneAutoSaveStorage(hash)` (`plannercore.js:16295`). Immediately writes `R2D.Storage.save('r2d_project_<hash>', JSON.stringify({...getObjDataForStorage(), hash}))`, then a `setInterval(…, 5000)` re-serializes and **writes only if the JSON differs** from what's already stored (a cheap dirty-diff, not the history dirty-flag). Key is `r2d_project_<hash>` when a project hash exists (from URL `/project/<hash>` or the passed `hash`), else the bare `r2d_project` — and `R2D.Storage.save` appends `_<userKey>` to every key (`17776+`), so the actual localStorage key is `r2d_project_<hash>_<userKey>`. Cleared by `clearSceneAutoSaveStorage()` (`16310`, `clearInterval` + removes both keys). This is the localStorage recovery source that `SceneLoader.loadFromString` reads back.
 - **Server every 60 s (owner + dirty + saved-project only)** — `scope.sceneAutoSaveServer(userKey)` (`plannercore.js:16317`): `setInterval(…, 60000)` that fires `saveCurrentScene(null, /*autoSave*/ true)` **only when all three hold**: `scene.getProjectId()` (project already exists server-side), `scope.wasChanged()` (history dirty-flag, see `09-undo-redo-history.md` §7), and `userKey == scope.getProjectUserKey()` (**current user is the project owner** — a viewer of someone else's shared project never auto-persists to the server). Cleared by `clearSceneAutoSaveServer()` (`16325`).
 
 So: local backup is fast/unconditional-but-diffed (5 s), server autosave is slow and gated on ownership + unsaved changes + an existing `projectId` (60 s). Neither replaces the explicit user save, which additionally attaches the preview screenshot.
@@ -77,7 +77,7 @@ A project is identified internally by a **numeric `id`** (aka `plan_id`); its **
 
 ### Top-level plan envelope
 
-Produced by `R2D.Scene.getSceneState` (`plannercore.js:13899`), validated by `R2D.SceneParser.parse` (`plannercore.js:26208`). Sent as `{plan: {...}}`.
+Produced by `R2D.Scene.getSceneState` (`plannercore.js:13878`; `res` object assembly at `13900`), validated by `R2D.SceneParser.parse` (`plannercore.js:26208`). Sent as `{plan: {...}}`.
 
 | Field                                           | Meaning                                                                                                                                                                           |
 | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -85,7 +85,7 @@ Produced by `R2D.Scene.getSceneState` (`plannercore.js:13899`), validated by `R2
 | `user_key`                                      | owner key (required by parser; used for view-only checks)                                                                                                                         |
 | `name`                                          | project display name                                                                                                                                                              |
 | `dimension`                                     | measurement/unit **display** system (metric cm по умолчанию / imperial ft / mm / m — `R2D.DimensionSystem`) — влияет только на отображение; внутренние координаты всегда в **см** |
-| `version`                                       | format version string; only `"version_001"` exists; **`default` case in the switch also routes to `parseVersion001`** (see Edge cases)                                            |
+| `version`                                       | format version string; only `"version_001"` exists; **`getSceneState` does NOT write it** (line commented out at `13904`), so saved envelopes lack the field — the parser's **`default` case routes to `parseVersion001`** (see Edge cases)                 |
 | `construction`                                  | the normalized compact geometry graph (below)                                                                                                                                     |
 | `scene`                                         | placed products + view state (below)                                                                                                                                              |
 | `floorplan`                                     | uploaded floor-plan tracing image + display state (`drawing.source` base64, `drawing.display`); optional                                                                          |
@@ -125,8 +125,8 @@ Built by **`WC.convert.structureToShort(obj)`** (`plannercore.js:53502`), which 
 - `exists`/`visible`/`partialVisible` — booleans; a wall can exist structurally but be hidden.
 - **Top plinth** (`plt*`): `pltv` (0/1 exists), `pltvisible`, `pltpv` (partialVisible), `plthbi` (hiddenByInstrument), `pltm`/`pltAddm` (material/secondary), `pltmr`/`pltmx`/`pltmy` (rot/offset), `plth` (height cm), `pltd` (depth cm), `pltsh` (shape number / profile index).
 - **Bottom plinth** (`plb*`): identical shape with `plb` prefix (`plbv, plbvisible, plbpv, plbhbi, plbm, plbAddm, plbmr, plbmx, plbmy, plbh, plbd, plbsh`).
-- `conf` — string blob = `DW.configData.toData()`, the **wall-tiling configurator** (`TConf.Field`, `plannercore.js:78605`): `{w, h, areas:[{...,delimiters:{l,r,t,b}, addM}], delimiters:[{...,id,pr1,pr2,ch:[childIds]}]}`. This is a surface split/tiling layout — **NOT** window/door openings. Empty string when the wall has no tiling config.
-- Parser (`parseWalls`, `25749`) hard-requires `id, pa, pb, pm`; defaults `m, mr, mx, my` if missing.
+- `conf` — an **object** returned by `DW.configData.toData()` (not a string blob), the **wall-tiling configurator** (`TConf.Field` ctor `plannercore.js:77699`; `toData`/`fromData` at `78605`/`78643`): `{w, h, areas:[{...,delimiters:{l,r,t,b}, addM}], delimiters:[{...,id,pr1,pr2,ch:[childIds]}]}`. This is a surface split/tiling layout — **NOT** window/door openings. Empty string when the wall has no tiling config.
+- Parser (`parseWalls`, `25749`) hard-requires `id, pa, pb, pm`; defaults `m, mr, mx, my` if missing. Unlike the other entity parsers, `parseWalls` returns `[]` (not `null`) when a key is missing (`25758-25787`), and the caller only checks `== null` (`25683`) — so **a broken wall does not fail the whole parse** (points/cuts/rooms/covers/areas do).
 
 #### `cuts[]` — inline in `structureToShort` (`plannercore.js:53525`)
 
@@ -152,7 +152,7 @@ Floors and floor-holes. Outer cover (a floor slab):
 `{id, exists, visible, partialVisible, name, points:[pointIds], o:1, ch, cvisible, cv, cpv, chbi, m, addM, mr, mx, my, mc, addMc, mcr, mcx, mcy, title}`
 
 - `points` — cover-point ids (contour of the floor).
-- `o` — `1` = outer (floor), `0` = inner (hole cut into a floor); holes emit a minimal record with default materials.
+- `o` — `1` = outer (floor), `0` = inner (hole cut into a floor); inner-cover branch emits a minimal record with **hard-coded** material stubs (`m:'1', mr:0, mx:0, my:0, mc:'0', mcr:0, mcx:0, mcy:0`, `coverToShort` `plannercore.js:53685-53686`), not values from the defaults table (`ProjectMissingDataCorrector`).
 - Floor material: `m/addM/mr/mx/my`.
 - **Ceiling** attached to this cover: `cv` (0/1 exists), `cvisible`, `cpv` (partialVisible), `chbi` (hiddenByInstrument), `ch` (ceiling height cm), `mc`/`addMc` (ceiling material/secondary), `mcr`/`mcx`/`mcy` (ceiling material rot/offset).
 - `title` — room label object `{text, visible:{view3d,view2d,viewConstructor}, areaVisible:{...}, x, y}`; legacy plans store `visible` as a plain bool and it's upgraded on load (`coverFromShort`, `53765`).
@@ -211,7 +211,7 @@ Base fields (all product types):
 - `type` — `R2D.ProductType`: `MATERIAL=1, MODEL=2, POSTER=3, CARPET=4, PLINTH=5` (`plannercore.js:17840`).
 - `x, y, z` — position (cm). **`z` is negated on save** (`z: -sceneObject.z`); the loader copies it back verbatim, so the negation is symmetric with the product's own source frame.
 - `sx, sy, sz` — scale factors (1 = native).
-- `rx, ry, rz` — rotation (deg). **`ry` is negated on save** (`ry: -rotationY`); parser also does `product['ry'] = -Number(product['ry'])` and `z = -Number(z)` on load (`26113+`), mirroring the flip.
+- `rx, ry, rz` — rotation (deg). **`ry` is negated on save** (`ry: -rotationY`); parser also does `z = -Number(product['z'])` (`26130`) and `product['ry'] = -Number(product['ry'])` (`26137`) on load, mirroring the flip.
 - `width, height, depth` — bounding box (cm).
 - `isLockedOnScene, visible, partialVisible, plan, userKey, isOwner, externalData, isParametric, configInfo` — flags/metadata (`configInfo` only when parametric).
 - **No `name`, no `groupId`** on products. (Name appears only in the estimate export; grouping is via `groups[]`.)
@@ -219,8 +219,9 @@ Base fields (all product types):
 MODEL-only (`type==2`) extra fields:
 
 - `fx, fy, fz` — flip flags (0/1) per axis. Parser reads them as `Number(...)==1` booleans and additionally normalizes negative scales to positive (`26150+`).
-- `materials[]` — one entry per material slot: `{current, default, hash, name, source, setId, addMaterial}` (+ `logoParams` for logo meshes). `current` = applied material id, `default` = original; parser back-fills `current` from `default` if absent (`parseProductModelMaterials`, `26185`). `hash` matches the slot to its mesh UV.
-- `q` (quaternion, 4 rounded floats), `newUV`/`cubeUV`, `lightInfo` — **only when `forRender=true`** (render pipeline, not the saved project).
+- `materials[]` — one entry per material slot: `{current, default, hash, name, source, setId, addMaterial}` (+ `logoParams` for logo meshes). `current` = applied material id, `default` = original; parser back-fills `current` from `default` if absent (`parseProductModelMaterials`, `26175`). `hash` matches the slot to its mesh UV.
+- `lightInfo` — written for **any light-source product in the regular save**: the `if (sceneObject.isLight) … data["lightInfo"]` block sits **outside** the `forRender` guard (`~14952-14959`).
+- `q` (quaternion, 4 rounded floats), `newUV`/`cubeUV` — **only when `forRender=true`** (render pipeline, not the saved project); `q` is likewise emitted for POSTER/CARPET under `forRender` (`14977-14988`).
 
 **Openings (windows/doors) — `forWall` block** (`plannercore.js:14961`):
 An opening is **not a separate entity**; it is a MODEL product with `forWall:true`, which carves a hole in the wall it's mounted on. Extra fields:
@@ -231,7 +232,7 @@ An opening is **not a separate entity**; it is a MODEL product with `forWall:tru
 
 #### `groups[]` — `R2D.Scene.makeSceneGroupData` (`plannercore.js:14992`)
 
-`{objects:[objid...], objectsData:[{...per-object base+MODEL subset...}], x, y, z, r, fx, fz, sx, sy, sz, isLockedOnScene, visible, partialVisible}`. Grouping binds instances by their `objid`; there is no per-product back-reference. Each `objectsData[i]` repeats the product shape (including the `forWall` block).
+`{objects:[objid...], objectsData:[{...per-object base+MODEL subset...}], x, y, z, r, fx, fz, sx, sy, sz, isLockedOnScene, visible, partialVisible}`. Grouping binds instances by their `objid`; there is no per-product back-reference. Each `objectsData[i]` repeats the product shape. **Competitor bugs here — do not copy:** the `forWall` extras (`mf`/`addMf`/…) are written onto `data.objects[i]` — the array of objid *strings*, so they go nowhere; only `forWall:true` actually lands on `objectsData[i]` (`15097-15108`). And in `objectsData` the `z` coordinate is **not** negated (`15026`), unlike top-level products.
 
 #### `viewState`
 
@@ -241,7 +242,7 @@ Opaque serialized camera/viewer state (`R2D.Viewers.getViewState()`), round-trip
 
 ### What is stored vs. derived
 
-**Stored:** points (once, with ids), wall/cut/cover/area records referencing point ids, room contours as id lists, product instances (position/scale/rot/materials), material **ids** (not assets), view state, preview PNG, floorplan tracing image.
+**Stored:** points (once, with ids), wall/cut/cover/area records referencing point ids, room contours as id lists, product instances (position/scale/rot/materials), material **ids** (not assets), view state, preview JPEG (base64, `toDataURL('image/jpeg')` — см. §envelope `preview`), floorplan tracing image.
 
 **Derived at load (never stored):**
 
@@ -284,7 +285,7 @@ Opaque serialized camera/viewer state (`R2D.Viewers.getViewState()`), round-trip
 ## Geometry rebuild (load → parse → rebuild)
 
 1. **Transport & validation:** `SceneLoader` POSTs by `plan_id` or `plan_hash`, parses response, requires `status=='success'` + `plan`.
-2. **Structural validation & defaulting:** `R2D.SceneParser.parse` → `parseVersion001` → `parseConstructionVersion001` (per-entity `parsePoints/Walls/Covers/Cuts/Rooms/Areas/Cup`) + `parseSceneVersion001.parseProducts`. Missing non-critical fields are back-filled by `ProjectMissingDataCorrector` from a defaults table (`plannercore.js:26260`: `mr/mx/my=0, ch=280, wh=280, h=100, m="2013"`, etc.). Missing **critical** keys (ids, `pa/pb`, `points`) fail the parse (return null → error).
+2. **Structural validation & defaulting:** `R2D.SceneParser.parse` → `parseVersion001` → `parseConstructionVersion001` (per-entity `parsePoints/Walls/Covers/Cuts/Rooms/Areas/Cup`) + `parseSceneVersion001.parseProducts`. Missing non-critical fields are back-filled by `ProjectMissingDataCorrector` from a defaults table (`plannercore.js:26260`: `mr/mx/my=0, ch=280, wh=280, h=100, m="2013"`, etc.). Missing **critical** keys (ids, `pa/pb`, `points`) fail the parse (return null → error) — except walls, where `parseWalls` returns `[]` and the `==null` caller check passes (see the walls entity above).
 3. **Reconstruction:** `WC.convert.shortToStructure` (`53828`) creates `WC.DataPoint/DataWall/DataCut/DataArea/DataCover/DataCeiling/DataCap/DataRoom` objects, populating `dictPoints/dictWalls/dictCuts` keyed by `'k'+id`, and re-links: walls resolve `pa/pb` → point objects; areas/rooms resolve their id lists → objects; entries referencing a missing id are **skipped** (`if (!pt1 || !pt2) continue`).
 4. **Derived geometry:** contour winding sets each wall's `faceRight`/`outer`; `WC.contourFromPairs` builds area polygons; cut heights inferred; a legacy fallback (`plannercore.js:54144`) promotes the largest inner room to "outer" for very old plans that stored no outer room.
 5. **Async asset hydration:** `SceneLoader.loadProductsData` pre-fetches all product + material ids from `list`/`list_materials`; meshes, textures, and material silhouettes are fetched from the catalog by id and attached; products instantiated via `R2D.Creator.makeFromLoadedData` (`18178`).
@@ -303,12 +304,20 @@ Opaque serialized camera/viewer state (`R2D.Viewers.getViewState()`), round-trip
 
 ## Confidence & gaps
 
-**High confidence** (read directly from source, exact line numbers): the compact `construction` schema and every entity's field list (`WC.convert.structureToShort`/`wallToShort`/`coverToShort` + the matching `parseConstructionVersion001.*` validators); the id-normalization model and what's derived vs stored; `SceneSaver.save` body shape (`json=` + `autoSave=1`), `SceneLoader.load` by `plan_id`/`plan_hash`, response validation requiring `plan_id`/`status=='success'`; copy/delete/share bodies; product/group/opening (`forWall`) serialization; clipboard `{type,value}` schema.
+**High confidence** (read directly from source, exact line numbers): the compact `construction` schema and every entity's field list (`WC.convert.structureToShort`/`wallToShort`/`coverToShort` + the matching `parseConstructionVersion001.*` validators); the id-normalization model and what's derived vs stored; `SceneSaver.save` body shape (`json=` + `autoSave=1`), `SceneLoader.load` by `plan_id`/`plan_hash`, response validation requiring `plan_id`/`status=='success'`; copy/delete/share bodies; product/group/opening (`forWall`) serialization; clipboard `{type,value}` schema. A validation pass confirmed: `lightInfo` saved outside `forRender`; `version` absent from saved envelopes; `conf` is an object; `parseWalls` returns `[]` not null; the group `objectsData` mf/z bugs; the `_<userKey>` localStorage suffix.
 
 **Medium confidence / gaps:**
 
-- **Endpoint literal paths** — `R2D.URL.URL_SAVE_PLAN / URL_LOAD_PLAN / URL_LOAD_SHARED_PLAN / URL_COPY_PLAN / URL_DELETE_PLAN / URL_SHARE_PLAN / URL_AUTO_SAVE_UPDATE` are referenced but the `R2D.URL` constants table is **not present in either supplied file** (lives in a config bundle). Paths themselves are unknown; only the constant names + `POST`/urlencoded/`withCredentials` are confirmed.
+- **Endpoint literal paths** — `R2D.URL.URL_SAVE_PLAN / URL_LOAD_PLAN / URL_LOAD_SHARED_PLAN / URL_COPY_PLAN / URL_DELETE_PLAN / URL_SHARE_PLAN / URL_AUTO_SAVE_UPDATE` are referenced as `R2D.URL.*`, but the object is **server-injected at page render** via a template literal — `plannercore.js:24583` reads `R2D.URL = ${JSON.stringify(R2D.URL)}` (values baked in by the backend), so the constants table is absent from the JS bundle. Only the constant names + `POST`/urlencoded/`withCredentials` are confirmed from the bundle itself; literal paths depend on the deploy.
 - **`viewState`** and **`extraData`** internal shapes are opaque pass-throughs (not decoded here).
 - **Autosave trigger cadence/debounce** — `updateAutoSave` is caller-driven; the change-event wiring and throttle live in the controller (not fully in the two files), so exact trigger frequency is inferred, not proven.
 - **`UserAutoSave.updateAutoSave` payload contents** — confirmed it sends raw `JSON.stringify(data)` to `URL_AUTO_SAVE_UPDATE` and checks `status=='ok'`, but the exact `data` fields assembled by its caller weren't visible in `user.js`.
 - **`control` on points and `pm` on walls** are always emitted as `0`/`''`; their intended semantics (control-point / mid-marker) are inferred from names.
+
+**Чего не хватает для реализации** (как референс архитектуры схемы док достаточен — id-нормализация, stored-vs-derived, версионирование switch+default, defaulting-pass; не хватает):
+
+1. **`viewState`** — структура камер всех вьюеров не декодирована; свою сериализацию камер проектировать с нуля.
+2. **`floorplan`** — transform/scale/позиция подложки в конверте не описаны (механика — в `11-floorplan-import-align.md`).
+3. **`materials[]` слота продукта** — форма `{current,default,hash,name,source,setId,addMaterial}` заявлена, но продюсер `getMaterials()` не разобран; стабильную идентификацию material-слотов меша определить самим.
+4. **`configInfo` / `lightInfo`** — opaque; своя параметрика/свет = своя схема. `rulers` / `extraData` / `logoSrcList` — opaque pass-through; `pm`/`control` — резерв, не закладывать.
+5. **Анти-паттерны конкурента**: валидатор, возвращающий `[]` вместо ошибки; запись в чужой массив (groups); несимметричная negation `z` в группах → negation-слой изолировать в одном converter-модуле, валидация — схемная (zod).

@@ -27,7 +27,7 @@ planner.view3d/view2d/viewWalk/units/renders = { ... }      // :603-608 (про�
 planner.mih = () => R2D.MouseInteractionHelper._instance;   // :610
 ```
 
-`EventDispatcher` (`plannercore.js:8371-8407`) — самописный add/remove/dispatch с GC занулённых слотов (`_maxEventsNullCount=1000`). События — `new Event(type, data)`; слушатели читают `e.data`.
+`EventDispatcher` (`plannercore.js:8330-8410`) — самописный add/remove/dispatch с GC занулённых слотов (`_maxEventsNullCount=1000`). События — `new Event(type, data)`; слушатели читают `e.data`.
 
 **Командная поверхность (React → движок): прямые методы** на `planner.scene` / `planner.constr` (объявлены `plannercore.js:612-900+`). Репрезентативный срез:
 
@@ -35,7 +35,7 @@ planner.mih = () => R2D.MouseInteractionHelper._instance;   // :610
 - Constructor: `stateMakeWall/Rect/Room`, `stateCutRoom`, `stateMakeCover/CutCover`, `stateMakeArea`, `finish`, `deleteSelected`, `alignPlan/stopAlignPlan/deletePlan/hasPlan`, `undo/redo`, `zoomIn/Out`.
 - Viewers: `zoomToMax/zoomIn/zoomOut/toCenter/fullscreen/addRuler`, `view3d.activate()` и т.п.
 
-**Событийная поверхность (движок → React): именованные константы** на `planner.scene.*` (`plannercore.js:772-833`) и `planner.constr.*` (`:680-717`). Полный словарь, на который UI подписан (из `useEffect`-блоков `Main.jsx:939-1300`):
+**Событийная поверхность (движок → React): именованные константы** на `planner.scene.*` (два блока: `plannercore.js:772-775` + `:823-880`, до `PRELOADER_TOGGLE` включительно; между блоками — методы) и `planner.constr.*` (`:680-717`). Полный словарь, на который UI подписан (из `useEffect`-блоков `Main.jsx:939-1300`):
 
 | Направление | Константа события (значение)                                                                                             | Реакция UI (хендлер в Main.jsx)                                                     |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
@@ -99,7 +99,7 @@ planner.mih = () => R2D.MouseInteractionHelper._instance;   // :610
 | action                 | payload            | когда                                                                         |
 | ---------------------- | ------------------ | ----------------------------------------------------------------------------- |
 | `program_ready`        | —                  | после полного init (`Main.jsx:1190`)                                          |
-| `merchant_login`       | —                  | любое действие с логином при `enable_merchant_login` (34 колсайта)            |
+| `merchant_login`       | —                  | любое действие с логином при `enable_merchant_login` (33 standalone-вхождения) |
 | `project_saved`        | `{id, name, hash}` | после сейва (`Main.jsx:436, 544, 623`)                                        |
 | `project_renamed`      | `{...}`            | после переименования (`SetProjectNamePopup.jsx:250`)                          |
 | `set_project`          | `{projectId}`      | при `enable_set_project` (`plannercore.js:15697, 16160`)                      |
@@ -122,7 +122,7 @@ planner.mih = () => R2D.MouseInteractionHelper._instance;   // :610
 
 ### Граница #4 — legacy ZIP-конфигуратор
 
-Легаси `createAppIFrameOld` (`:24451`) пишет HTML из zip в iframe; его собственный локальный `messageListener` (`plannercore.js:24478`, доступ за хоткеем Ctrl+Alt+C) использует `app_ready`→`set_data{url_files,url_entities,url_products,url_materials,url_apps,token,lang,product_id,scene_data}`, затем `app_save{product_id,settings}` / `app_close`. Это отдельная от #3 postMessage-граница со своим протоколом.
+Легаси `createAppIFrameOld` (`:24451`) пишет HTML из zip в iframe; его собственный локальный `messageListener` (`plannercore.js:24478`, доступ за хоткеем Ctrl+Alt+C) использует `app_ready`→`set_data{url_files,url_entities,url_products,url_materials,url_apps,token,lang,product_id,scene_data}`, затем `app_save{product_id,settings}` / `app_close`. Это отдельная от #3 postMessage-граница со своим протоколом. Рядом живёт второй дев-хоткей **Ctrl+Alt+L** (`:24599`) — тот же конфигуратор, но грузящийся с localhost (дев-режим).
 
 ### Граница #5 — iframe формы оплаты
 
@@ -202,7 +202,7 @@ initialState `{logged:false, profile:{}, projectActive:{name:null, plan:'free'}}
 **Путано: файл с именем `_legacy` зарегистрирован под простым ключом `viewMode` и это толстый, всё ещё активный редьюсер;** не-легаси `viewModeSlice.js` зарегистрирован как `viewMode_new` и это слим-переписка.
 
 - **`viewMode` (legacy, `SLICE/viewMode/viewModeSlice_legacy.js`, имя `viewMode`):** `active:'view3d'` + пять per-mode под-деревьев (`view3d, view2d, constr, viewWalk, tileConfig`), у каждого `activeState` и много именованных «state»-бакетов, держащих собственные `history`/`breadCrumbs` (`:6-75`). 12 редьюсеров вкл. `setActiveViewMode`, `setActiveViewModeState` (с большим teardown при выходе из `stateRenderMake` — `offClipping`, сброс камеры, `changeIsRenderActive(false)`, `checkSkybox`, `:152-167`), плюс полный history/breadcrumb API. Владеет _глубокой_ per-mode/per-substate историей навигации.
-- **`viewMode_new` (`SLICE/viewMode/viewModeSlice.js`, имя `viewMode_new`):** `active:'constr'`, `prevActive`, `prevActive3d` (`:6-10`). ОДИН редьюсер `setActiveViewMode` — сейвит/анселектит текущий объект движка, помнит, где ты был до голого 2D/3D-вида, и зовёт `planner[newMode].activate()` (`:12-40`). Никакой history-машинерии.
+- **`viewMode_new` (`SLICE/viewMode/viewModeSlice.js`, имя `viewMode_new`):** `active:'constr'`, `prevActive`, `prevActive3d` (`:6-10`). ОДИН редьюсер `setActiveViewMode` — сейвит/анселектит текущий объект движка, помнит, где ты был до голого 2D/3D-вида, и зовёт `planner[newMode].activate()` (`:12-40`); в редьюсере есть гард — для `tileConfig` `activate()` НЕ вызывается. Никакой history-машинерии.
 
 `Main.jsx` и `TopPanel.jsx` оба импортят `selectActiveViewMode`/`setActiveViewMode` из **нового** слайса — то есть «в каком я режиме» выковыривается из монолитного legacy-слайса в `viewMode_new`, пока history/breadcrumb-заботы всё ещё живут в legacy. **Недоделанный рефактор, оставленный в проде с обоими сторами проводными.** Боль, которую НЕ повторять.
 
@@ -266,9 +266,9 @@ Flex-строка: `<LeftMain/>` | `plannerMain{ TopPanel (справа свер
 - **react-router-dom v6** (`Routes`/`Route element=`, `basename={R2D.URL.REACT_BASEPATH}`; роуты `/`, `/project/*`, `/password_recovery/*`).
 - **Стили: react-jss** (`createUseStyles`) — весь стайлинг CSS-in-JS, ни CSS-файлов, ни tailwind.
 - **framer-motion** для enter-exit анимации панелей/попапов (`AnimatePresence`, `motion`).
-- **Сборка: webpack** (sourcemaps `webpack://planner_front/...`; дефайны `__APP__VERSION__`, `SENTRY_DSN`, `SENTRY_ENV`; `process.env.NODE_ENV`).
+- **Сборка: webpack** (дефайны `__APP__VERSION__`, `SENTRY_DSN`, `SENTRY_ENV`; `process.env.NODE_ENV`). Sourcemap-путь `webpack://planner_front/...` в этой копии бандла **не найден** (unverified; единственные `sourceMappingURL` — inline от css-loader).
 - **Sentry** (`@sentry/react` + `@sentry/tracing`, Replay) для error/session capture.
-- Заметные либы: **swiper** (галереи рендеров), **simplebar-react** (кастом-скроллбары), **react-pdf** + **pdfjs-dist** (превью 2D PDF-экспорта; worker с unpkg CDN), **suneditor** (rich-text, лого-редактор), **next-share** (соц-шаринг), **@paciolan/remote-component** (remote-микроприложения), **JSZip** (распаковка remote-бандлов), **lazysizes**, **lodash**, **classnames/clsx**.
+- Заметные либы: **swiper** (галереи рендеров), **simplebar-react** (кастом-скроллбары), **react-pdf** + **pdfjs-dist** (превью 2D PDF-экспорта; worker с unpkg CDN), **suneditor** (rich-text, лого-редактор), **next-share** (соц-шаринг; предположение по фингерпринту share-кнопок — код идентичен **react-share**, литерала имени в бандле нет, так что «next-share ИЛИ react-share»), **@paciolan/remote-component** (remote-микроприложения), **JSZip** (распаковка remote-бандлов), **lazysizes**, **lodash**, **classnames/clsx**.
 - Сторона движка (глобальная, не-React): **three.js** (`three.min.js`) + сток `OrbitControls`, самописное `R2D.*` OOP-ядро (`plannercore.js`), `R2D.UserCore` (`user.js`).
 
 ---
@@ -285,7 +285,7 @@ Flex-строка: `<LeftMain/>` | `plannerMain{ TopPanel (справа свер
 
 5. **~48 попапов как boolean-флаги в одном слайсе**, слоями через самописный z-index-счётчик. Предпочесть popup-стек/роутер с типизированными пейлоадами; не рассыпать 48 булевых.
 
-6. **`enable_*` мерчант-конфиг-флаги перерутят core-флоу** (login, my-projects, product-details, set-project) наверх в хост-фрейм. Мощно для white-label, но ветвление (`config... ? postMessageToParent(...) : dispatch(...)`) дублируется в ~34 местах. Централизовать решение host-vs-local за одним адаптером.
+6. **`enable_*` мерчант-конфиг-флаги перерутят core-флоу** (login, my-projects, product-details, set-project) наверх в хост-фрейм. Мощно для white-label, но ветвление (`config... ? postMessageToParent(...) : dispatch(...)`) дублируется в ~33 местах. Централизовать решение host-vs-local за одним адаптером.
 
 7. **String-keyed `action`-протоколы с `JSON.parse` + try/catch и `'*'` targetOrigin** на каждой границе — ни схемы, ни проверки origin (security smell). Использовать типизированные сообщения и настоящий target origin.
 
@@ -297,7 +297,7 @@ Flex-строка: `<LeftMain/>` | `plannerMain{ TopPanel (справа свер
 
 ## Confidence & gaps
 
-**Высокая уверенность** (прочитано с номерами строк): внутрипроцессная природа связки UI↔движок (`init.js` глобалы, `appendChild` canvas, `createPlannerAPI` `:600-617`, `EventDispatcher` `:8371-8407`); полный event-словарь движок→UI и командная поверхность React→движок; все шесть postMessage-границ с их action-словарями (host исходящий `postMessageToParent` `:10195` + host входящий `messageListener` `Main.jsx:404-715`; app-iframe `createAppIFrame` `:24844` + `appMessageListener` `:24719`; legacy ZIP `createAppIFrameOld` `:24451` + `messageListener` `:24478`; платёжные iframe `PayProPopup/BuyCredits`; Tour360 `Tour360Create.jsx`); механизм `@paciolan/remote-component` (не postMessage); 12 слайсов Redux с полями initialState и владением; недоделанный рефактор `viewMode` vs `viewMode_new`; app shell / панели / ~48-попап реестр / quick-панели / tips; tech stack.
+**Высокая уверенность** (прочитано с номерами строк): внутрипроцессная природа связки UI↔движок (`init.js` глобалы, `appendChild` canvas, `createPlannerAPI` `:600-617`, `EventDispatcher` `:8330-8410`); полный event-словарь движок→UI и командная поверхность React→движок; все шесть postMessage-границ с их action-словарями (host исходящий `postMessageToParent` `:10195` + host входящий `messageListener` `Main.jsx:404-715`; app-iframe `createAppIFrame` `:24844` + `appMessageListener` `:24719`; legacy ZIP `createAppIFrameOld` `:24451` + `messageListener` `:24478`; платёжные iframe `PayProPopup/BuyCredits`; Tour360 `Tour360Create.jsx`); механизм `@paciolan/remote-component` (не postMessage); 12 слайсов Redux с полями initialState и владением; недоделанный рефактор `viewMode` vs `viewMode_new`; app shell / панели / ~48-попап реестр / quick-панели / tips; tech stack.
 
 **Пробелы / средняя уверенность:**
 
@@ -305,3 +305,14 @@ Flex-строка: `<LeftMain/>` | `plannerMain{ TopPanel (справа свер
 - Полная схема `configInfo`/`params`/`materials`, обмениваемая с iframe-конфигуратором, — определена внешним конфигуратор-приложением, не в этом бандле.
 - Конечное состояние миграции `viewMode`: должен ли `viewMode_new` полностью заменить legacy или сосуществовать — из кода не следует.
 - Режим `tileConfig` (tile-редактор) — упоминается в topPanel/viewMode, но его панели не было в извлечённом наборе `panels/`; вероятно отдельный remote-компонент.
+- **Оговорка про JSX-якоря:** ссылки вида `Main.jsx:NNN` (и оценки «190 файлов», «~48 попапов») проверены **по литералам**, не по строкам — исходных `.jsx` нет, `react.js` минифицирован в 2 строки; всё проверяемое литералами сошлось, противоречий не найдено.
+
+**Чего не хватает для реализации** (мост движок↔React для нас):
+
+1. **Тайминги/порядок инициализации**: подписки vs `PROJECT_LOADED`, события до маунта — replay/буферизация или потеря (как у конкурента)? Решить в мосте.
+2. **Схема пейлоада `e.data` каждого события** (level vs edge) — здесь есть только для `USE_TAB_TIP_*`; для типизированного моста нужна полная.
+3. **Частотные характеристики** `WHEEL_ZOOM`/`CAMERA_MOVE`/`ROTATING_OBJECT` (per-frame?) и throttling — не разобрано; high-freq события держать вне Redux, иначе re-render-шторм.
+4. **Reentrancy**: события синхронны из движка → dispatch внутри стека Three.js-обработчика; доставлять в React через микротаск.
+5. **FSM селекции как протокол** (клик по другому объекту, selection во время drag) — не описан.
+6. **Ошибки async-команд** (reject vs `SHOW_ALERT_POPUP`) — нужен единый Result-канал.
+7. **Готовое решение**: типизированный emitter (mitt/nanoevents + TS-map событий) или `useSyncExternalStore` вместо ручного Redux-зеркала — закрывает анти-паттерны архитектурно.

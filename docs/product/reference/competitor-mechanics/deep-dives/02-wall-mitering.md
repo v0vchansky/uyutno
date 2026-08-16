@@ -143,9 +143,10 @@ path handles a new run that _starts on an existing wall_ via `startNeighbSegment
 57227). At the start segment it intersects the new offset line against **both**
 neighbor rays (`X0`, `X1`, lines 57946–57949 / 57998–58001), keeps only
 intersections that actually lie on the neighbor (`pointOnLine`), and picks the
-one **farther** from `P1s` (`if (d0 > d1) X = X1`, 57955) — i.e. the miter that
-reaches deeper into the existing wall so the new stub tucks cleanly into the
-T. If neither hits, it uses the plain butt endpoint (57972). There is **no**
+one **nearer** to `P1s` (`X = X0; if (d0 > d1) X = X1`, 57951–57955; same
+selection in the closed branch, 58003–58007) — i.e. the **minimum**-distance
+intersection, the shallower cut into the existing wall. If neither hits, it
+uses the plain butt endpoint (57973). There is **no**
 general N-way junction solver: three-plus walls meeting a point are resolved
 pairwise (each wall mitered against its immediate predecessor/successor only),
 and any residual gap at the shared vertex is filled by connectors (§next).
@@ -175,8 +176,9 @@ candidate is **skipped** if:
 - the connector properly intersects a wall interior (`lineIntersectLine`, 54434) or duplicates a cut of equal height (54443–54454).
 
 Survivors become `WC.DataPlug` — a **flat vertical quad** (the four corners are
-the connector edge at floor and at `axis.wall1.height`; the plug data is built
-at 52053). Its mesh is emitted by `createPlug3D` (54495) as **two triangles**
+the connector edge at floor and at `axis.wall1.height`; the plug constructor
+signature is at 52053, fields `point1/point2/axis/height` at 52058–52066 — a
+bare data holder). Its mesh is emitted by `createPlug3D` (54495) as **two triangles**
 (54507–54508) — a single planar rectangle spanning the gap, **not** an extruded
 prism and **not** a beveled corner. So the rebuild-time "cap fill" is a
 **whitelist of short, non-crossing, flat bridges** (≤ `maxConnectorLength = 40`)
@@ -197,7 +199,7 @@ Numeric thresholds and where they bite:
 | `40`               | `maxConnectorLength` (54384)                              | max bridgeable junction gap                                                                                                     |
 | `80`               | `MAX_WALL_WIDTH` (54379)                                  | max face separation for a box/axis (54913)                                                                                      |
 | `15`               | `MIN_WALL_LENGTH` (54380)                                 | min axis length (54914)                                                                                                         |
-| `wallsWidth`       | arg                                                       | too-short-segment rejection (57927) and trailing-point drop (57980)                                                             |
+| `wallsWidth`       | arg                                                       | too-short-segment rejection (57927) and trailing-point drop (57982)                                                             |
 
 Degeneracy handling actually present:
 
@@ -212,8 +214,9 @@ Degeneracy handling actually present:
   spike is what's clamped by the `recalcAng` + `pointInBounds` test. There is
   **no global self-intersection cleanup** of the emitted band — concave spikes
   are handled only locally per vertex.
-- **Extremely sharp spikes:** clamped to a bevel by the re-miter branch;
-  worst case the block is split and restarted, so a spike can't propagate.
+- **Extremely sharp spikes:** the re-miter branch replaces the spike with flat
+  perpendicular end caps and restarts the block (58046–58057), so a spike
+  can't propagate. Consistent with the rest of this doc: flat cap, not a bevel.
 - **Closed vs open contour:** detected by `inputCont[0].match(last)` (57977);
   closed contours append `contour[1], contour[2]` (58081) so the wrap-around
   vertex is mitered like any interior vertex.
@@ -235,7 +238,7 @@ For our fresh TS build:
   (1) the `0.75π` + `pointInBounds` miter → flat-cap rule (perpendicular end
   caps, not a bevel) — a stock miter-limit is a _ratio_, not an angle+bounds
   test, so joins would differ at ~135°;
-  (2) the `startNeighbSegments` T-junction tuck-in (pick the farther
+  (2) the `startNeighbSegments` T-junction tuck-in (pick the nearer
   intersection); (3) the connector/plug gap-fill with `maxConnectorLength = 40`
   and its crossing-rejection whitelist; (4) `parallelBox`'s four-case overlap
   with `0.05` rad tolerance for recovering axes from built rooms.
@@ -263,11 +266,12 @@ triangles at 54507–54508); per-segment-quad output structure; connector
 whitelist logic.
 
 **Gaps / lower confidence:** (1) I did not fully trace how per-segment quads are
-subsequently unioned into the final room contour polygons and how variable
-per-wall thickness (if the product exposes it) feeds `wallsWidth` — I saw only a
-single global `me.wallsWidth` (65864) plus a per-run `signSide`, no per-wall
-width in the offset path, so "variable thickness" appears to be **not
-supported** in this engine, but I can't rule out width being applied elsewhere.
+subsequently unioned into the final room contour polygons. Variable per-wall
+thickness is **confirmed not supported**: validation found the only
+`wallsWidth = 10` assignments at 65571 and 65864, with no per-wall width
+anywhere in the offset path. If our editor wants per-wall width, that is our own
+design decision — and it breaks the single-sided-band premise this whole join
+strategy rests on.
 (2) The exact interaction between `faceRight`/`outer` parity (54140) and
 `rightOriented` (54922) I described at the level of the parity table, not by
 exhaustively enumerating orientation cases. (3) `createPlug3D` 3D extrusion
