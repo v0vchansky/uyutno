@@ -1,12 +1,12 @@
 # 0045 · TASK · Аудит практик roomtodo: keep / rework / drop
 
-- Статус: [~]
+- Статус: [x]
 - Эпик: 0043
 - Зависит от: —
 - Спека: docs/product/reference/competitor-mechanics/00-overview.md; docs/product/architecture/planner-build-order.md
 - Нужен дизайн: нет (документация)
 - Дизайн: —
-- PR: —
+- PR: e36c738, 270dd8c, a8fd69c (прямые коммиты в main)
 
 ## Описание
 

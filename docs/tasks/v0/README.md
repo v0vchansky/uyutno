@@ -144,10 +144,10 @@
 
 Спека и общее описание: [0043-EPIC-planner-step1-engine-skeleton.md](0043-EPIC-planner-step1-engine-skeleton.md). Порядок шагов планера — [planner-build-order.md](../../product/architecture/planner-build-order.md); задачи на код каркаса заводятся после принятия ADR.
 
-| #    | Тип  | Название                                                                                                       | Статус | Зависит от | PR  |
-| ---- | ---- | -------------------------------------------------------------------------------------------------------------- | ------ | ---------- | --- |
-| 0045 | TASK | [Аудит практик roomtodo: keep / rework / drop](0045-TASK-roomtodo-practices-audit.md)                          | [~]    | —          | —   |
-| 0044 | TASK | [ADR A + B: слои движка планера и модель документа](0044-TASK-planner-adr-engine-layers-and-document-model.md) | [ ]    | 0045       | —   |
+| #    | Тип  | Название                                                                                                       | Статус | Зависит от | PR                        |
+| ---- | ---- | -------------------------------------------------------------------------------------------------------------- | ------ | ---------- | ------------------------- |
+| 0045 | TASK | [Аудит практик roomtodo: keep / rework / drop](0045-TASK-roomtodo-practices-audit.md)                          | [x]    | —          | e36c738, 270dd8c, a8fd69c |
+| 0044 | TASK | [ADR A + B: слои движка планера и модель документа](0044-TASK-planner-adr-engine-layers-and-document-model.md) | [ ]    | 0045       | —                         |
 
 ### Без эпика
 
