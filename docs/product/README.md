@@ -25,3 +25,9 @@
 - Feature-specs:
   - [Аутентификация](./features/auth.md)
   - [Проекты (личный кабинет)](./features/projects.md)
+  - [Планер (3D-редактор)](./features/planner/README.md) — разделы 01–12, [бэклог](./features/planner/backlog.md)
+- Архитектурный каркас планера (`architecture/`):
+  - [Тестовая стратегия редактора](./architecture/testing-strategy.md)
+  - [Three.js r134 → r185 — карта миграции](./architecture/threejs-r185-migration.md)
+  - [Контракт 3D-ассета каталога](./architecture/catalog-asset-contract.md)
+- Reference: [реверс механик roomtodo](./reference/competitor-mechanics/00-overview.md)
