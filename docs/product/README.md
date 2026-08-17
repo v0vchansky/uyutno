@@ -31,4 +31,5 @@
   - [Three.js r134 → r185 — карта миграции](./architecture/threejs-r185-migration.md)
   - [Контракт 3D-ассета каталога](./architecture/catalog-asset-contract.md)
   - [Порядок реализации планера и карта ADR](./architecture/planner-build-order.md) — 10 шагов, ADR-кандидаты, парковка отложенных вопросов
+  - [Аудит практик roomtodo: keep / rework / drop](./architecture/competitor-practices-audit.md) — вердикты по ~600 практикам референса, вход для ADR
 - Reference: [реверс механик roomtodo](./reference/competitor-mechanics/00-overview.md)

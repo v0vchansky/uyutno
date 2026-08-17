@@ -1,6 +1,6 @@
 # 0043 · EPIC · Планер — шаг 1: каркас движка
 
-- Статус: [ ]
+- Статус: [~]
 - Зависит от: 0035
 - Спека: docs/product/features/planner/README.md; порядок шагов — docs/product/architecture/planner-build-order.md (шаг 1)
 

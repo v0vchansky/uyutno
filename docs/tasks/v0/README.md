@@ -140,13 +140,13 @@
 | 0038 | TASK | [Экран `/projects` — каркас, сетка, состояния, модал «Новый проект»](0038-TASK-projects-page-frame.md)        | [x]    | 0037, 0026       | dfb25a9 (прямой коммит в main) |
 | 0039 | TASK | [Меню карточки + модалы «Переименовать»/«Удалить» + дублирование](0039-TASK-projects-card-menu-and-modals.md) | [x]    | 0038             | 4829803 (прямой коммит в main) |
 
-### 0043 · Планер — шаг 1: каркас движка · [ ]
+### 0043 · Планер — шаг 1: каркас движка · [~]
 
 Спека и общее описание: [0043-EPIC-planner-step1-engine-skeleton.md](0043-EPIC-planner-step1-engine-skeleton.md). Порядок шагов планера — [planner-build-order.md](../../product/architecture/planner-build-order.md); задачи на код каркаса заводятся после принятия ADR.
 
 | #    | Тип  | Название                                                                                                       | Статус | Зависит от | PR  |
 | ---- | ---- | -------------------------------------------------------------------------------------------------------------- | ------ | ---------- | --- |
-| 0045 | TASK | [Аудит практик roomtodo: keep / rework / drop](0045-TASK-roomtodo-practices-audit.md)                          | [ ]    | —          | —   |
+| 0045 | TASK | [Аудит практик roomtodo: keep / rework / drop](0045-TASK-roomtodo-practices-audit.md)                          | [~]    | —          | —   |
 | 0044 | TASK | [ADR A + B: слои движка планера и модель документа](0044-TASK-planner-adr-engine-layers-and-document-model.md) | [ ]    | 0045       | —   |
 
 ### Без эпика
