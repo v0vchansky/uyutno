@@ -182,7 +182,7 @@ The view object (`R2D.ObjectConstructor3D`) listens for `WC.ELEMENT_UPDATE` (dis
 
 ### 4a.3 Snap (двухуровневый) и undo
 
-`TConf.Snap` (L79477) при ручном перетаскивании плитки даёт двухфазную привязку `getSnapPoint`: сначала `snapToBorder` (к границам активной зоны, с учётом полей `margin/2`, L79502), затем `snapToNeighbour` (к соседним плиткам с учётом шва) — до двух проходов соседа (L79486–79493); порог `snapDist`, epsilon `TR.B_EPS = 0.0001` (L49483).
+`TConf.Snap` (L79477) используется **только** в `TConf.StateMakingTiles` — поштучная постановка новой плитки кликом (`getSnapPoint` в `mouseMove` L80566 и `touchMove` L80637, `createTile` в `mouseDown` L80578); состояния перетаскивания существующей плитки в TConf нет. Причём это недоступная из UI ветка: `stateMakingTiles`/`stateSelecting` создаются (L79189–79190), но ни один `changeState` в них не ведёт (`stateSelected` достижим лишь из `stateSelecting`, `stateShiftingArea` — только из закомментированного кода L79712–79755 / L80363–80380). Сам TConf существует только для стен (`runConfigurator(wall)` L56264, `DataWall.configData` L52790), для полов (`DataCover`) его нет. При постановке плитки `getSnapPoint` даёт двухфазную привязку: сначала `snapToBorder` (к границам активной зоны, с учётом полей `margin/2`, L79502), затем `snapToNeighbour` (к соседним плиткам с учётом шва) — до двух проходов соседа (L79486–79493); порог `snapDist`, epsilon `TR.B_EPS = 0.0001` (L49483).
 
 Своя история — `TConf.History(field)` (L78832): стек **сериализованных снапшотов** `field.getData()` (не клон живого `Field`), `undo/redo` восстанавливают через `field.setData(stack[pointer])` (L78852–78868); при новом действии хвост за указателем отсекается (L78843). Стартовый снапшот сохраняется в конструкторе (L78850).
 

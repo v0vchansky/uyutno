@@ -14,12 +14,12 @@
 Внутри каждого состояния три режима движения, выбираемые **на каждый
 mousemove** заново (`moveProduct`, 43922 / 44358):
 
-| Режим | Функция | Когда |
-| --- | --- | --- |
-| smart (стекинг) | `moveObjectSmart` (44036 / 44465) | `POSTER` или «маленький» объект (`checkAsSmartMoving`, 43940–43947) |
-| smart-from-catalog | `moveObjectSmartFromCatalog` (44502) | только в catalog-состоянии: `MODEL && !forWall` |
-| horizontal | `moveObjectHorizontal` (43952 / 44390) | всё остальное (крупная мебель, настенные) |
-| straight (Shift) | `moveObjectStraight` (44076) | Shift зажат и `!forWall` (только в состоянии drag со сцены, 43927–43929) |
+| Режим              | Функция                                | Когда                                                                    |
+| ------------------ | -------------------------------------- | ------------------------------------------------------------------------ |
+| smart (стекинг)    | `moveObjectSmart` (44036 / 44465)      | `POSTER` или «маленький» объект (`checkAsSmartMoving`, 43940–43947)      |
+| smart-from-catalog | `moveObjectSmartFromCatalog` (44502)   | только в catalog-состоянии: `MODEL && !forWall`                          |
+| horizontal         | `moveObjectHorizontal` (43952 / 44390) | всё остальное (крупная мебель, настенные)                                |
+| straight (Shift)   | `moveObjectStraight` (44076)           | Shift зажат и `!forWall` (только в состоянии drag со сцены, 43927–43929) |
 
 ---
 
@@ -41,14 +41,14 @@ THREE используются только `Raycaster.setFromCamera` + `interse
 ### `GEOM.shiftVectors(center, normal, vectors)` — строка 9280
 
 ```js
-GEOM.shiftVectors = function(center, normal, vectors) {
-    var minProj = Infinity;
-    for (var i = 0; i < vectors.length; i++) {
-        var cVec = new G.V(vectors[i].x, vectors[i].y, vectors[i].z);
-        var proj = cVec.x*normal.x + cVec.y*normal.y + cVec.z*normal.z;
-        if (proj < minProj) minProj = proj;
-    }
-    return new G.V(-normal.x*minProj, -normal.y*minProj, -normal.z*minProj);
+GEOM.shiftVectors = function (center, normal, vectors) {
+  var minProj = Infinity;
+  for (var i = 0; i < vectors.length; i++) {
+    var cVec = new G.V(vectors[i].x, vectors[i].y, vectors[i].z);
+    var proj = cVec.x * normal.x + cVec.y * normal.y + cVec.z * normal.z;
+    if (proj < minProj) minProj = proj;
+  }
+  return new G.V(-normal.x * minProj, -normal.y * minProj, -normal.z * minProj);
 };
 ```
 
@@ -124,14 +124,14 @@ half-extents реальные. `rotateByY` (8945) крутит пару (z,x) ч
 1. **NDC мыши:** `R2D.Renderer3D.getMousePointForPicker(canvas, mx, my)`
    (36929) — обычный перевод в [−1..1] по `getBoundingClientRect`.
 2. **Рейкаст по всей сцене:** `objectUnderCursor(interactiveObjects, camera,
-   u, v, view3DObject.object3d)` (44039). `interactiveObjects` собирается на
+u, v, view3DObject.object3d)` (44039). `interactiveObjects` собирается на
    38041–38046: `terrain` (пол-«земля», плоскость 50000×50000 на y=−0.2,
    37895–37915) + `productObjects` + `constructorObjects` + `constructorWalls`
-   + `view2DObjects` + `coversTitleObjects`. Внутри (36505–36538) —
-   `raycaster.intersectObjects(children, true)`, берётся первый видимый хит,
-   **исключая сам таскаемый объект**: `exclude == obj ||
-   exclude.children.includes(obj)` (36521) — фильтр только на один уровень
-   вложенности.
+   - `view2DObjects` + `coversTitleObjects`. Внутри (36505–36538) —
+     `raycaster.intersectObjects(children, true)`, берётся первый видимый хит,
+     **исключая сам таскаемый объект**: `exclude == obj ||
+exclude.children.includes(obj)` (36521) — фильтр только на один уровень
+     вложенности.
 3. **Нормаль:** `intersect.face.normal` (локальная нормаль геометрии) →
    `rotateByY(intersectSceneObjectRotationY)` (44050), где угол — rotationY
    **пересечённого продукта** (`findObjectView3DByObject3D`, 44044); если
@@ -166,7 +166,7 @@ half-extents реальные. `rotateByY` (8945) крутит пару (z,x) ч
 
 ```js
 if (sceneObject.forWall) return false;
-max/min < 15 && sceneObject.volume < 30000     // volume = w*h*d, геттер 11356–11361, см³
+max / min < 15 && sceneObject.volume < 30000; // volume = w*h*d, геттер 11356–11361, см³
 ```
 
 т.е. не настенный, не «плоский лист» (соотношение сторон < 15) и объём меньше
@@ -205,7 +205,7 @@ max/min < 15 && sceneObject.volume < 30000     // volume = w*h*d, геттер 1
 - **Дельта-формула** (43978–43985): первая итерация запоминает
   `pointIntersect` (43975), дальше
   `position = {x: hit.x + oldPosition.x − pointIntersect.x, y: hit.z +
-  oldPosition.z − pointIntersect.z}` (43983–43984) — перенос без прыжка,
+oldPosition.z − pointIntersect.z}` (43983–43984) — перенос без прыжка,
   `oldPosition` = позиция объекта на старте драга (43845–43849). Меняются
   только `x`/`z`.
 - **Настенные MODEL** (`forWall`): рейкаст стен приоритетнее плоскости
@@ -246,16 +246,20 @@ isMouseDown)` (42878–42886) пишет `y` напрямую, `saveState` то�
   `snapPolygon`. Конфликт «снап против посадки по нормали» исключён выбором
   режима: маленькие объекты только стекуются, крупные только снапятся.
 - В horizontal-режиме порядок: дельта-позиция → `snapPolygon(objectPoints,
-  shift, height)` (44013, реализация 10007–10036: сначала к ближайшей линии,
+shift, height)` (44013, реализация 10007–10036: сначала к ближайшей линии,
   потом перпендикулярное доснапливание или к боксу) → снап-сдвиг вычитается из
   `x`/`z` (44014–44015). Ctrl/⌘ отключает снап (43936).
 - В catalog-wall-режиме порядок: сначала `shiftVectors` от стены, потом снап
   поверх (44523 → 44532–44539) — снап корректирует только `x`/`z` и может
   сдвинуть объект вдоль стены; контакт по нормали при снапе к самой этой стене
   сохраняется, но формально снап последний и «сильнее».
-- `SNAP.Snap2D.moveInFrontOfLines` (`deltaAngle = π·0.2`, 10046) и
+- `SNAP.Snap2D.moveInFrontOfLines` (10038–10092) и
   `findFreeSpace` (`margin = 1.5`, 10096) к стекингу отношения не имеют — это
-  соседний SNAP-неймспейс (автопоиск свободного места), проверено.
+  соседний SNAP-неймспейс (автопоиск свободного места), проверено. При этом
+  `moveInFrontOfLines` — dead code: по всей roomtodo-src единственное
+  вхождение — строка определения, вызовов нет; локальная `deltaAngle = π·0.2`
+  (10046) внутри не используется (рабочий порог в теле — `π·0.4`, 10068), так
+  что «порогом» её считать нельзя.
 
 ## Настенные и потолочные объекты
 
@@ -313,18 +317,18 @@ horizontal-плоскости (37940). `Box3` не используется. Д�
 
 ## Edge cases & thresholds
 
-| Значение | Где | Роль |
-| --- | --- | --- |
-| `15` (ratio), `30000` см³ | 43944–43946 / 44382–44384 | порог «маленького» smart-объекта |
-| `15` см | `updateDistance(15)`, 41668 | радиус 2D-снапа при драге |
-| `20` см | `moveElement(position, 20)`, 43989 | захват настенного элемента к стене при движении |
-| `10` см | `dropElement(dropData, 10)`, 43890 | допуск посадки настенного на mouseUp (иначе удаление) |
-| `0 / 1000` | `OBJECT_Y_MIN/MAX`, 11468–11469 | кламп элевации в `checkValues` (11294–11300) |
-| `−3` | 11295 | «ниже terrain» → сброс y на дефолт продукта |
-| `−0.2` | terrain `position.y`, 37910 | пол-«земля», источник y при слезании на пол |
-| `−100` | `moving.position.set(0,−100,0)`, 37954 | парковка невидимой драг-плоскости |
-| `50000` | `TERRAIN_SIZE`, 38221 | размер terrain и драг-плоскости |
-| `5` px | `maxMoveDist`, 44589 | порог клик-против-драг в StateSelectedProduct |
+| Значение                  | Где                                    | Роль                                                  |
+| ------------------------- | -------------------------------------- | ----------------------------------------------------- |
+| `15` (ratio), `30000` см³ | 43944–43946 / 44382–44384              | порог «маленького» smart-объекта                      |
+| `15` см                   | `updateDistance(15)`, 41668            | радиус 2D-снапа при драге                             |
+| `20` см                   | `moveElement(position, 20)`, 43989     | захват настенного элемента к стене при движении       |
+| `10` см                   | `dropElement(dropData, 10)`, 43890     | допуск посадки настенного на mouseUp (иначе удаление) |
+| `0 / 1000`                | `OBJECT_Y_MIN/MAX`, 11468–11469        | кламп элевации в `checkValues` (11294–11300)          |
+| `−3`                      | 11295                                  | «ниже terrain» → сброс y на дефолт продукта           |
+| `−0.2`                    | terrain `position.y`, 37910            | пол-«земля», источник y при слезании на пол           |
+| `−100`                    | `moving.position.set(0,−100,0)`, 37954 | парковка невидимой драг-плоскости                     |
+| `50000`                   | `TERRAIN_SIZE`, 38221                  | размер terrain и драг-плоскости                       |
+| `5` px                    | `maxMoveDist`, 44589                   | порог клик-против-драг в StateSelectedProduct         |
 
 Дегенерации: рейкаст-промах в smart просто игнорирует кадр (44041); нулевая
 нормаль невозможна (из face); объект может свесить след за край опоры и

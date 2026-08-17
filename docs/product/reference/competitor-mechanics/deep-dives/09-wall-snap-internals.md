@@ -14,15 +14,15 @@ WC.SnapTool()` (60585). Работает в **мировых координат�
 
 Ключевые константы:
 
-| Константа | Значение | Где |
-|---|---|---|
-| `WC.SNAP_DIST` | 10 px | 60604 |
-| `TR.L_EPS` | 1e-8 | 49482 |
-| `TR.B_EPS` | 1e-4 | 49483 |
-| fallback-радиус углового снапа при `pointsSnap=off` | 2 (мировых ед., см) | 57594 |
-| радиус поиска угла для биссектрисы | `snapDist × 10` | 57525 |
-| округление результата | 0.001 мировой ед. (`TR.roundCoord`, `Math.round(x*1000)/1000`) | 50554, вызов 57698 |
-| точность хит-теста стороны стены (смежное) | `WC.SNAP_DIST / 2 / scale` | 60352 |
+| Константа                                           | Значение                                                       | Где                |
+| --------------------------------------------------- | -------------------------------------------------------------- | ------------------ |
+| `WC.SNAP_DIST`                                      | 10 px                                                          | 60604              |
+| `TR.L_EPS`                                          | 1e-8                                                           | 49482              |
+| `TR.B_EPS`                                          | 1e-4                                                           | 49483              |
+| fallback-радиус углового снапа при `pointsSnap=off` | 2 (мировых ед., см)                                            | 57594              |
+| радиус поиска угла для биссектрисы                  | `snapDist × 10`                                                | 57525              |
+| округление результата                               | 0.001 мировой ед. (`TR.roundCoord`, `Math.round(x*1000)/1000`) | 50554, вызов 57698 |
+| точность хит-теста стороны стены (смежное)          | `WC.SNAP_DIST / 2 / scale`                                     | 60352              |
 
 Флаги (defaults 57563–57566, тумблеры в панели настроек 59179–59191, иконки
 59131–59134):
@@ -87,9 +87,14 @@ call-site'ов 65356…68558).
 кандидата (57376, зеркально 57384):
 
 ```js
-if ((dx < minDistM - TR.L_EPS) ||                       // строго лучше по оси
-    (dx < minDistM + TR.L_EPS && dy < minSideDistM - TR.L_EPS)) {  // равен по оси (±1e-8),
-    alignerM = Q; minDistM = dx; minSideDistM = dy;                // но сама точка ближе
+if (
+  dx < minDistM - TR.L_EPS || // строго лучше по оси
+  (dx < minDistM + TR.L_EPS && dy < minSideDistM - TR.L_EPS)
+) {
+  // равен по оси (±1e-8),
+  alignerM = Q;
+  minDistM = dx;
+  minSideDistM = dy; // но сама точка ближе
 }
 ```
 
@@ -101,11 +106,11 @@ if ((dx < minDistM - TR.L_EPS) ||                       // строго лучш
 Пост-фильтры (57394–57398):
 
 ```js
-if (minDistM > snapDist) alignerM = null;   // вне радиуса — долой
+if (minDistM > snapDist) alignerM = null; // вне радиуса — долой
 if (minDistP > snapDist) alignerP = null;
-if (minDistM > minDistP + TR.B_EPS) alignerM = null;  // взаимное отсечение:
-if (minDistP > minDistM + TR.B_EPS) alignerP = null;  // остаётся строго лучшая сторона,
-return [alignerM, alignerP];                          // либо ОБЕ, если dx равны в ±1e-4
+if (minDistM > minDistP + TR.B_EPS) alignerM = null; // взаимное отсечение:
+if (minDistP > minDistM + TR.B_EPS) alignerP = null; // остаётся строго лучшая сторона,
+return [alignerM, alignerP]; // либо ОБЕ, если dx равны в ±1e-4
 ```
 
 Итог: `[alignerM, alignerP]` — 0, 1 или 2 точки. Обе выживают только когда
@@ -182,24 +187,24 @@ return [alignerM, alignerP];                          // либо ОБЕ, есл
    (57588–57595). При выключенном `pointsSnap` угловой снап не исчезает —
    радиус жёстко сжимается до 2 мировых единиц (см).
 2. `pointsAlign` → `snapPerpendicular(P, snapDist, [], exceptNodes,
-   farNodes)` → `pointPt, alignerX, alignerY, alignersX, alignersY`
+farNodes)` → `pointPt, alignerX, alignerY, alignersX, alignersY`
    (57597–57606).
 3. `orthoAlign` → `orthogonalSnap` → `orthoPt, orthoX, orthoY` (57608–57617).
 4. `bisectorAlign` → `bisectorSnap` → `bisCenter, bisDirect` (57619–57626).
 
 **Лесенка приоритетов** (первое совпадение выигрывает):
 
-| # | Условие | Результат |
-|---|---|---|
-| 1 | `nearPt && manhDist(P, nearPt) < snapDist` (57629) | сам угол `nearPt`. Эффективный радиус при `pointsSnap=off`: `min(2, snapDist)` |
-| 2 | `pointsAlign && pointPt && alignerX && alignerY` (57633) | `pointPt` — пересечение вертикали и горизонтали двух точек («крест») |
-| 3 | `pointsAlign && bisCenter && bisDirect && alignerX` (57637) | `A = lineIntersectLine(bisCenter→bisDirect, вертикаль через alignerX)` (вторая точка вертикали — `(x, y+10)`, 57639); принимается, если `manhDist(P,A) < snapDist`, иначе откат на `pointPt` (57640–57648) |
-| 4 | то же с `alignerY` (57650) | пересечение биссектрисы с горизонталью `(x+10, y)` (57652–57661) |
-| 5 | `orthoAlign && orthoPt && bisCenter && bisDirect` (57663) | биссектриса ∩ орто-ось (вертикаль через `orthoX` или горизонталь через `orthoY`, 57665–57667); принятие/откат на `orthoPt` как выше |
-| 6 | `pointsAlign && pointPt` (57679) | одноосевое выравнивание (`pointPt` с одной притянутой осью) |
-| 7 | `orthoAlign && orthoPt` (57683) | чистый H/V-лок |
-| 8 | `bisectorAlign && bisCenter && bisDirect` (57687) | `A = projectionPointOnLine(P, bisCenter, bisDirect, as_seg=false)` (57689); принимается при `manhDist < snapDist` |
-| — | иначе | `resTarget = P` — сырой курсор |
+| #   | Условие                                                     | Результат                                                                                                                                                                                                  |
+| --- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `nearPt && manhDist(P, nearPt) < snapDist` (57629)          | сам угол `nearPt`. Эффективный радиус при `pointsSnap=off`: `min(2, snapDist)`                                                                                                                             |
+| 2   | `pointsAlign && pointPt && alignerX && alignerY` (57633)    | `pointPt` — пересечение вертикали и горизонтали двух точек («крест»)                                                                                                                                       |
+| 3   | `pointsAlign && bisCenter && bisDirect && alignerX` (57637) | `A = lineIntersectLine(bisCenter→bisDirect, вертикаль через alignerX)` (вторая точка вертикали — `(x, y+10)`, 57639); принимается, если `manhDist(P,A) < snapDist`, иначе откат на `pointPt` (57640–57648) |
+| 4   | то же с `alignerY` (57650)                                  | пересечение биссектрисы с горизонталью `(x+10, y)` (57652–57661)                                                                                                                                           |
+| 5   | `orthoAlign && orthoPt && bisCenter && bisDirect` (57663)   | биссектриса ∩ орто-ось (вертикаль через `orthoX` или горизонталь через `orthoY`, 57665–57667); принятие/откат на `orthoPt` как выше                                                                        |
+| 6   | `pointsAlign && pointPt` (57679)                            | одноосевое выравнивание (`pointPt` с одной притянутой осью)                                                                                                                                                |
+| 7   | `orthoAlign && orthoPt` (57683)                             | чистый H/V-лок                                                                                                                                                                                             |
+| 8   | `bisectorAlign && bisCenter && bisDirect` (57687)           | `A = projectionPointOnLine(P, bisCenter, bisDirect, as_seg=false)` (57689); принимается при `manhDist < snapDist`                                                                                          |
+| —   | иначе                                                       | `resTarget = P` — сырой курсор                                                                                                                                                                             |
 
 В ветках 3–5 и 8 попутно ставится `alignerD = bisCenter` — опорная точка для
 отрисовки биссектрисного гайда.
@@ -207,7 +212,7 @@ return [alignerM, alignerP];                          // либо ОБЕ, есл
 **Финал** (57698–57700):
 
 ```js
-resTarget = TR.roundCoord(resTarget);   // 0.001 мировой ед. (см), 50554
+resTarget = TR.roundCoord(resTarget); // 0.001 мировой ед. (см), 50554
 return [resTarget, alignerX, alignerY, alignerD, alignersX, alignersY];
 ```
 
@@ -224,9 +229,11 @@ snapRes[0]` и `WC.aligners = [snapRes[1], snapRes[2], snapRes[3]]`
 (= alignerX, alignerY, bisCenter; 63137–63138, 63977–63978, 64074–64075,
 65363–65364, 66407–66408, 66691–66692, 68483–68484). `StateMakingWalls`
 дополнительно сохраняет сырые пары: `WC.aligners = [.., snapRes[4],
-snapRes[5]]` (65947). В `start()` состояния снап не применяется — первая
-точка ставится в сырой `WC.realPos` (65885) и подтягивается уже первым
-`mouseMove` (65962–65963).
+snapRes[5]]` (65947). В `start()` состояния (65878–65889) снап не применяется — первая
+точка ставится в сырой `WC.realPos` (65885) без вызова `snapTool` и
+подтягивается уже первым `StateMakingWalls.mouseMove` (66003; мутация того же
+объекта `currentPt` в `WC.snapPos` — 66010–66011). Строки 65962–65963 с той
+же мутацией относятся к `undo()` (65952), а не к `mouseMove`.
 
 Особые потребители: `StateDraggingWall`/`StateDraggingCoverSide` берут
 `snapRes[0]` и **проецируют его на перпендикуляр к стене**
@@ -249,7 +256,7 @@ snapRes[5]]` (65947). В `start()` состояния снап не примен
 
 1. те же три базовых гайда (66101–66107);
 2. затем гайды к «проигравшим» кандидатам из сырых пар `alignersX =
-   WC.aligners[3]`, `alignersY = WC.aligners[4]` (66117–66118) — чтобы при
+WC.aligners[3]`, `alignersY = WC.aligners[4]` (66117–66118) — чтобы при
    двух точках на одной вертикали пунктир шёл в обе стороны;
 3. подавление: если снап-точка уже совпала с одним из выравнивателей
    (`manhDistP < B_EPS`, 66120–66123) или лежит на существующей стене
@@ -295,12 +302,10 @@ snapRes[5]]` (65947). В `start()` состояния снап не примен
     57850–57859; отбраковка почти-параллельных по `deltaAng ±0.2 рад`,
     57744–57748).
 - **Кто жив в конструкторе**: `WC.snapTool.snapPolygon` вызывается только из
-  рулеточных состояний — `StateMakingRuler.findSnap` (68723, состояние
-  68648) и `StateDraggingRuler.findSnap` (68886, состояние 68823): концы
+  рулеточных состояний — `StateMakingRuler.findSnap` (68723, состояние 68648) и `StateDraggingRuler.findSnap` (68886, состояние 68823): концы
   рулетки снапятся к граням стен, радиус тот же `WC.SNAP_DIST/scale`.
   Обе строки содержат баг: `snapPolygon` возвращает `GEOM.Point`, а код
-  делает `WC.aligners = [snapRes[1], snapRes[2], snapRes[3]]` (68725,
-  68888) — индексация точки даёт `undefined`, т.е. гайды у рулетки не
+  делает `WC.aligners = [snapRes[1], snapRes[2], snapRes[3]]` (68725, 68888) — индексация точки даёт `undefined`, т.е. гайды у рулетки не
   рисуются никогда.
 - Не путать с однофамильцем `TConf.Snap.getSnapPoint` (79481) — это снап
   плиток в редакторе раскладки покрытий, к стеновому конструктору отношения
