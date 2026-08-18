@@ -42,7 +42,9 @@ export class PlannerManager {
     this.logger = logger;
     this.bus = createPlannerBus();
 
-    const store = new PlannerStore(this.bus, document);
+    const store = new PlannerStore(this.bus, document, {
+      warn: message => this.logger.warn(`@uyutno/planner: ${message}`, { projectId }),
+    });
     this.document = new DocumentNamespace(store);
     this.view = new ViewNamespace(store);
     this.history = new HistoryNamespace();

@@ -1,0 +1,193 @@
+{
+  "name": "plan-inner-wall-splits-room",
+  "input": {
+    "format": "uyutno.planner",
+    "version": 1,
+    "settings": { "units": "cm", "wallHeight": 280 },
+    "view": {
+      "activeView": "constructor",
+      "cameras": {
+        "plan": { "x": 0, "y": 0, "zoom": 0.5 },
+        "orbit": { "x": 0, "y": 0, "elevation": 110, "pan": 45, "tilt": 45, "zoom": 0.1 },
+        "walk": { "x": 0, "y": 0, "pan": 0, "tilt": 0 }
+      }
+    },
+    "floors": [
+      {
+        "id": "f1",
+        "layout": {
+          "points": {
+            "p1": { "id": "p1", "x": 0, "y": 0 },
+            "p2": { "id": "p2", "x": 400, "y": 0 },
+            "p3": { "id": "p3", "x": 400, "y": 300 },
+            "p4": { "id": "p4", "x": 0, "y": 300 },
+            "p5": { "id": "p5", "x": 10, "y": 10 },
+            "p6": { "id": "p6", "x": 390, "y": 10 },
+            "p7": { "id": "p7", "x": 390, "y": 290 },
+            "p8": { "id": "p8", "x": 10, "y": 290 },
+            "p9": { "id": "p9", "x": 195, "y": 10 },
+            "p10": { "id": "p10", "x": 205, "y": 10 },
+            "p11": { "id": "p11", "x": 205, "y": 290 },
+            "p12": { "id": "p12", "x": 195, "y": 290 }
+          },
+          "contours": [
+            { "id": "c1", "kind": "outer", "points": ["p1", "p2", "p6", "p5"] },
+            { "id": "c2", "kind": "outer", "points": ["p2", "p3", "p7", "p6"] },
+            { "id": "c3", "kind": "outer", "points": ["p3", "p4", "p8", "p7"] },
+            { "id": "c4", "kind": "outer", "points": ["p4", "p1", "p5", "p8"] },
+            { "id": "c5", "kind": "outer", "points": ["p9", "p10", "p11", "p12"] }
+          ],
+          "covers": [],
+          "areas": [],
+          "cuts": [],
+          "rooms": [{ "id": "r1", "anchor": ["p5", "p6", "p7", "p8"], "name": "Гостиная", "ceilingHeight": 270 }]
+        },
+        "scene": { "items": [], "rulers": [], "hidden": [] }
+      }
+    ]
+  },
+  "expected": {
+    "layout": {
+      "points": {
+        "p1": { "id": "p1", "x": 0, "y": 0 },
+        "p2": { "id": "p2", "x": 400, "y": 0 },
+        "p3": { "id": "p3", "x": 400, "y": 300 },
+        "p4": { "id": "p4", "x": 0, "y": 300 },
+        "p5": { "id": "p5", "x": 10, "y": 10 },
+        "p6": { "id": "p6", "x": 390, "y": 10 },
+        "p7": { "id": "p7", "x": 390, "y": 290 },
+        "p8": { "id": "p8", "x": 10, "y": 290 },
+        "p9": { "id": "p9", "x": 195, "y": 10 },
+        "p10": { "id": "p10", "x": 205, "y": 10 },
+        "p11": { "id": "p11", "x": 205, "y": 290 },
+        "p12": { "id": "p12", "x": 195, "y": 290 }
+      },
+      "contours": [
+        { "id": "n1", "kind": "outer", "points": ["p1", "p2", "p3", "p4"] },
+        { "id": "n2", "kind": "inner", "points": ["p5", "p9", "p12", "p8"] },
+        { "id": "n3", "kind": "inner", "points": ["p10", "p6", "p7", "p11"] }
+      ],
+      "covers": [],
+      "areas": [],
+      "cuts": [],
+      "rooms": [
+        { "id": "r1", "anchor": ["p5", "p9", "p12", "p8"], "name": "Гостиная", "ceilingHeight": 270 },
+        { "id": "n4", "anchor": ["p10", "p6", "p7", "p11"], "name": "Гостиная", "ceilingHeight": 270 }
+      ]
+    },
+    "derived": {
+      "id": "f1",
+      "walls": [
+        {
+          "contourId": "n1",
+          "triangles": [
+            ["p5", "p4", "p1"],
+            ["p5", "p8", "p4"],
+            ["p5", "p1", "p9"],
+            ["p9", "p10", "p12"],
+            ["p9", "p1", "p10"],
+            ["p12", "p4", "p8"],
+            ["p12", "p10", "p11"],
+            ["p12", "p11", "p4"],
+            ["p10", "p2", "p6"],
+            ["p10", "p1", "p2"],
+            ["p6", "p2", "p7"],
+            ["p7", "p2", "p3"],
+            ["p7", "p3", "p11"],
+            ["p11", "p3", "p4"]
+          ]
+        }
+      ],
+      "rooms": [
+        {
+          "contourId": "n2",
+          "roomId": "r1",
+          "outline": ["p5", "p9", "p12", "p8"],
+          "holes": [],
+          "triangles": [
+            ["p5", "p9", "p8"],
+            ["p9", "p12", "p8"]
+          ],
+          "area": 51800
+        },
+        {
+          "contourId": "n3",
+          "roomId": "n4",
+          "outline": ["p10", "p6", "p7", "p11"],
+          "holes": [],
+          "triangles": [
+            ["p10", "p6", "p11"],
+            ["p6", "p7", "p11"]
+          ],
+          "area": 51800
+        }
+      ],
+      "axes": [
+        {
+          "a": { "x": 10, "y": 5 },
+          "b": { "x": 195, "y": 5 },
+          "depth": 10,
+          "faces": [
+            { "contourId": "n2", "a": "p5", "b": "p9" },
+            { "contourId": "n1", "a": "p1", "b": "p2" }
+          ]
+        },
+        {
+          "a": { "x": 205, "y": 5 },
+          "b": { "x": 390, "y": 5 },
+          "depth": 10,
+          "faces": [
+            { "contourId": "n3", "a": "p10", "b": "p6" },
+            { "contourId": "n1", "a": "p1", "b": "p2" }
+          ]
+        },
+        {
+          "a": { "x": 395, "y": 10 },
+          "b": { "x": 395, "y": 290 },
+          "depth": 10,
+          "faces": [
+            { "contourId": "n3", "a": "p6", "b": "p7" },
+            { "contourId": "n1", "a": "p2", "b": "p3" }
+          ]
+        },
+        {
+          "a": { "x": 10, "y": 295 },
+          "b": { "x": 195, "y": 295 },
+          "depth": 10,
+          "faces": [
+            { "contourId": "n1", "a": "p3", "b": "p4" },
+            { "contourId": "n2", "a": "p12", "b": "p8" }
+          ]
+        },
+        {
+          "a": { "x": 205, "y": 295 },
+          "b": { "x": 390, "y": 295 },
+          "depth": 10,
+          "faces": [
+            { "contourId": "n1", "a": "p3", "b": "p4" },
+            { "contourId": "n3", "a": "p7", "b": "p11" }
+          ]
+        },
+        {
+          "a": { "x": 5, "y": 10 },
+          "b": { "x": 5, "y": 290 },
+          "depth": 10,
+          "faces": [
+            { "contourId": "n1", "a": "p4", "b": "p1" },
+            { "contourId": "n2", "a": "p8", "b": "p5" }
+          ]
+        },
+        {
+          "a": { "x": 200, "y": 10 },
+          "b": { "x": 200, "y": 290 },
+          "depth": 10,
+          "faces": [
+            { "contourId": "n2", "a": "p9", "b": "p12" },
+            { "contourId": "n3", "a": "p11", "b": "p10" }
+          ]
+        }
+      ]
+    },
+    "warnings": []
+  }
+}

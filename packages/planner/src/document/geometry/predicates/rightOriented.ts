@@ -3,8 +3,9 @@ import { angleBetweenLines } from './angleBetweenLines';
 import { orient2d } from './orient2d';
 
 /**
- * Грань стены как направленный отрезок с признаком стороны комнаты: `faceRight` — комната справа от `a→b`
- * (при y вверх). В rebuild признак выводится из ориентации контура (ADR 0017 C6/C8, задача 0054).
+ * Грань стены как направленный отрезок с признаком стороны тела: `faceRight` — тело стены справа от `a→b`
+ * (при y вверх), полость/наружа слева. В rebuild признак выводится из вида и ориентации контура
+ * (`layoutFaces`, ADR 0017 C6/C8, задача 0054).
  */
 export interface OrientedFace {
   a: PlanPosition;

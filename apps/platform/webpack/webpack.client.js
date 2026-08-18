@@ -18,6 +18,9 @@ const config = {
   devtool: isProd ? false : 'source-map',
   resolve: {
     extensions: ['.tsx', '.ts', '.js'],
+    // `clean-pslg` (геометрия планера, ADR 0017 C2) требует Node-модуль `buffer` только ради `Buffer.isBuffer` —
+    // стаб вместо полифилла (+26 KiB); подробности — в `stubs/buffer.js`.
+    alias: { buffer$: path.resolve(platformRoot, 'webpack/stubs/buffer.js') },
     plugins: [
       new TsconfigPathsPlugin({
         configFile: path.resolve(platformRoot, 'src/client/tsconfig.json'),

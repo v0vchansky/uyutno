@@ -1,4 +1,5 @@
 import { createEmptyDocument, type PlannerDocument } from '../document/PlannerDocument';
+import { createPlanBuilder } from '../document/testing/planBuilder';
 import { createPlannerBus, type PlannerBus, type PlannerEventType } from './PlannerBus';
 import { PlannerStore } from './PlannerStore';
 
@@ -32,7 +33,7 @@ describe('PlannerStore', () => {
 
     it('производное построено при создании и заморожено', () => {
       const derived = store.getDerived();
-      expect(derived.floors).toEqual([{ id: store.getDocument().floors[0]!.id }]);
+      expect(derived.floors).toEqual([{ id: store.getDocument().floors[0]!.id, walls: [], rooms: [], axes: [] }]);
       expect(isDeepFrozen(derived)).toBe(true);
     });
 
@@ -184,6 +185,82 @@ describe('PlannerStore', () => {
       ).toThrow('boom');
       expect(store.getDocument()).toBe(doc);
       expect(events).toEqual([]);
+    });
+  });
+
+  describe('нормализация и производное (шаг 2, ADR 0017)', () => {
+    const ringDocument = (): PlannerDocument => {
+      const b = createPlanBuilder();
+      b.ring(0, 0, 400, 300, 10);
+      return b.document();
+    };
+
+    it('документ с контурами при создании нормализуется: квады слиты в outer + inner, комната заведена', () => {
+      const local = new PlannerStore(createPlannerBus(), ringDocument());
+      const layout = local.getDocument().floors[0]!.layout;
+      expect(layout.contours.map(c => c.kind)).toEqual(['outer', 'inner']);
+      expect(layout.rooms).toHaveLength(1);
+      expect(isDeepFrozen(local.getDocument())).toBe(true);
+    });
+
+    it('производное после создания: стены-треугольники, комната с roomId записи, 4 оси; заморожено', () => {
+      const local = new PlannerStore(createPlannerBus(), ringDocument());
+      const floor = local.getDerived().floors[0]!;
+      const layout = local.getDocument().floors[0]!.layout;
+      expect(floor.walls).toHaveLength(1);
+      expect(floor.rooms).toHaveLength(1);
+      expect(floor.rooms[0]!.roomId).toBe(layout.rooms[0]!.id);
+      expect(floor.axes).toHaveLength(4);
+      expect(isDeepFrozen(local.getDerived())).toBe(true);
+    });
+
+    it('load с непустым layout: document:changed несёт уже пересобранный документ', () => {
+      let seen: PlannerDocument | undefined;
+      bus.on('document:changed', ({ document }) => {
+        seen = document;
+      });
+      store.transact(() => ringDocument());
+      expect(seen!.floors[0]!.layout.contours.map(c => c.kind)).toEqual(['outer', 'inner']);
+      expect(seen).toBe(store.getDocument());
+      expect(store.getDerived().floors[0]!.rooms).toHaveLength(1);
+    });
+
+    it('транзакция settings при непустом layout: layout сохраняет ссылку, производное пересчитано и равно прежнему', () => {
+      const local = new PlannerStore(createPlannerBus(), ringDocument());
+      const layoutBefore = local.getDocument().floors[0]!.layout;
+      const derivedBefore = local.getDerived();
+      local.transact(draft => {
+        draft.settings.wallHeight = 300;
+      });
+      expect(local.getDocument().floors[0]!.layout).toBe(layoutBefore);
+      expect(local.getDerived()).toEqual(derivedBefore);
+    });
+
+    it('сдвиг точки стены: контуры переписаны, запись комнаты та же (anchor по площади), производное новое', () => {
+      const local = new PlannerStore(createPlannerBus(), ringDocument());
+      const roomBefore = local.getDocument().floors[0]!.layout.rooms[0]!;
+      const derivedBefore = local.getDerived();
+      local.transact(draft => {
+        const layout = draft.floors[0]!.layout;
+        layout.points['p2']!.x = 500;
+        layout.points['p3']!.x = 500;
+        layout.points['p6']!.x = 490;
+        layout.points['p7']!.x = 490;
+      });
+      const layout = local.getDocument().floors[0]!.layout;
+      expect(layout.rooms[0]!.id).toBe(roomBefore.id);
+      expect(local.getDerived()).not.toBe(derivedBefore);
+      expect(local.getDerived().floors[0]!.rooms[0]!.area).toBe(480 * 280);
+    });
+
+    it('нормализация одиночной «Комнаты по точкам» заводит запись rooms[] сама — предупреждений нет', () => {
+      const warnings: string[] = [];
+      const b = createPlanBuilder();
+      b.contour('inner', [b.point(0, 0), b.point(300, 0), b.point(300, 200), b.point(0, 200)]);
+      const local = new PlannerStore(createPlannerBus(), b.document(), { warn: m => warnings.push(m) });
+      expect(warnings).toEqual([]);
+      expect(local.getDocument().floors[0]!.layout.rooms).toHaveLength(1);
+      expect(local.getDerived().floors[0]!.rooms).toHaveLength(1);
     });
   });
 });

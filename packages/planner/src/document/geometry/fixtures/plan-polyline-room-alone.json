@@ -1,0 +1,72 @@
+{
+  "name": "plan-polyline-room-alone",
+  "input": {
+    "format": "uyutno.planner",
+    "version": 1,
+    "settings": { "units": "cm", "wallHeight": 280 },
+    "view": {
+      "activeView": "constructor",
+      "cameras": {
+        "plan": { "x": 0, "y": 0, "zoom": 0.5 },
+        "orbit": { "x": 0, "y": 0, "elevation": 110, "pan": 45, "tilt": 45, "zoom": 0.1 },
+        "walk": { "x": 0, "y": 0, "pan": 0, "tilt": 0 }
+      }
+    },
+    "floors": [
+      {
+        "id": "f1",
+        "layout": {
+          "points": {
+            "p1": { "id": "p1", "x": 0, "y": 0 },
+            "p2": { "id": "p2", "x": 300, "y": 0 },
+            "p3": { "id": "p3", "x": 300, "y": 200 },
+            "p4": { "id": "p4", "x": 150, "y": 250 },
+            "p5": { "id": "p5", "x": 0, "y": 200 }
+          },
+          "contours": [{ "id": "c1", "kind": "inner", "points": ["p1", "p2", "p3", "p4", "p5"] }],
+          "covers": [],
+          "areas": [],
+          "cuts": [],
+          "rooms": []
+        },
+        "scene": { "items": [], "rulers": [], "hidden": [] }
+      }
+    ]
+  },
+  "expected": {
+    "layout": {
+      "points": {
+        "p1": { "id": "p1", "x": 0, "y": 0 },
+        "p2": { "id": "p2", "x": 300, "y": 0 },
+        "p3": { "id": "p3", "x": 300, "y": 200 },
+        "p4": { "id": "p4", "x": 150, "y": 250 },
+        "p5": { "id": "p5", "x": 0, "y": 200 }
+      },
+      "contours": [{ "id": "c1", "kind": "inner", "points": ["p1", "p2", "p3", "p4", "p5"] }],
+      "covers": [],
+      "areas": [],
+      "cuts": [],
+      "rooms": [{ "id": "n1", "anchor": ["p1", "p2", "p3", "p4", "p5"], "name": "", "ceilingHeight": 280 }]
+    },
+    "derived": {
+      "id": "f1",
+      "walls": [],
+      "rooms": [
+        {
+          "contourId": "c1",
+          "roomId": "n1",
+          "outline": ["p1", "p2", "p3", "p4", "p5"],
+          "holes": [],
+          "triangles": [
+            ["p1", "p4", "p5"],
+            ["p1", "p2", "p4"],
+            ["p2", "p3", "p4"]
+          ],
+          "area": 67500
+        }
+      ],
+      "axes": []
+    },
+    "warnings": []
+  }
+}

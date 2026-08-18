@@ -15,7 +15,8 @@ export type { Result } from './engine/Result';
 export type { LoadError, SetSettingsError } from './engine/DocumentNamespace';
 export type { SetActiveViewError, SetCameraError } from './engine/ViewNamespace';
 export type { HistoryError, HistoryState } from './engine/HistoryNamespace';
-export type { DerivedState } from './engine/rebuild';
+export type { DerivedState, DerivedFloor, DerivedWall, DerivedRoom, Triangle } from './engine/rebuild';
+export type { WallAxis, FaceRef } from './document/geometry/axes/findAxes';
 export type {
   PlannerDocument,
   DocumentSettings,
@@ -33,6 +34,7 @@ export type {
   PlanPosition,
   Point,
   Contour,
+  ContourKind,
   Cover,
   Area,
   Cut,

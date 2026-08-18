@@ -1,0 +1,64 @@
+{
+  "name": "plan-self-intersecting-outer-lobes",
+  "input": {
+    "format": "uyutno.planner",
+    "version": 1,
+    "settings": { "units": "cm", "wallHeight": 280 },
+    "view": {
+      "activeView": "constructor",
+      "cameras": {
+        "plan": { "x": 0, "y": 0, "zoom": 0.5 },
+        "orbit": { "x": 0, "y": 0, "elevation": 110, "pan": 45, "tilt": 45, "zoom": 0.1 },
+        "walk": { "x": 0, "y": 0, "pan": 0, "tilt": 0 }
+      }
+    },
+    "floors": [
+      {
+        "id": "f1",
+        "layout": {
+          "points": {
+            "p1": { "id": "p1", "x": 0, "y": 0 },
+            "p2": { "id": "p2", "x": 200, "y": 150 },
+            "p3": { "id": "p3", "x": 200, "y": 0 },
+            "p4": { "id": "p4", "x": 0, "y": 100 }
+          },
+          "contours": [{ "id": "c1", "kind": "outer", "points": ["p1", "p2", "p3", "p4"] }],
+          "covers": [],
+          "areas": [],
+          "cuts": [],
+          "rooms": []
+        },
+        "scene": { "items": [], "rulers": [], "hidden": [] }
+      }
+    ]
+  },
+  "expected": {
+    "layout": {
+      "points": {
+        "p1": { "id": "p1", "x": 0, "y": 0 },
+        "p2": { "id": "p2", "x": 200, "y": 150 },
+        "p3": { "id": "p3", "x": 200, "y": 0 },
+        "p4": { "id": "p4", "x": 0, "y": 100 },
+        "n1": { "id": "n1", "x": 80, "y": 60 }
+      },
+      "contours": [
+        { "id": "n2", "kind": "outer", "points": ["n1", "p3", "p2"] },
+        { "id": "n3", "kind": "outer", "points": ["p1", "n1", "p4"] }
+      ],
+      "covers": [],
+      "areas": [],
+      "cuts": [],
+      "rooms": []
+    },
+    "derived": {
+      "id": "f1",
+      "walls": [
+        { "contourId": "n2", "triangles": [["n1", "p3", "p2"]] },
+        { "contourId": "n3", "triangles": [["n1", "p4", "p1"]] }
+      ],
+      "rooms": [],
+      "axes": []
+    },
+    "warnings": []
+  }
+}

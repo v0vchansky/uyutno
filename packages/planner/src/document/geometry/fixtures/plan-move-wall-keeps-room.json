@@ -1,0 +1,134 @@
+{
+  "name": "plan-move-wall-keeps-room",
+  "input": {
+    "format": "uyutno.planner",
+    "version": 1,
+    "settings": { "units": "cm", "wallHeight": 280 },
+    "view": {
+      "activeView": "constructor",
+      "cameras": {
+        "plan": { "x": 0, "y": 0, "zoom": 0.5 },
+        "orbit": { "x": 0, "y": 0, "elevation": 110, "pan": 45, "tilt": 45, "zoom": 0.1 },
+        "walk": { "x": 0, "y": 0, "pan": 0, "tilt": 0 }
+      }
+    },
+    "floors": [
+      {
+        "id": "f1",
+        "layout": {
+          "points": {
+            "p1": { "id": "p1", "x": 0, "y": 0 },
+            "p2": { "id": "p2", "x": 450, "y": 0 },
+            "p3": { "id": "p3", "x": 450, "y": 300 },
+            "p4": { "id": "p4", "x": 0, "y": 300 },
+            "p5": { "id": "p5", "x": 10, "y": 10 },
+            "p6": { "id": "p6", "x": 440, "y": 10 },
+            "p7": { "id": "p7", "x": 440, "y": 290 },
+            "p8": { "id": "p8", "x": 10, "y": 290 }
+          },
+          "contours": [
+            { "id": "c1", "kind": "outer", "points": ["p1", "p2", "p3", "p4"] },
+            { "id": "c2", "kind": "inner", "points": ["p5", "p6", "p7", "p8"] }
+          ],
+          "covers": [],
+          "areas": [],
+          "cuts": [],
+          "rooms": [{ "id": "r1", "anchor": ["p5", "p-gone-1", "p7", "p8"], "name": "Гостиная", "ceilingHeight": 275 }]
+        },
+        "scene": { "items": [], "rulers": [], "hidden": [] }
+      }
+    ]
+  },
+  "expected": {
+    "layout": {
+      "points": {
+        "p1": { "id": "p1", "x": 0, "y": 0 },
+        "p2": { "id": "p2", "x": 450, "y": 0 },
+        "p3": { "id": "p3", "x": 450, "y": 300 },
+        "p4": { "id": "p4", "x": 0, "y": 300 },
+        "p5": { "id": "p5", "x": 10, "y": 10 },
+        "p6": { "id": "p6", "x": 440, "y": 10 },
+        "p7": { "id": "p7", "x": 440, "y": 290 },
+        "p8": { "id": "p8", "x": 10, "y": 290 }
+      },
+      "contours": [
+        { "id": "c1", "kind": "outer", "points": ["p1", "p2", "p3", "p4"] },
+        { "id": "c2", "kind": "inner", "points": ["p5", "p6", "p7", "p8"] }
+      ],
+      "covers": [],
+      "areas": [],
+      "cuts": [],
+      "rooms": [{ "id": "r1", "anchor": ["p5", "p6", "p7", "p8"], "name": "Гостиная", "ceilingHeight": 275 }]
+    },
+    "derived": {
+      "id": "f1",
+      "walls": [
+        {
+          "contourId": "c1",
+          "triangles": [
+            ["p5", "p4", "p1"],
+            ["p5", "p8", "p4"],
+            ["p5", "p1", "p6"],
+            ["p6", "p2", "p7"],
+            ["p6", "p1", "p2"],
+            ["p7", "p4", "p8"],
+            ["p7", "p2", "p3"],
+            ["p7", "p3", "p4"]
+          ]
+        }
+      ],
+      "rooms": [
+        {
+          "contourId": "c2",
+          "roomId": "r1",
+          "outline": ["p5", "p6", "p7", "p8"],
+          "holes": [],
+          "triangles": [
+            ["p5", "p6", "p8"],
+            ["p6", "p7", "p8"]
+          ],
+          "area": 120400
+        }
+      ],
+      "axes": [
+        {
+          "a": { "x": 10, "y": 5 },
+          "b": { "x": 440, "y": 5 },
+          "depth": 10,
+          "faces": [
+            { "contourId": "c2", "a": "p5", "b": "p6" },
+            { "contourId": "c1", "a": "p1", "b": "p2" }
+          ]
+        },
+        {
+          "a": { "x": 445, "y": 10 },
+          "b": { "x": 445, "y": 290 },
+          "depth": 10,
+          "faces": [
+            { "contourId": "c2", "a": "p6", "b": "p7" },
+            { "contourId": "c1", "a": "p2", "b": "p3" }
+          ]
+        },
+        {
+          "a": { "x": 10, "y": 295 },
+          "b": { "x": 440, "y": 295 },
+          "depth": 10,
+          "faces": [
+            { "contourId": "c1", "a": "p3", "b": "p4" },
+            { "contourId": "c2", "a": "p7", "b": "p8" }
+          ]
+        },
+        {
+          "a": { "x": 5, "y": 10 },
+          "b": { "x": 5, "y": 290 },
+          "depth": 10,
+          "faces": [
+            { "contourId": "c1", "a": "p4", "b": "p1" },
+            { "contourId": "c2", "a": "p8", "b": "p5" }
+          ]
+        }
+      ]
+    },
+    "warnings": []
+  }
+}

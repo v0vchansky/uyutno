@@ -2,7 +2,7 @@ import { freeze, Immer, type WritableDraft } from 'immer';
 
 import type { PlannerDocument } from '../document/PlannerDocument';
 import type { PlannerBus } from './PlannerBus';
-import { normalize, rebuild, type DerivedState } from './rebuild';
+import { normalize, rebuild, type DerivedState, type WarningSink } from './rebuild';
 
 /**
  * Свой экземпляр immer, а не глобальный `produce`: auto-freeze включён **всегда, и в проде** (ADR 0015 A6,
@@ -25,11 +25,16 @@ export class PlannerStore {
   private document: PlannerDocument;
   private derived: DerivedState;
 
+  /** Куда уходят предупреждения ядра (soft-fail обхода контуров, нарушенные инварианты нормализации). */
+  private readonly warn: WarningSink;
+
   constructor(
     private readonly bus: PlannerBus,
     initial: PlannerDocument,
+    { warn = () => {} }: { warn?: WarningSink } = {},
   ) {
-    const built = runRebuild(freeze(initial, true));
+    this.warn = warn;
+    const built = this.runRebuild(freeze(initial, true));
     this.document = built.document;
     this.derived = built.derived;
   }
@@ -57,13 +62,19 @@ export class PlannerStore {
     if (mutated === prev) return;
 
     const contentChanged = hasContentChanged(prev, mutated);
-    const next = contentChanged ? runRebuild(mutated) : { document: mutated, derived: this.derived };
+    const next = contentChanged ? this.runRebuild(mutated) : { document: mutated, derived: this.derived };
 
     this.document = next.document;
     this.derived = next.derived;
 
     if (contentChanged) this.bus.emit('document:changed', { document: next.document });
     if (next.document.view !== prev.view) this.bus.emit('view:changed', next.document.view);
+  }
+
+  /** Две фазы rebuild: нормализация хранимого через черновик, производное — от готового снимка. */
+  private runRebuild(base: PlannerDocument): { document: PlannerDocument; derived: DerivedState } {
+    const document = immer.produce(base, draft => normalize(draft, { warn: this.warn }));
+    return { document, derived: freeze(rebuild(document, { warn: this.warn }), true) };
   }
 }
 
@@ -74,10 +85,4 @@ const hasContentChanged = (prev: PlannerDocument, next: PlannerDocument): boolea
     if (key !== 'view' && next[key] !== prev[key]) return true;
   }
   return false;
-};
-
-/** Две фазы rebuild: нормализация хранимого через черновик, производное — от готового снимка. */
-const runRebuild = (base: PlannerDocument): { document: PlannerDocument; derived: DerivedState } => {
-  const document = immer.produce(base, normalize);
-  return { document, derived: freeze(rebuild(document), true) };
 };

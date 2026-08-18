@@ -80,9 +80,23 @@ export interface DocumentView {
   cameras: ViewCameras;
 }
 
-/** Замкнутая петля граней стен — то, что рисует пользователь (contour-first). */
+/**
+ * Вид контура (ADR 0016 B3, уточнено ADR 0017 C1): `outer` — обвод тела стен (fill-группа триангуляции),
+ * `inner` — полость-комната. Без вида классификация центроида триангуляции (тело/полость) на перекрывающемся
+ * входе невозможна. Инструменты коммитят «сырое» (квады ленты — `outer`, комната
+ * по точкам — `inner`), а `normalize` переписывает набор результатом слияния (C6).
+ */
+export const CONTOUR_KINDS = ['outer', 'inner'] as const;
+export type ContourKind = (typeof CONTOUR_KINDS)[number];
+
+/**
+ * Замкнутая петля граней стен — результат нормализации нарисованного (contour-first, ADR 0016/0017):
+ * после `normalize` в `contours[]` лежат обводы тел стен (`outer`) и комнаты (`inner`); ориентация —
+ * против часовой при y вверх (площадь > 0). Точки — по id из единого пула этажа.
+ */
 export interface Contour {
   id: Id;
+  kind: ContourKind;
   points: Id[];
 }
 
