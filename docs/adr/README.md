@@ -64,3 +64,5 @@ ADR нужен, когда решение:
 - [0012 — Git-хуки: husky + lint-staged, pre-commit с ESLint / Prettier / tsc](./0012-git-hooks-husky.md)
 - [0013 — Транспилятор: SWC вместо Babel](./0013-transpilyator-swc.md)
 - [0014 — Тестовый раннер: Jest + @swc/jest](./0014-testovyy-runner-jest-swc.md)
+- [0015 — Архитектура движка планера: слои, фасад, мост с React](./0015-arhitektura-dvizhka-planera.md)
+- [0016 — Модель документа планера: contour-first дерево, единицы, id, snapshot-friendly plain-data](./0016-model-dokumenta-planera.md)
