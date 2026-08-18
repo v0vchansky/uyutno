@@ -1,12 +1,12 @@
 # 0053 · TASK · Геометрическое ядро 1/2: предикаты и примитивы, лента стены и митринг, валидация контура
 
-- Статус: [ ]
+- Статус: [x]
 - Эпик: 0050
 - Зависит от: 0051
 - Спека: docs/adr/0017-geometricheskiy-payplayn-planera.md (ADR C — принят 2026-08-19; C1–C5, C10–C11); docs/product/features/planner/01-walls-and-contours.md («Митра углов», «Крайние случаи», «Ограничения и пороги»); docs/product/architecture/testing-strategy.md («Что считается покрытым», golden/property); docs/product/architecture/competitor-practices-audit.md (секции dd02, dd08, 01-walls)
 - Нужен дизайн: нет (чистые функции без UI)
 - Дизайн: —
-- PR: —
+- PR: — (прямой коммит в main)
 
 ## Описание
 
@@ -25,12 +25,33 @@
 
 ## Приёмка
 
-- [ ] `packages/planner/src/document/geometry/` — предикаты, примитивы, лента/митринг, валидация контура по ADR C; ни одного импорта Three/DOM/React (ESLint-слой не нарушен).
-- [ ] Тесты: все ветки каждой функции; golden-фикстуры ленты заведены (расположение и формат — по ADR C), обновление эталона — явный шаг; property-тесты `fast-check` гоняются в `pnpm test` с фиксированным seed.
-- [ ] Константы — именованные, рядом с использованием, без дублей литералов; значения совпадают со спекой 01 и ADR C.
-- [ ] `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build` зелёные; ревью субагента-критика (ADR C, testing-strategy) пройдено.
-- [ ] Prettier чист; ровно один PR.
+- [x] `packages/planner/src/document/geometry/` — предикаты, примитивы, лента/митринг, валидация контура по ADR C; ни одного импорта Three/DOM/React (ESLint-слой не нарушен).
+- [x] Тесты: все ветки каждой функции; golden-фикстуры ленты заведены (расположение и формат — по ADR C), обновление эталона — явный шаг; property-тесты `fast-check` гоняются в `pnpm test` с фиксированным seed.
+- [x] Константы — именованные, рядом с использованием, без дублей литералов; значения совпадают со спекой 01 и ADR C.
+- [x] `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build` зелёные; ревью субагента-критика (ADR C, testing-strategy) пройдено.
+- [x] Prettier чист; ровно один PR.
 
 ## Заметки
 
 - Скоуп заведён до принятия ADR C (0051); **сверен с ADR 0017 (`Предложено`, 2026-08-18)**: граница 0053/0054 сохранена (сюда — предикаты, лента, валидация; триангуляция/комнаты/оси/normalize — 0054). Уточнено по ADR: `orient2d` через `robust-predicates` с нормализацией знака; `pointInContour` без третьего эпсилона; коммит ленты — квады как `outer`-контуры (конвертации нет); формат/место golden-фикстур и `UPDATE_GOLDEN`; константы `REATTACH_GRID`, `CONNECTOR_ON_LINE_EPS`, `CLOSE_EPS` в ядре. ADR принят 2026-08-19 — задачу можно брать.
+
+**Сессия 2026-08-19 — реализация.** Слой `packages/planner/src/document/geometry/`: `predicates/` (25 файлов, файл = функция/семейство), `band/` (`blocksFromContour`, `autoOffsetSide`), `contours/` (`validateContour`, `contourClosure`), `testing/arbitraries.ts` (fast-check: `FC_SEED = 20260819`, генераторы точек/контуров/выпуклых многоугольников), `fixtures/band-*.json` (12 golden-кейсов ленты). Зависимости: `robust-predicates@^3.0.3` (dep), `fast-check@^4` (devDep); `jest.config.mjs` пакета — `transformIgnorePatterns` для ESM-пакета `robust-predicates` (pnpm-раскладка). Кроме `packages/planner/**` и строки в README доски ничего не тронуто (ESLint-override не нужен: `geometry/` внутри слоя `document/`). Прогоны: `pnpm typecheck` — зелёный (0 ошибок); `pnpm lint` — зелёный; `pnpm test` — `packages/planner` 417 passed (геометрия — 250, из них 20 property с фиксированным seed и 13 golden), `apps/platform` 91 passed; `pnpm build` — client/server compiled (3 pre-existing performance warnings webpack); Prettier по `packages/planner/**` чист (остаточные предупреждения `pnpm format` — старые файлы docs/reference и ADR 0018 параллельной задачи, не отсюда).
+
+**Решения по месту (в рамках ADR 0017, для сведения 0054/0057–0062):**
+
+- `orient2d` — обёртка с инверсией знака библиотеки (`0 − v`, чтобы не плодить `−0`), `orientationSign`; тест на знак закреплён (`orient2d.test.ts`).
+- `pointOnSegment` — коридор изотропный: параметрически вдоль (`±accuracy` за концы) и поперёк `< accuracy`; референс ловил «за концом» только bbox-слаком по осям.
+- `pointInContour` → `locatePointInContour(): 'inside' | 'boundary' | 'outside'` (граница — B_EPS через `pointOnContour`, дальше чётность полуоткрытых рёбер через `orient2d`); `pointInContour` = строго внутри (граница → `false`), `pointInContours` — счётчик; `compareContoursByArea` считает узлы строго внутри.
+- `lineIntersectLine` — числители/знаменатель через `orient2d`, принадлежность отрезкам параметрически (`accuracy/len`), порог `|cross| < L_EPS` на знаменателе оставлен намеренно как защита от почти параллельных пар (robust даёт точный 0 и без него); снапнутая общая вершина проверку принадлежности не проходит (лежит на обоих по построению); приоритет снапа `B` над `A` — как референс.
+- `distanceToLine` при вырожденной прямой возвращает расстояние до `a`; `findMinMax([]) → null`; `compareContours` на пустом → `'outside'`; все предикаты на `NaN` → `false`/`null`/`0` через отрицательную форму сравнений (`segmentsOverlay`, `parallelLines` — явно), исключений нет.
+- `sortByArea` — остаточный tie-break `(minX, minY)` **bbox** контура (инвариантно к циклическому сдвигу), а не «первой вершины» — уточнение формулировки ADR C1 фактом; компаратор с эпсилоном нетранзитивен, как у референса.
+- `rightOriented(first, second)` на `OrientedFace { a, b, faceRight }`; признак `faceRight` выводит rebuild (0054).
+- Лента: `blocksFromContour(points, width, side: 'left' | 'right', closed, startNeighbourSegments?)`; `WallBlock = [A, C, D, B]` (новые объекты); дедуп подряд идущих точек на входе (нулевых сегментов нет → офсет всегда определён); `width ≤ 0`/`NaN` и не-конечные координаты → `[]`; `closed` с < 3 различных точек → `[]`; `D = P1` напрямую (у референса `lineIntersectLine` центральных линий снапит туда же); при `closed` `startNeighbourSegments` игнорируется. Правило митра→торец: открытая — угол И `!pointInBounds(C, P1, L2)`, замкнутая — только угол (Q32; строка аудита dd02 «унифицировать» перекрыта решением ADR).
+- `autoOffsetSide(first, second, [n0, n1])` — формула `calcStart` референса как чистая функция (`SIDE_PICK_MIN_EDGE = 5`), состояние «фиксация после третьей точки» — инструмент (E). Порядок соседей — как отдаёт `findNearSegments` (0062); для соседей на одной прямой результат от порядка не зависит.
+- Валидация: `validateContour(points, { closed, minPoints, minEdgeLength })` → `{ ok: true } | { ok: false; reason: 'tooFewPoints' | 'duplicatePoints' | 'shortEdge' | 'selfIntersected' | 'degenerate' }` (первая причина по порядку); `MIN_WALL_LENGTH = 15`, `MIN_CONTOUR_POINTS = 3`, `POLYLINE_ROOM_MIN_POINTS = 4`; смежные дубли схлопывает `dedupeConsecutivePoints` (вызывает инструмент до валидации), несмежные — отказ `duplicatePoints` (трактовка спеки 01 «дубли отбрасываются»; уточнить в спеке при случае). `contourClosure(candidate, points, { lastRadius, distance, firstRadius = CLOSE_EPS }) → 'first' | 'last' | null` — метрика параметром (Q34), `'first'` приоритетнее и только от 3 точек.
+- Константы не заведены (нет использования в части 1, «рядом с использованием»): `MAX_WALL_WIDTH`, `MAX_CONNECTOR_LENGTH`, `CONNECTOR_ON_LINE_EPS`, `CLEAR_CONTOUR_MIN_LEN` — 0054 (оси/`clearContour`) и шаг 4.
+- Golden: формат `{ name, input: { points, width, side, closed, startNeighbourSegments? }, expected }` (поле `startNeighbourSegments` — расширение формы ADR C10 для T-стыка), числа до 1e-6, не-конечное значение роняет тест (не пишется в эталон); `UPDATE_GOLDEN=1 pnpm test`, после — `pnpm format:write` не нужен (писатель держит точки однострочными, Prettier-совместимо). Типы Node подключены только в golden-раннере (`/// <reference types="node" />`), не в `tsconfig` пакета.
+
+**Критики (два субагента: соответствие ADR/конвенциям и ревью тестов) — blocker'ов нет; сделано:** `dedupeConsecutivePoints` вынесен в `predicates/` (лента больше не импортирует `contours/`); удалён неиспользуемый `oppositeSide`; `parallelLines(NaN) → false` (был `true`); JSDoc `DEFAULT_WALL_WIDTH`/порога `L_EPS` в `lineIntersectLine`/`startNeighbourSegments` при `closed`; `contourClosure` использует `MIN_CONTOUR_POINTS`; переименованы соседи в `autoOffsetSide`; добавлены тесты на непокрытые ветки (последний fallback `intersect` в `compareContours`, `compareContoursOnePoint` без свободной вершины, `rightOriented` при угле > 3π/2, `pointInContours(one)` при нуле, наблюдаемый пропуск вырожденного ребра в `checkContact`, три точки порога `segmentsOverlay` и выбор оси по `B_EPS`, порог `SORT_AREA_EPS` ровно 10/9.99, симметричный правый поворот 134°/136° и обе стороны 135° в замкнутом контуре, коллинеарная вершина в замкнутой ленте, последний сегмент ровно `width`, режим прямых в property `lineIntersectLine`); тавтологичное property `pointInContour` заменено инвариантом «не зависит от ориентации и точки старта». Не сделано (nit, осознанно): относительный допуск в property `contourArea` (абсолютный 5e-7 при запасе ×4), ±Infinity покрыт точечно (`pointsMatch`, `distance`, `blocksFromContour`), в остальном — NaN.
+
+**Осталось на 0054:** `triangulate/` (`cdt2d`+`clean-pslg` с `.d.ts` и `buffer`-стабом), `contours/rebuildContours` + `clearContour` (`CLEAR_CONTOUR_MIN_LEN`), `axes/` (`parallelBox`, `boxCenterSeg`, `findAxes`, `MAX_WALL_WIDTH`), `reattach/` (`compareContoursByArea` уже здесь), `normalize`/`rebuild`, `Contour.kind` в `PlannerDocument.ts`, golden-фикстуры документов (`{ input: PlannerDocument, expected: { layout, derived } }`), property `normalize∘normalize`. Снап-функции — 0062 (используют `pointOnSegment`, `projectPointOnLine`, `bisectorPoint`, `angleBetweenLines` отсюда); вызов `validateContour`/`contourClosure`/`autoOffsetSide`/`blocksFromContour` — инструменты 0057/0058.

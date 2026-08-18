@@ -1,0 +1,13 @@
+{
+  "name": "Две точки ближе ширины — пусто",
+  "input": {
+    "points": [
+      { "x": 0, "y": 0 },
+      { "x": 9, "y": 0 }
+    ],
+    "width": 10,
+    "side": "left",
+    "closed": false
+  },
+  "expected": []
+}
