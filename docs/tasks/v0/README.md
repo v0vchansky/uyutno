@@ -144,12 +144,14 @@
 
 Спека и общее описание: [0043-EPIC-planner-step1-engine-skeleton.md](0043-EPIC-planner-step1-engine-skeleton.md). Порядок шагов планера — [planner-build-order.md](../../product/architecture/planner-build-order.md); задачи на код каркаса заводятся после принятия ADR.
 
-| #    | Тип  | Название                                                                                                       | Статус | Зависит от | PR                        |
-| ---- | ---- | -------------------------------------------------------------------------------------------------------------- | ------ | ---------- | ------------------------- |
-| 0045 | TASK | [Аудит практик roomtodo: keep / rework / drop](0045-TASK-roomtodo-practices-audit.md)                          | [x]    | —          | e36c738, 270dd8c, a8fd69c |
-| 0044 | TASK | [ADR A + B: слои движка планера и модель документа](0044-TASK-planner-adr-engine-layers-and-document-model.md) | [x]    | 0045       | —                         |
-| 0046 | TASK | [Спека ← ADR 0015/0016: синхронизация features/planner](0046-TASK-planner-spec-sync-adr-0015-0016.md)          | [x]    | 0044       | — (прямой коммит в main)  |
-| 0047 | TASK | [Каркас пакета `packages/planner`: воркспейс, сборка, тесты, линт](0047-TASK-planner-package-skeleton.md)      | [x]    | 0044       | — (прямой коммит в main)  |
+| #    | Тип  | Название                                                                                                                                                              | Статус | Зависит от | PR                        |
+| ---- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ---------- | ------------------------- |
+| 0045 | TASK | [Аудит практик roomtodo: keep / rework / drop](0045-TASK-roomtodo-practices-audit.md)                                                                                 | [x]    | —          | e36c738, 270dd8c, a8fd69c |
+| 0044 | TASK | [ADR A + B: слои движка планера и модель документа](0044-TASK-planner-adr-engine-layers-and-document-model.md)                                                        | [x]    | 0045       | —                         |
+| 0046 | TASK | [Спека ← ADR 0015/0016: синхронизация features/planner](0046-TASK-planner-spec-sync-adr-0015-0016.md)                                                                 | [x]    | 0044       | — (прямой коммит в main)  |
+| 0047 | TASK | [Каркас пакета `packages/planner`: воркспейс, сборка, тесты, линт](0047-TASK-planner-package-skeleton.md)                                                             | [x]    | 0044       | — (прямой коммит в main)  |
+| 0048 | TASK | [Ядро планера без Three: документ, `PlannerManager`, шина, история-заглушка, мост React](0048-TASK-planner-core-document-manager-bus.md)                              | [x]    | 0047       | — (прямой коммит в main)  |
+| 0049 | TASK | [Проекция в Three: канвас, ортокамера top, пустая сцена, render-on-demand, resize/dispose, perf/leak-гвард](0049-TASK-planner-three-projection-canvas-render-loop.md) | [ ]    | 0048       | —                         |
 
 ### Без эпика
 
