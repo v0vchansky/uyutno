@@ -66,3 +66,4 @@ ADR нужен, когда решение:
 - [0014 — Тестовый раннер: Jest + @swc/jest](./0014-testovyy-runner-jest-swc.md)
 - [0015 — Архитектура движка планера: слои, фасад, мост с React](./0015-arhitektura-dvizhka-planera.md)
 - [0016 — Модель документа планера: contour-first дерево, единицы, id, snapshot-friendly plain-data](./0016-model-dokumenta-planera.md)
+- [0017 — Геометрический пайплайн планера: контуры → лента → триангуляция → комнаты → оси](./0017-geometricheskiy-payplayn-planera.md)
