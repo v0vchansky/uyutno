@@ -1,5 +1,16 @@
 import { createPlanner, type PlannerLogger } from './index';
 
+// WebGL в Node/jsdom недоступен — проекция подменяется; реальный рендерер проверяет Playwright-гвард (ADR 0015 A9).
+jest.mock('./projection/three/ThreeProjection', () => ({
+  ThreeProjection: class {
+    constructor(
+      readonly manager: unknown,
+      readonly canvas: unknown,
+    ) {}
+    dispose(): void {}
+  },
+}));
+
 const silentLogger: PlannerLogger = { debug() {}, info() {}, warn() {}, error() {} };
 
 describe('@uyutno/planner smoke', () => {

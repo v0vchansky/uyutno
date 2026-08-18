@@ -14,6 +14,7 @@
     "format:write": "prettier --write .",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
+    "test:e2e": "pnpm --filter platform test:e2e",
     "dev": "pnpm --filter platform dev",
     "build": "pnpm --filter platform build"
   },

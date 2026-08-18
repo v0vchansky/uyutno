@@ -6,28 +6,41 @@ export interface CreatePlannerParams {
   canvas: HTMLCanvasElement;
   projectId: string;
   logger: PlannerLogger;
-  /** Бюджет кадров render-on-demand; дефолт — в проекции (ADR 0015 A7). */
+  /** Бюджет кадров render-on-demand; дефолт `FRAME_BUDGET = 5` — в `RenderLoop` (ADR 0015 A7). */
   frameBudget?: number;
 }
 
 export interface PlannerInstance {
   manager: PlannerManager;
   projection: ThreeProjection;
+  /** Освобождает проекцию и движок в обратном порядке; повторный вызов — no-op. */
   dispose(): void;
 }
 
 /**
- * Композиционный корень планера вне React (ADR 0015 A7): документ → `PlannerManager` → `ThreeProjection`.
- * `dispose()` — в обратном порядке. Заглушка: реальная сборка движка и проекции — следующие задачи шага 1.
+ * Композиционный корень планера вне React (ADR 0015 A7): пустой документ → `PlannerManager` →
+ * `ThreeProjection(manager, canvas)`. Единственная точка создания — `<Planner />` зовёт её же.
+ * Если проекция не поднялась (нет WebGL-контекста), движок освобождается и ошибка пробрасывается:
+ * полуживого планера не остаётся.
  */
-export const createPlanner = ({ canvas, projectId, logger }: CreatePlannerParams): PlannerInstance => {
+export const createPlanner = ({ canvas, projectId, logger, frameBudget }: CreatePlannerParams): PlannerInstance => {
   const manager = new PlannerManager({ projectId, logger });
-  const projection = new ThreeProjection(manager, canvas);
 
+  let projection: ThreeProjection;
+  try {
+    projection = new ThreeProjection(manager, canvas, { frameBudget, logger });
+  } catch (error) {
+    manager.dispose();
+    throw error;
+  }
+
+  let disposed = false;
   return {
     manager,
     projection,
     dispose: () => {
+      if (disposed) return;
+      disposed = true;
       projection.dispose();
       manager.dispose();
     },

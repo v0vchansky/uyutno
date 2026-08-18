@@ -54,3 +54,7 @@ Thumbs.db
 
 # Playwright MCP — временные снапшоты/скриншоты сессии
 .playwright-mcp/
+
+# Playwright (e2e, apps/platform/e2e) — артефакты прогонов
+test-results/
+playwright-report/

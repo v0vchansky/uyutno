@@ -140,7 +140,7 @@
 | 0038 | TASK | [Экран `/projects` — каркас, сетка, состояния, модал «Новый проект»](0038-TASK-projects-page-frame.md)        | [x]    | 0037, 0026       | dfb25a9 (прямой коммит в main) |
 | 0039 | TASK | [Меню карточки + модалы «Переименовать»/«Удалить» + дублирование](0039-TASK-projects-card-menu-and-modals.md) | [x]    | 0038             | 4829803 (прямой коммит в main) |
 
-### 0043 · Планер — шаг 1: каркас движка · [~]
+### 0043 · Планер — шаг 1: каркас движка · [x]
 
 Спека и общее описание: [0043-EPIC-planner-step1-engine-skeleton.md](0043-EPIC-planner-step1-engine-skeleton.md). Порядок шагов планера — [planner-build-order.md](../../product/architecture/planner-build-order.md); задачи на код каркаса заводятся после принятия ADR.
 
@@ -151,7 +151,7 @@
 | 0046 | TASK | [Спека ← ADR 0015/0016: синхронизация features/planner](0046-TASK-planner-spec-sync-adr-0015-0016.md)                                                                 | [x]    | 0044       | — (прямой коммит в main)  |
 | 0047 | TASK | [Каркас пакета `packages/planner`: воркспейс, сборка, тесты, линт](0047-TASK-planner-package-skeleton.md)                                                             | [x]    | 0044       | — (прямой коммит в main)  |
 | 0048 | TASK | [Ядро планера без Three: документ, `PlannerManager`, шина, история-заглушка, мост React](0048-TASK-planner-core-document-manager-bus.md)                              | [x]    | 0047       | — (прямой коммит в main)  |
-| 0049 | TASK | [Проекция в Three: канвас, ортокамера top, пустая сцена, render-on-demand, resize/dispose, perf/leak-гвард](0049-TASK-planner-three-projection-canvas-render-loop.md) | [ ]    | 0048       | —                         |
+| 0049 | TASK | [Проекция в Three: канвас, ортокамера top, пустая сцена, render-on-demand, resize/dispose, perf/leak-гвард](0049-TASK-planner-three-projection-canvas-render-loop.md) | [x]    | 0048       | — (прямой коммит в main)  |
 
 ### Без эпика
 

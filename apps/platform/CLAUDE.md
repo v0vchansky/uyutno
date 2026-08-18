@@ -29,6 +29,7 @@
 - **Path aliases** (`@app/*`, `@server/*`) продублированы в `jest.config.mjs` (`moduleNameMapper`), потому что jest не читает `tsconfig.paths`. При добавлении новых aliases — синхронизировать оба места.
 - **Type-check тестов** идёт через `pnpm typecheck`, не через `pnpm test` — SWC стирает типы без проверки. Ошибки типов в тестах не завалят `pnpm test`, но завалят typecheck и pre-commit.
 - Запуск: `pnpm --filter platform test` (только платформа) или `pnpm test` в корне (все воркспейсы, включая `packages/planner`).
+- **Playwright (слои 3–4 [testing-strategy](../../docs/product/architecture/testing-strategy.md))** — `apps/platform/e2e/*.spec.ts` (не `*.test.ts`, чтобы не попадать под Jest), конфиг `playwright.config.ts`, свой `e2e/tsconfig.json` в `typecheck`. Запуск `pnpm --filter platform test:e2e` / `pnpm test:e2e` из корня; поднятый dev-сервер переиспользуется. Perf/leak-гварды планера читают экземпляр через dev-only событие `planner:ready` (`project/lib/plannerReadyEvent.ts`), не через `window.__*`.
 
 ## Что смотреть перед началом работы
 

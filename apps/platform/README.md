@@ -61,12 +61,15 @@ pnpm --filter platform dev
 
 Юнит-тесты — на **Jest** через `@swc/jest` (ADR [0014](../../docs/adr/0014-testovyy-runner-jest-swc.md)). Файлы лежат рядом с кодом (`foo.ts` + `foo.test.ts`), без `__tests__/`.
 
-| Команда                                  | Что делает                          |
-| ---------------------------------------- | ----------------------------------- |
-| `pnpm --filter platform test`            | прогнать все тесты один раз         |
-| `pnpm --filter platform test -- --watch` | watch-mode, перезапуск на изменения |
+| Команда                                  | Что делает                                                                            |
+| ---------------------------------------- | ------------------------------------------------------------------------------------- |
+| `pnpm --filter platform test`            | прогнать все тесты один раз                                                           |
+| `pnpm --filter platform test -- --watch` | watch-mode, перезапуск на изменения                                                   |
+| `pnpm --filter platform test:e2e`        | Playwright: perf/leak-гварды и E2E-смоук (`e2e/*.spec.ts`), реальный Chromium + WebGL |
 
 Type-check тестов идёт отдельно через `pnpm --filter platform typecheck` — jest типы не проверяет.
+
+Playwright-тесты (`e2e/`, конфиг `playwright.config.ts`) используют уже поднятый dev-сервер на 4000, а без него сами собирают dev-бандл клиента и запускают `pnpm dev` (нужны `.env` и Postgres, как для `pnpm dev`). Браузер — `pnpm exec playwright install chromium` один раз.
 
 ## Ручная проверка и тестовые данные
 

@@ -1,6 +1,6 @@
 # 0043 · EPIC · Планер — шаг 1: каркас движка
 
-- Статус: [~]
+- Статус: [x]
 - Зависит от: 0035
 - Спека: docs/product/features/planner/README.md; порядок шагов — docs/product/architecture/planner-build-order.md (шаг 1)
 
@@ -18,12 +18,13 @@
 
 ## Приёмка
 
-- [ ] ADR A и ADR B приняты (статус `Принято`), индекс `docs/adr/README.md` обновлён.
-- [ ] `/project/:id` открывает планер: канвас на весь рабочий контейнер, ортокамера top, пустая сцена; никакого постоянного RAF в покое.
-- [ ] Unmount страницы освобождает renderer/геометрии/материалы (проверка через `renderer.info` в Playwright).
-- [ ] Модуль `planner` не импортирует `auth`/`common`/`project` (энфорс ESLint по 0007).
-- [ ] Все подзадачи `[x]`.
+- [x] ADR A и ADR B приняты (статус `Принято`), индекс `docs/adr/README.md` обновлён.
+- [x] `/project/:id` открывает планер: канвас на весь рабочий контейнер, ортокамера top, пустая сцена; никакого постоянного RAF в покое.
+- [x] Unmount страницы освобождает renderer/геометрии/материалы (проверка через `renderer.info` в Playwright).
+- [x] Модуль `planner` не импортирует `auth`/`common`/`project` (энфорс ESLint по 0007).
+- [x] Все подзадачи `[x]`.
 
 ## Заметки
 
-—
+- Закрыт задачей 0049 (2026-08-18). ADR A/B = ADR 0015/0016 (`Принято`, индекс `docs/adr/README.md`); `/project/:id` — канвас на весь контейнер, ортокамера top, пустая сцена, render-on-demand (Playwright-гвард `apps/platform/e2e/planner-render-guard.spec.ts`: idle FPS ≈ 0, `renderer.info.memory` = 0 после unmount и повторного mount); граница с платформой — физическая: пакет `@uyutno/planner` без `@app/*` (ADR 0015) плюс per-layer ESLint внутри пакета; `auth`/`core` не импортируют планер (ESLint). Подзадачи 0044–0049 — `[x]`.
+- Из шага 1 в парковку build-order ушли: временные значения проекции до ADR G (шкала зума, высота камеры, фон, свет), логгер `core`, гонка dev-сервера (0040).

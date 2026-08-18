@@ -4,6 +4,7 @@
  */
 export { createPlanner } from './projection/createPlanner';
 export type { CreatePlannerParams, PlannerInstance } from './projection/createPlanner';
+export type { ThreeProjection, ProjectionStats } from './projection/three/ThreeProjection';
 export { Planner } from './ui/Planner/Planner';
 export type { PlannerProps } from './ui/Planner/Planner';
 export { usePlannerManager } from './ui/PlannerContext';
