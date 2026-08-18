@@ -1,7 +1,7 @@
 import mitt, { type Emitter } from 'mitt';
 
 import type { DocumentView, PlannerDocument } from '../document/PlannerDocument';
-import type { HistoryState } from './HistoryNamespace';
+import type { HistoryState } from './history/HistoryLog';
 
 /**
  * Карта событий шины (ADR 0015 A5). Имя — `<неймспейс>:<факт в прошедшем времени>`, payload — plain-данные
@@ -13,7 +13,15 @@ export type PlannerEvents = {
   'document:changed': { document: PlannerDocument };
   /** Изменился активный вид или камера вида (`Document.view`, ADR 0016 B7). */
   'view:changed': DocumentView;
-  /** Изменилась доступность undo/redo — одно событие вместо трёх каналов (аудит roomtodo). */
+  /**
+   * Сменился dirty-флаг проекта (ADR 0018 D7) — единственное событие с флагом; `document:changed`
+   * подразумевает `dirty = true`, но не несёт его. Только при фактической смене значения.
+   */
+  'document:dirty-changed': { dirty: boolean };
+  /**
+   * Изменилась доступность undo/redo активной зоны — одно событие вместо трёх каналов (аудит roomtodo).
+   * Может прийти без изменения документа: смена вида меняет активную зону (ADR 0018 D4).
+   */
   'history:changed': HistoryState;
 };
 

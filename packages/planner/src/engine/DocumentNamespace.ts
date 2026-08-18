@@ -1,5 +1,5 @@
-import { freeze } from 'immer';
-
+import type { FaceRef } from '../document/geometry/axes/findAxes';
+import type { Id } from '../document/id';
 import {
   DOCUMENT_FORMAT,
   DOCUMENT_VERSION,
@@ -7,6 +7,16 @@ import {
   type DocumentSettings,
   type PlannerDocument,
 } from '../document/PlannerDocument';
+import { addContours, type AddContoursError, type ContourInput } from './commands/addContours';
+import { deletePoint, type DeletePointError } from './commands/deletePoint';
+import { movePoints, type MovePointsError, type MovePointsOptions, type PointMove } from './commands/movePoints';
+import {
+  setEdgeLength,
+  type EdgeRef,
+  type SetEdgeLengthError,
+  type SetEdgeLengthOptions,
+} from './commands/setEdgeLength';
+import { setWallWidth, type SetWallWidthError } from './commands/setWallWidth';
 import type { PlannerStore } from './PlannerStore';
 import { err, ok, type Result } from './Result';
 import type { DerivedState } from './rebuild';
@@ -19,9 +29,10 @@ export type SetSettingsError =
   { kind: 'invalid-units'; units: unknown } | { kind: 'invalid-wall-height'; wallHeight: unknown };
 
 /**
- * Неймспейс `document` фасада (ADR 0015 A2): снимок документа и производного, загрузка, команды-мутации
- * содержимого (`floors`, `settings`). Каждая команда — одна транзакция `PlannerStore` → одно событие.
- * Команды инструментов (контуры, точки) появятся в шаге 2 (ADR C/E) здесь же.
+ * Неймспейс `document` фасада (ADR 0015 A2): снимок документа и производного, загрузка, `settings`, команды
+ * планировки шага 2 (ADR 0018 D1) и dirty-флаг (D7). Каждая команда — валидация на границе → одна транзакция
+ * `PlannerStore` → `normalize`/`rebuild` → одно `document:changed`; при ошибке документ не меняется.
+ * Реализация команд — `engine/commands/*`, неймспейс один.
  */
 export class DocumentNamespace {
   constructor(private readonly store: PlannerStore) {}
@@ -39,6 +50,8 @@ export class DocumentNamespace {
   /**
    * Заменяет документ целиком (шаг 3 подключит сюда `storage.load`). Проверяет только `format`/`version` —
    * структурная валидация (zod) и миграции — ADR F. Документ становится собственностью движка и замораживается.
+   * История — `'reset'` (ADR 0018 D5: оба контейнера чистятся, новый baseline), dirty сбрасывается, перед
+   * заменой зовётся хук `beforeReplace` (D9).
    */
   load(document: PlannerDocument): Result<void, LoadError> {
     if (typeof document !== 'object' || document === null || document.format !== DOCUMENT_FORMAT) {
@@ -47,12 +60,11 @@ export class DocumentNamespace {
     if (!Number.isInteger(document.version) || document.version < 1 || document.version > DOCUMENT_VERSION) {
       return err({ kind: 'unsupported-version', version: document.version, supported: DOCUMENT_VERSION });
     }
-    const frozen = freeze(document, true);
-    this.store.transact(() => frozen);
+    this.store.load(document);
     return ok(undefined);
   }
 
-  /** Меняет настройки документа: `units` — из `UNITS`, `wallHeight` — конечное число > 0. */
+  /** Меняет настройки документа: `units` — из `UNITS`, `wallHeight` — конечное число > 0. Вне истории (D3), dirty ставит. */
   setSettings(patch: Partial<DocumentSettings>): Result<void, SetSettingsError> {
     const { units, wallHeight } = patch;
     if (units !== undefined && !UNITS.includes(units)) return err({ kind: 'invalid-units', units });
@@ -60,10 +72,57 @@ export class DocumentNamespace {
       return err({ kind: 'invalid-wall-height', wallHeight });
     }
     // Поля присваиваются поимённо: `undefined` в документ не попадает (plain-JSON, ADR 0016 B5).
-    this.store.transact(draft => {
-      if (units !== undefined) draft.settings.units = units;
-      if (wallHeight !== undefined) draft.settings.wallHeight = wallHeight;
-    });
+    this.store.transact(
+      draft => {
+        if (units !== undefined) draft.settings.units = units;
+        if (wallHeight !== undefined) draft.settings.wallHeight = wallHeight;
+      },
+      { history: 'none' },
+    );
     return ok(undefined);
+  }
+
+  // --- Команды планировки (ADR 0018 D1) -------------------------------------------------------------
+
+  /** Сырые контуры инструмента (`outer`-квады ленты / прямоугольник, `inner` — комната по точкам) одной записью. */
+  addContours(floorId: Id, contours: readonly ContourInput[]): Result<void, AddContoursError> {
+    return addContours(this.store, floorId, contours);
+  }
+
+  /** Новые координаты точек (драг на `pointerUp`, нудж с `coalesce`); совладельцы общего id едут сами. */
+  movePoints(floorId: Id, moves: readonly PointMove[], options?: MovePointsOptions): Result<void, MovePointsError> {
+    return movePoints(this.store, floorId, moves, options);
+  }
+
+  /** Удаление вершины с каскадом D2 по всем владельцам. */
+  deletePoint(floorId: Id, id: Id): Result<void, DeletePointError> {
+    return deletePoint(this.store, floorId, id);
+  }
+
+  /** Длина ребра `a→b`: симметрично ±Δ/2 или вся Δ на конец, противоположный `anchor`. Серия по ребру — одна запись. */
+  setEdgeLength(
+    floorId: Id,
+    edge: EdgeRef,
+    length: number,
+    options?: SetEdgeLengthOptions,
+  ): Result<void, SetEdgeLengthError> {
+    return setEdgeLength(this.store, floorId, edge, length, options);
+  }
+
+  /** Ширина стены по паре граней оси из `getDerived()`: сдвиг `faces[0]` по нормали. Серия по грани — одна запись. */
+  setWallWidth(floorId: Id, faces: readonly [FaceRef, FaceRef], width: number): Result<void, SetWallWidthError> {
+    return setWallWidth(this.store, floorId, faces, width);
+  }
+
+  // --- Dirty-флаг (ADR 0018 D7) ---------------------------------------------------------------------
+
+  /** Есть ли несохранённые изменения содержимого: команды, `settings`, undo/redo — да; `view` — нет. */
+  isDirty(): boolean {
+    return this.store.isDirty();
+  }
+
+  /** Успешное сохранение (заглушка до ADR F): сбрасывает флаг, `document:dirty-changed` при смене. */
+  markSaved(): void {
+    this.store.markSaved();
   }
 }

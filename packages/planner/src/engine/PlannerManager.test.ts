@@ -387,12 +387,13 @@ describe('PlannerManager', () => {
 
       manager.document.setSettings({ wallHeight: 300 });
       manager.view.setActive('plan');
-      expect(listener).toHaveBeenCalledTimes(2);
+      // document:changed + document:dirty-changed + view:changed
+      expect(listener).toHaveBeenCalledTimes(3);
       expect(listener).toHaveBeenLastCalledWith();
 
       unsubscribe();
       manager.view.setActive('orbit');
-      expect(listener).toHaveBeenCalledTimes(2);
+      expect(listener).toHaveBeenCalledTimes(3);
     });
 
     it('subscribe — стабильная ссылка, пригодная для useSyncExternalStore без bind', () => {

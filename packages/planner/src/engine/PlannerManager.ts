@@ -24,7 +24,8 @@ export interface PlannerManagerParams {
 
 /**
  * Фасад движка (ADR 0015 A2): владеет документом, публичный API нарезан неймспейсами по доменам —
- * `document`, `view`, `history` (шаг 1); `selection`, `tools` добавятся своими шагами. UI и проекции документ
+ * `document`, `view`, `history` (шаг 1; история реальная — 0055, ADR 0018); `selection`, `tools` добавятся
+ * своими шагами. UI и проекции документ
  * не мутируют — только зовут команды; читают через `get()`-снимки и подписываются через `subscribe`/`on`.
  * Шина наружу не отдаётся. Глобалов и синглтонов нет: один экземпляр на `createPlanner`.
  */
@@ -44,10 +45,13 @@ export class PlannerManager {
 
     const store = new PlannerStore(this.bus, document, {
       warn: message => this.logger.warn(`@uyutno/planner: ${message}`, { projectId }),
+      // Хук ADR 0018 D9: перед restore undo/redo и `load`. Сюда встанет `tools.interrupt()` (0057) и позже
+      // `selection.clear()` (ADR I); до них — no-op.
+      hooks: { beforeReplace: () => {} },
     });
     this.document = new DocumentNamespace(store);
     this.view = new ViewNamespace(store);
-    this.history = new HistoryNamespace();
+    this.history = new HistoryNamespace(store);
 
     this.logger.debug('@uyutno/planner: PlannerManager created', { projectId });
   }

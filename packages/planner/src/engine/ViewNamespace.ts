@@ -22,7 +22,9 @@ const COORDINATE_FIELDS: ReadonlySet<string> = new Set(['x', 'y', 'elevation']);
 
 /**
  * Неймспейс `view` фасада (ADR 0015 A2): активный вид и камеры видов — `Document.view` (ADR 0016 B7).
- * Команды меняют только `view`, поэтому транзакция даёт `view:changed` без rebuild и без `document:changed`.
+ * Команды меняют только `view`, поэтому транзакция даёт `view:changed` без rebuild и без `document:changed`;
+ * `view` вне истории и dirty (ADR 0018 D3/D7) — `history: 'none'`; смена активного вида меняет активную зону
+ * истории (D4), отчего может прийти `history:changed`.
  * Камера коммитится сюда по завершении интеракции, не покадрово (ADR 0015 «Что важно знать»).
  */
 export class ViewNamespace {
@@ -35,9 +37,12 @@ export class ViewNamespace {
 
   setActive(view: ViewKind): Result<void, SetActiveViewError> {
     if (!VIEW_KINDS.includes(view)) return err({ kind: 'invalid-view', view });
-    this.store.transact(draft => {
-      draft.view.activeView = view;
-    });
+    this.store.transact(
+      draft => {
+        draft.view.activeView = view;
+      },
+      { history: 'none' },
+    );
     return ok(undefined);
   }
 
@@ -52,14 +57,16 @@ export class ViewNamespace {
     const normalized = normalizeCamera(view, camera);
     if (!normalized.ok) return normalized;
 
-    this.store.transact(draft => assignCamera(draft.view.cameras, view, normalized.value));
+    this.store.transact(draft => assignCamera(draft.view.cameras, view, normalized.value), { history: 'none' });
     return ok(undefined);
   }
 
   /** Сбрасывает камеру вида к дефолту (спека 08: клик по активной кнопке вида). */
   resetCamera(view: CameraViewKind): Result<void, SetActiveViewError> {
     if (!CAMERA_VIEW_KINDS.includes(view)) return err({ kind: 'invalid-view', view });
-    this.store.transact(draft => assignCamera(draft.view.cameras, view, createDefaultCamera(view)));
+    this.store.transact(draft => assignCamera(draft.view.cameras, view, createDefaultCamera(view)), {
+      history: 'none',
+    });
     return ok(undefined);
   }
 }
