@@ -148,6 +148,8 @@
 | ---- | ---- | -------------------------------------------------------------------------------------------------------------- | ------ | ---------- | ------------------------- |
 | 0045 | TASK | [Аудит практик roomtodo: keep / rework / drop](0045-TASK-roomtodo-practices-audit.md)                          | [x]    | —          | e36c738, 270dd8c, a8fd69c |
 | 0044 | TASK | [ADR A + B: слои движка планера и модель документа](0044-TASK-planner-adr-engine-layers-and-document-model.md) | [x]    | 0045       | —                         |
+| 0046 | TASK | [Спека ← ADR 0015/0016: синхронизация features/planner](0046-TASK-planner-spec-sync-adr-0015-0016.md)          | [ ]    | 0044       | —                         |
+| 0047 | TASK | [Каркас пакета `packages/planner`: воркспейс, сборка, тесты, линт](0047-TASK-planner-package-skeleton.md)      | [ ]    | 0044       | —                         |
 
 ### Без эпика
 
