@@ -3,7 +3,7 @@
 - Статус: [ ]
 - Эпик: 0050
 - Зависит от: 0053, 0052
-- Спека: docs/adr/00NN-\* (ADR E — принятый; snap-first пайплайн, контракт результата, где живут флаги, куллинг); docs/product/features/planner/01-walls-and-contours.md («Снап» — целиком, «Ограничения и пороги», README «Приоритет Y-оси»); docs/product/architecture/competitor-practices-audit.md (секция dd09, решения автора Q18/Q31/Q34); docs/product/architecture/testing-strategy.md (слой 1 — «каждый порог по обе стороны»)
+- Спека: docs/adr/0019-avtomat-instrumentov-i-vvod-planera.md (ADR E — принятый: E2 snap-first, контракт результата, флаги в `tools`, куллинг по `Viewport`); docs/product/features/planner/01-walls-and-contours.md («Снап» — целиком, «Ограничения и пороги», README «Приоритет Y-оси»); docs/product/architecture/competitor-practices-audit.md (секция dd09, решения автора Q18/Q31/Q34); docs/product/architecture/testing-strategy.md (слой 1 — «каждый порог по обе стороны»)
 - Нужен дизайн: нет (чистые функции без UI)
 - Дизайн: —
 - PR: —
@@ -28,3 +28,4 @@
 ## Заметки
 
 - Скоуп заведён до принятия ADR E (0052); после принятия — сверить контракт результата, место флагов и индекса и поправить этот файл. Часть про предикаты сверена с ADR 0017 (2026-08-18): ядро отдаёт обе метрики и предикат замыкания (`CLOSE_EPS`), решение о метрике/радиусах — E. Выделена из 0057 по замечанию критика (объём одного PR); формулы `snapX/snapY/snapPerpendicular` берутся 1:1 из dd09 «7. Сводная спека для порта» с юнит-тестами.
+- **Уточнено по ADR 0019 (2026-08-19):** тип `Viewport = { scale, center, width, height }` и чистые `planToView/viewToPlan/viewportBounds` — в `document/geometry/viewport.ts` (заводятся здесь, их же используют 0056/0060); флаги снапа — состояние `tools` (`setSnapFlags`, дефолты on/on/off/on), в документ не входят; пороги `SNAP_DIST = 10`, `POINT_SIZE = 6`, `DRAG_THRESHOLD = 3` px делятся на `viewport.scale` (px/см) вызывающим; индекс кандидатов в `engine/` — мемо по ссылке `document` (все `layout.points` этажа + точки рисуемого контура), `exceptPoints` — параметр; хит-тест правки (0059) — соседний модуль `document/geometry/hittest/` на тех же порогах.

@@ -1,7 +1,7 @@
 # 0015. Архитектура движка планера: слои, фасад, мост с React
 
 - Статус: Принято
-- Дата: 2026-08-18
+- Дата: 2026-08-18 (уточнено ADR 0019/0020 — 2026-08-19)
 
 ## Решение
 
@@ -30,7 +30,7 @@
 
 ### Мост движок ↔ React (A4)
 
-Один механизм: движок — источник правды, React подписан через `useSyncExternalStore`. `PlannerManager.subscribe(cb)` = подписка на wildcard `*` шины; `usePlannerSelector(selector)` вызывает `selector(manager)` в `getSnapshot`. Селекторы возвращают примитивы или ссылки на иммутабельные снимки (`document.get()`, `view.get()`, `history.get()`) — стабильны по построению. Экземпляр менеджера — через `PlannerContext` внутри пакета, не через `Registry` платформы (планер не импортирует `common`).
+Один механизм: движок — источник правды, React подписан через `useSyncExternalStore`. `PlannerManager.subscribe(cb)` = подписка на wildcard `*` шины; `usePlannerSelector(selector)` вызывает `selector(manager)` в `getSnapshot`. Селекторы возвращают примитивы или ссылки на иммутабельные снимки (`document.get()`, `view.get()`, `history.get()`) — стабильны по построению. Экземпляр менеджера — через `PlannerContext` внутри пакета, не через `Registry` платформы (планер не импортирует `common`); с ADR 0020 контекст несёт `PlannerInstance` (`manager` + `projections`): `usePlannerManager()` — как прежде, `usePlannerProjections()` — для действий, локальных вьюверу (камера конструктора).
 
 ### Шина событий (A5)
 
@@ -51,7 +51,7 @@
 
 ### Инициализация и жизненный цикл (A7)
 
-- **Композиционный корень — фабрика вне React:** `createPlanner({ canvas, projectId, logger, … }) → { manager, projection, dispose }` (живёт в `projection/` или рядом с `index.ts`, без `react`). Порядок: пустой документ → `PlannerManager` → `ThreeProjection(manager, canvas)` (единственный `WebGLRenderer`, `ResizeObserver` на контейнер canvas, подписки на шину). `dispose()` — в обратном порядке: `off` подписок, `ResizeObserver.disconnect()`, отмена `requestAnimationFrame`, обход сцены с `dispose()` геометрий/материалов/текстур, `renderer.dispose()` + `forceContextLoss()`.
+- **Композиционный корень — фабрика вне React:** `createPlanner({ canvas, projectId, logger, … }) → { manager, projection, dispose }` (с ADR 0020 — два канваса и `projections: { three, canvas2d }`, плюс владелец клавиатуры `projection/input/keyboard.ts`) (живёт в `projection/` или рядом с `index.ts`, без `react`). Порядок: пустой документ → `PlannerManager` → `ThreeProjection(manager, canvas)` (единственный `WebGLRenderer`, `ResizeObserver` на контейнер canvas, подписки на шину). `dispose()` — в обратном порядке: `off` подписок, `ResizeObserver.disconnect()`, отмена `requestAnimationFrame`, обход сцены с `dispose()` геометрий/материалов/текстур, `renderer.dispose()` + `forceContextLoss()`.
 - `<Planner projectId logger />` (экспорт `@uyutno/planner`) — тонкая обёртка: рендерит `<canvas>`, в `useEffect` вызывает `createPlanner` с ним, кладёт `manager` в `PlannerContext`, на unmount зовёт `dispose()`. Владелец canvas один — React создаёт элемент и передаёт его фабрике. Платформа монтирует `<Planner />` из `project/pages/ProjectPage`. Порядок: документ → движок → проекция → UI.
 - Render-on-demand: `RenderLoop.invalidate()` выставляет бюджет кадров — константа-дефолт `FRAME_BUDGET = 5` (аудит keep «RenderUpdater»), переопределяемая параметром проекции (`createPlanner({ frameBudget })`); луп через `requestAnimationFrame` декрементирует бюджет и самозавершается — в покое ни одного `rAF`. Инвалидируют: любое событие шины, resize, интеракция камеры. Ровно один `WebGLRenderer` на планер; превью — через render target того же рендерера (аудит rework, шаг 9).
 - Гвард (testing-strategy, слой 3, Playwright): `projection.getStats()` отдаёт `renderer.info.render.frame` и `renderer.info.memory.{geometries,textures}`; тест ассертит: за секунду покоя `frame` не растёт (idle FPS≈0), `geometries` не растёт после N операций и повторного mount/unmount. Как Playwright достаёт результат фабрики (dev-only проп/колбэк, не `window.__*`) — деталь имплементации.
@@ -72,7 +72,7 @@
 
 - **ADR 0007/0010 говорят про `planner` как клиентский модуль с переездом «в v1»** — по этому ADR пакет заводится сразу; граф ADR 0007 не меняется (`planner ──► —`, потребители `project`/`common`/`landing`), меняется физическое место и алиас (`@uyutno/planner` вместо `@app/planner`). Правила `@app/planner` и override для `apps/platform/src/client/planner/**` в `eslint.config.mjs` заменены на per-layer override для `packages/planner/src/{document,engine,projection,ui}/**` (задача 0047); `auth` и `core` не импортируют `@uyutno/planner`; ADR 0007/0010 поправлены по месту. Клиентского модуля `core` и логгера пока нет — `logger` приходит DI-параметром.
 - **Селекторы должны быть стабильны:** `usePlannerSelector(m => ({ ...m.view.get() }))` даст бесконечный ре-рендер. Возвращать примитивы или снимки фасада как есть.
-- **Wildcard `*` — общая подписка:** каждое событие дёргает `getSnapshot` всех подписчиков и `invalidate()`. Дёшево, пока событий единицы на действие; покадровое движение камеры в шину не пускать — камера коммитится в `view` по завершении интеракции.
+- **Wildcard `*` — общая подписка:** каждое событие дёргает `getSnapshot` всех подписчиков и `invalidate()`. Дёшево, пока событий единицы на действие; покадровое движение камеры видов Three в шину не пускать — камера коммитится в `view` по завершении интеракции. Осознанное исключение (ADR 0019/0020): `tools:changed` идёт на каждый `pointerMove`/шаг зума-пана конструктора (React-оверлей должен следовать за курсором), при этом Three-проекция при активном конструкторе приостановлена.
 - **SSR-бандл — общее правило, не точечный allowlist:** bare-импорты (npm-зависимости) — внешние; воркспейс-пакеты `@uyutno/*` бандлятся (`nodeExternals({ allowlist: [/^@heroui\//, /^@uyutno\//] })` в `webpack.server.js`). Зависимости пакета (`three`, `immer`, `mitt`), которых под pnpm strict нет в `node_modules` платформы, попадают в SSR-бандл **by design** — иначе рантайм их не найдёт; модуль-уровневый импорт `three` в SSR исполняется штатно (проверено, задача 0047).
 - **Jest и SWC для пакета:** `packages/planner/jest.config.mjs` расширяет корневой `jest.config.base.mjs` (свои `roots`, `types: ["jest"]` в tsconfig пакета), опции SWC — из корневого `.swcrc` (`configFile` в `swc-loader`, те же опции в `@swc/jest`); `pnpm test`/`pnpm typecheck` в корне гоняют оба воркспейса (`pnpm -r`).
 - **`immer` замораживает глубоко** — снимок нельзя «на минутку» подправить в проекции; производные структуры проекция держит у себя (мемоизация — ADR G).

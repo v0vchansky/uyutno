@@ -3,7 +3,7 @@
 - Статус: [ ]
 - Эпик: 0050
 - Зависит от: 0057
-- Спека: docs/adr/00NN-\* (ADR E — принятый); docs/product/features/planner/01-walls-and-contours.md («Rectangle Room», «Polyline Room», «Ограничения и пороги», «Крайние случаи»); docs/product/architecture/competitor-practices-audit.md (секция 01-walls: `StateMakingRect`, `StateMakingRoom`)
+- Спека: docs/adr/0019-avtomat-instrumentov-i-vvod-planera.md (ADR E — принятый: E3); docs/product/features/planner/01-walls-and-contours.md («Rectangle Room», «Polyline Room», «Ограничения и пороги», «Крайние случаи»); docs/product/architecture/competitor-practices-audit.md (секция 01-walls: `StateMakingRect`, `StateMakingRoom`)
 - Нужен дизайн: нет (движок без UI; превью/гайды рисует 0056, кнопки — 0061)
 - Дизайн: —
 - PR: —
@@ -29,3 +29,4 @@
 ## Заметки
 
 - Скоуп заведён до принятия ADR E (0052); после принятия — сверить форму под-состояний и общий код с 0057. Если 0057 окажется компактным, эту задачу можно влить в него правкой файлов (номер тогда помечается «влита в 0057»).
+- **Уточнено по ADR 0019 (2026-08-19):** под-состояния `making-rect` (`origin`, `cursor`, `preview`, `snap`; коммит `addContours` — `outer` + `inner` или один `outer`) и `making-room` (`points`, локальные стеки; ≥ 4 — порог инструмента, команда принимает ≥ 3; коммит `inner`); Enter в инпуте (0060) — `tools.commitPoint(point)` тем же путём, что клик.

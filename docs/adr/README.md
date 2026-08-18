@@ -67,3 +67,6 @@ ADR нужен, когда решение:
 - [0015 — Архитектура движка планера: слои, фасад, мост с React](./0015-arhitektura-dvizhka-planera.md)
 - [0016 — Модель документа планера: contour-first дерево, единицы, id, snapshot-friendly plain-data](./0016-model-dokumenta-planera.md)
 - [0017 — Геометрический пайплайн планера: контуры → лента → триангуляция → комнаты → оси](./0017-geometricheskiy-payplayn-planera.md)
+- [0018 — Мутации, транзакции и undo/redo планера](./0018-mutatsii-tranzaktsii-i-undo-planera.md)
+- [0019 — Автомат инструментов и пайплайн ввода/снапа планера](./0019-avtomat-instrumentov-i-vvod-planera.md)
+- [0020 — Canvas2D-проекция конструктора планера](./0020-canvas2d-proektsiya-konstruktora.md)
