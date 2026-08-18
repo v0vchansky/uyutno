@@ -4,9 +4,4 @@ import { jestBaseConfig } from '../../jest.config.base.mjs';
 export default {
   ...jestBaseConfig,
   roots: ['<rootDir>/src'],
-  moduleNameMapper: {
-    ...jestBaseConfig.moduleNameMapper,
-    '^@app/(.*)$': '<rootDir>/src/client/$1',
-    '^@server/(.*)$': '<rootDir>/src/server/$1',
-  },
 };

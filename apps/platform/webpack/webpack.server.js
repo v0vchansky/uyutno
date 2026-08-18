@@ -1,7 +1,7 @@
 import path from 'node:path';
 import nodeExternals from 'webpack-node-externals';
 
-import { definePlugin, isProd, platformRoot } from './common.js';
+import { definePlugin, isProd, platformRoot, swcRule } from './common.js';
 
 /** @type {import('webpack').Configuration} */
 const config = {
@@ -23,8 +23,11 @@ const config = {
   devtool: isProd ? false : 'source-map',
   externalsPresets: { node: true },
   externals: [
+    // Bare-импорты (npm-зависимости) — внешние; воркспейс-пакеты `@uyutno/*` бандлятся: у них нет
+    // build/dist, платформа потребляет исходники (ADR 0002, 0015). Их собственные зависимости
+    // (`three`, `immer`, `mitt`), которых нет в node_modules платформы, попадают в SSR-бандл by design.
     nodeExternals({
-      allowlist: [/^@heroui\//],
+      allowlist: [/^@heroui\//, /^@uyutno\//],
       importType: 'module',
     }),
   ],
@@ -39,13 +42,7 @@ const config = {
     },
   },
   module: {
-    rules: [
-      {
-        test: /\.(ts|tsx)$/,
-        loader: 'swc-loader',
-        exclude: /node_modules/,
-      },
-    ],
+    rules: [swcRule],
   },
   plugins: [definePlugin],
 };

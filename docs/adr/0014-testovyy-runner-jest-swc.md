@@ -7,10 +7,10 @@
 
 - **Раннер юнит-тестов**: **Jest 30** (`jest`, `@types/jest`).
 - **Транспиляция TS/TSX в тестах**: `@swc/jest` — тот же SWC, что и в webpack-сборке (ADR 0013), без отдельного babel/ts-jest.
-- Конфиг — единый `apps/platform/jest.config.mjs`. Один и тот же конфиг покрывает и серверные, и клиентские тесты.
+- Конфиг — общий базовый `jest.config.base.mjs` в корне монорепы (transform через `@swc/jest` с опциями из корневого `.swcrc`, `testMatch`, ESM-маппинг `.js`); каждый воркспейс держит свой `jest.config.mjs`, который расширяет базовый и задаёт `roots`/алиасы: `apps/platform/jest.config.mjs` (клиент + сервер, `@app/*`/`@server/*`) и `packages/planner/jest.config.mjs`. `pnpm test` в корне = `pnpm -r test`.
 - **Co-location**: `foo.ts` + `foo.test.ts` лежат рядом, без директорий `__tests__/`.
 - **Test environment**: `node` по умолчанию. Клиентские тесты, которым нужен DOM, включают `/** @jest-environment jsdom */` в шапке файла (пока таких нет).
-- Запуск: `pnpm --filter platform test`.
+- Запуск: `pnpm test` (корень, все воркспейсы) или `pnpm --filter platform test` / `pnpm --filter @uyutno/planner test`.
 
 ## Почему
 

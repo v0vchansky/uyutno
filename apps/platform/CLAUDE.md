@@ -21,14 +21,14 @@
 
 ## Тесты
 
-Раннер — **Jest** через `@swc/jest` ([ADR 0014](../../docs/adr/0014-testovyy-runner-jest-swc.md)). Конфиг единый — [`jest.config.mjs`](./jest.config.mjs), покрывает и клиент, и сервер.
+Раннер — **Jest** через `@swc/jest` ([ADR 0014](../../docs/adr/0014-testovyy-runner-jest-swc.md)). Конфиг платформы — [`jest.config.mjs`](./jest.config.mjs) (покрывает и клиент, и сервер) поверх общего базового `jest.config.base.mjs` в корне монорепы; опции SWC — из корневого `.swcrc` (тот же файл, что у webpack, ADR 0013).
 
 - **Co-location**: `foo.ts` + `foo.test.ts` лежат рядом, без директорий `__tests__/`.
 - **API**: `describe` / `it` / `expect` из глобалов jest. Не использовать `node:test`.
 - **Test environment**: `node` по умолчанию. Клиентским тестам с DOM — прописывать `/** @jest-environment jsdom */` в шапке файла.
 - **Path aliases** (`@app/*`, `@server/*`) продублированы в `jest.config.mjs` (`moduleNameMapper`), потому что jest не читает `tsconfig.paths`. При добавлении новых aliases — синхронизировать оба места.
 - **Type-check тестов** идёт через `pnpm typecheck`, не через `pnpm test` — SWC стирает типы без проверки. Ошибки типов в тестах не завалят `pnpm test`, но завалят typecheck и pre-commit.
-- Запуск: `pnpm --filter platform test`.
+- Запуск: `pnpm --filter platform test` (только платформа) или `pnpm test` в корне (все воркспейсы, включая `packages/planner`).
 
 ## Что смотреть перед началом работы
 

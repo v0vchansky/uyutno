@@ -2,7 +2,7 @@ import path from 'node:path';
 import MiniCssExtractPlugin from 'mini-css-extract-plugin';
 import TsconfigPathsPlugin from 'tsconfig-paths-webpack-plugin';
 
-import { definePlugin, isProd, platformRoot } from './common.js';
+import { definePlugin, isProd, platformRoot, swcRule } from './common.js';
 
 /** @type {import('webpack').Configuration} */
 const config = {
@@ -27,11 +27,7 @@ const config = {
   },
   module: {
     rules: [
-      {
-        test: /\.(ts|tsx)$/,
-        loader: 'swc-loader',
-        exclude: /node_modules/,
-      },
+      swcRule,
       {
         test: /\.css$/,
         use: [MiniCssExtractPlugin.loader, { loader: 'css-loader', options: { import: false } }, 'postcss-loader'],
