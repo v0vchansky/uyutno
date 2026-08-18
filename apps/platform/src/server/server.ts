@@ -1,6 +1,5 @@
 import cookieParser from 'cookie-parser';
 import express from 'express';
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -12,7 +11,7 @@ import {
   redirectIfAuthenticated,
   requireAuth,
 } from '@server/auth';
-import { createServerRegistry, errorMiddleware, pageMiddleware } from '@server/application';
+import { createClientAssetsResolver, createServerRegistry, errorMiddleware, pageMiddleware } from '@server/application';
 import { createProjectsRouter } from '@server/projects';
 
 import { isKnownPagePath } from '../shared/router/routes';
@@ -61,13 +60,14 @@ app.use('/api/v1/projects', createProjectsRouter({ projectsManager: registry.pro
 app.use(STATIC_URL, express.static(staticPath));
 app.use(express.static(publicPath));
 
-const cssFile = fs.readdirSync(staticPath).find(f => f.endsWith('.css'));
-const cssHref = cssFile ? `${STATIC_URL}/${cssFile}` : '';
+// NODE_ENV инлайнится webpack'ом (DefinePlugin) при сборке сервера: `pnpm dev` → development, `pnpm build` → production.
+const resolveClientAssets = createClientAssetsResolver({
+  staticDir: staticPath,
+  staticUrl: STATIC_URL,
+  mode: process.env.NODE_ENV === 'production' ? 'production' : 'development',
+});
 
-const jsFile = fs.readdirSync(staticPath).find(f => f.endsWith('.js'));
-const jsPath = `${STATIC_URL}/${jsFile}`;
-
-const page = pageMiddleware(cssHref, jsPath, registry.oauthProviders);
+const page = pageMiddleware(resolveClientAssets, registry.oauthProviders);
 
 for (const authPath of AUTH_PAGE_PATHS) {
   app.get(authPath, redirectIfAuthenticated, page);
@@ -80,7 +80,7 @@ app.get('/{*splat}', (req, res) => {
   if (!isKnownPagePath(req.path)) {
     res.status(404);
   }
-  page(req, res);
+  return page(req, res);
 });
 
 app.use(errorMiddleware);

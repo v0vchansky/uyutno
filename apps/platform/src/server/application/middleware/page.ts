@@ -6,9 +6,12 @@ import { StaticRouter } from 'react-router';
 import type { OAuthProviderRegistry } from '@server/auth';
 
 import { Application, createRegistry, Document, serializeInitialState } from '../../../client/application';
+import type { ClientAssetsResolver } from '../clientAssets';
 
-export const pageMiddleware = (cssHref: string, jsPath: string, oauthProviders: OAuthProviderRegistry) => {
-  return (request: Request, response: Response): void => {
+export const pageMiddleware = (resolveClientAssets: ClientAssetsResolver, oauthProviders: OAuthProviderRegistry) => {
+  return async (request: Request, response: Response): Promise<void> => {
+    // Пути бандлов — на каждый запрос: в dev это ожидание клиентского watch (гонка при старте), в prod — кэш.
+    const { cssHref, jsPath } = await resolveClientAssets();
     const initialState = {
       user: request.user,
       oauthEnabledProviders: oauthProviders.getEnabledIds(),

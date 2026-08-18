@@ -33,6 +33,8 @@ pnpm --filter platform dev
 ## Dev-сервер
 
 - Порт: **4000** (HTTP).
+- `pnpm dev` запускает клиентский webpack-watch и сервер параллельно. Сервер в dev не читает `dist/client` при старте: имена бандлов фиксированы (`/static/bundle.js`, `/static/styles.css`), а первый запрос страницы ждёт, пока клиентская сборка их выпустит (в логе — `waiting for the client webpack watch…`; лимит 90 с, дальше 503 с пояснением). Отдельно собирать клиент перед `pnpm dev` не нужно.
+- `pnpm build` собирает клиент (`bundle.<hash>.js`, `main.<hash>.css`) и сервер с `NODE_ENV=production`; `pnpm start` находит хешированные ассеты при старте и падает с понятной ошибкой, если их нет или в `dist/client` лежит несколько бандлов.
 - HTTPS локально не поднимаем: Yandex ID и VK ID разрешают `http://localhost` в redirect URI как исключение для dev. Если позже упрёмся в кейс, где браузер требует secure context (cross-site cookies и т.п.), добавим `mkcert` точечно.
 
 ## PostgreSQL
@@ -69,7 +71,7 @@ pnpm --filter platform dev
 
 Type-check тестов идёт отдельно через `pnpm --filter platform typecheck` — jest типы не проверяет.
 
-Playwright-тесты (`e2e/`, конфиг `playwright.config.ts`) используют уже поднятый dev-сервер на 4000, а без него сами собирают dev-бандл клиента и запускают `pnpm dev` (нужны `.env` и Postgres, как для `pnpm dev`). Браузер — `pnpm exec playwright install chromium` один раз.
+Playwright-тесты (`e2e/`, конфиг `playwright.config.ts`) используют уже поднятый dev-сервер на 4000, а без него сами запускают `pnpm dev` (нужны `.env` и Postgres, как для `pnpm dev`). Браузер — `pnpm exec playwright install chromium` один раз.
 
 ## Ручная проверка и тестовые данные
 

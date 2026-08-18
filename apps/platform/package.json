@@ -6,11 +6,10 @@
   "scripts": {
     "dev": "cross-env NODE_ENV=development concurrently -n client,server -c cyan,magenta \"pnpm dev:client\" \"pnpm dev:server\"",
     "dev:client": "webpack --config webpack/webpack.client.js --watch",
-    "dev:server": "pnpm build:server && concurrently -k \"webpack --watch --config webpack/webpack.server.js\" \"nodemon --watch dist/server/server.js --exec node --env-file=./.env dist/server/server.js\"",
+    "dev:server": "webpack --config webpack/webpack.server.js && concurrently -k \"webpack --watch --config webpack/webpack.server.js\" \"nodemon --watch dist/server/server.js --exec node --env-file=./.env dist/server/server.js\"",
     "build": "pnpm build:client && pnpm build:server",
     "build:client": "cross-env NODE_ENV=production webpack --config webpack/webpack.client.js",
-    "build:client:dev": "webpack --config webpack/webpack.client.js",
-    "build:server": "webpack --config webpack/webpack.server.js",
+    "build:server": "cross-env NODE_ENV=production webpack --config webpack/webpack.server.js",
     "start": "node dist/server/server.js",
     "test": "jest",
     "test:e2e": "playwright test",
