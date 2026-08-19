@@ -70,3 +70,4 @@ ADR нужен, когда решение:
 - [0018 — Мутации, транзакции и undo/redo планера](./0018-mutatsii-tranzaktsii-i-undo-planera.md)
 - [0019 — Автомат инструментов и пайплайн ввода/снапа планера](./0019-avtomat-instrumentov-i-vvod-planera.md)
 - [0020 — Canvas2D-проекция конструктора планера](./0020-canvas2d-proektsiya-konstruktora.md)
+- [0021 — Хранение документа планера и формат сохранения (ADR F)](./0021-hranenie-dokumenta-planera-i-format-sohraneniya.md) — _Предложено_, заготовка: решения не приняты, внутри открытые вопросы шага 3
