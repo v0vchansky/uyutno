@@ -170,18 +170,21 @@
 | 0059 | TASK | [Правка точек и сегментов в конструкторе: хит-тест, драг точки/стены, удаление, разрез, слияние, выбор комнаты](0059-TASK-planner-edit-points-and-segments.md)                              | [x]    | 0057                         | — (прямой коммит в main) |
 | 0056 | TASK | [Canvas2D-вьювер конструктора: отрисовка документа и производного, DOM-ввод, зум/пан, render-on-demand, resize/dispose](0056-TASK-planner-canvas2d-constructor-viewer.md)                   | [ ]    | 0054, 0052, 0057             | —                        |
 | 0060 | TASK | [Live-инпуты длины при рисовании и правка длины ребра / ширины стены (DOM-оверлей)](0060-TASK-planner-live-length-inputs.md)                                                                | [ ]    | 0057, 0058, 0059, 0056       | —                        |
-| 0061 | TASK | [Панель инструментов конструктора: инструменты, кнопки undo/redo, тумблеры снапа, переключение конструктор ↔ 2D-план](0061-TASK-planner-constructor-toolbar-and-shortcuts.md)               | [ ]    | 0055, 0057, 0058, 0056       | —                        |
+| 0061 | TASK | [Панель инструментов конструктора: инструменты, кнопки undo/redo, тумблеры снапа, переключение конструктор ↔ 2D-план](0061-TASK-planner-constructor-toolbar-and-shortcuts.md)               | [ ]    | 0055, 0057, 0058, 0056, 0060 | —                        |
 
 ### Без эпика
 
-| #    | Тип  | Название                                                                                                     | Статус | Зависит от       | PR                             |
-| ---- | ---- | ------------------------------------------------------------------------------------------------------------ | ------ | ---------------- | ------------------------------ |
-| 0004 | TASK | [Публичный layout (Header + Footer)](0004-TASK-public-layout.md)                                             | [x]    | —                | 2a41d29 (прямой коммит в main) |
-| 0030 | TASK | [Правки лэйаута: smooth scroll, скролл-лок бургера, курсор в меню](0030-TASK-layout-bugfixes.md)             | [x]    | 0026, 0027       | 2cc85ae (прямой коммит в main) |
-| 0031 | TASK | [Липкая шапка (sticky `PublicHeader`)](0031-TASK-sticky-header.md)                                           | [x]    | 0026, 0030       | 876fee3 (прямой коммит в main) |
-| 0032 | TASK | [OAuth Yandex: «OAuth-провайдер не найден»](0032-TASK-oauth-yandex-provider-not-found.md)                    | [x]    | 0015             | —                              |
-| 0033 | TASK | [Единая высота шапки на всех экранах](0033-TASK-header-height-sync.md)                                       | [x]    | 0026, 0028, 0031 | —                              |
-| 0034 | TASK | [Yandex OAuth: `force_confirm=yes` для выбора аккаунта](0034-TASK-oauth-yandex-force-confirm.md)             | [x]    | 0015, 0032       | —                              |
-| 0040 | TASK | [Явный выбор клиентских бандлов в SSR (dev/prod)](0040-TASK-ssr-asset-lookup.md)                             | [x]    | —                | — (прямой коммит в main)       |
-| 0041 | TASK | [Логотип шапки всегда ведёт на `/`](0041-TASK-header-logo-always-home.md)                                    | [x]    | —                | 610ba20 (прямой коммит в main) |
-| 0042 | TASK | [Аудит `<title>`/`<meta description>` на страницах + правило в доске](0042-TASK-page-meta-audit-and-rule.md) | [x]    | —                | 610ba20 (прямой коммит в main) |
+| #    | Тип  | Название                                                                                                           | Статус | Зависит от               | PR                             |
+| ---- | ---- | ------------------------------------------------------------------------------------------------------------------ | ------ | ------------------------ | ------------------------------ |
+| 0004 | TASK | [Публичный layout (Header + Footer)](0004-TASK-public-layout.md)                                                   | [x]    | —                        | 2a41d29 (прямой коммит в main) |
+| 0030 | TASK | [Правки лэйаута: smooth scroll, скролл-лок бургера, курсор в меню](0030-TASK-layout-bugfixes.md)                   | [x]    | 0026, 0027               | 2cc85ae (прямой коммит в main) |
+| 0031 | TASK | [Липкая шапка (sticky `PublicHeader`)](0031-TASK-sticky-header.md)                                                 | [x]    | 0026, 0030               | 876fee3 (прямой коммит в main) |
+| 0032 | TASK | [OAuth Yandex: «OAuth-провайдер не найден»](0032-TASK-oauth-yandex-provider-not-found.md)                          | [x]    | 0015                     | —                              |
+| 0033 | TASK | [Единая высота шапки на всех экранах](0033-TASK-header-height-sync.md)                                             | [x]    | 0026, 0028, 0031         | —                              |
+| 0034 | TASK | [Yandex OAuth: `force_confirm=yes` для выбора аккаунта](0034-TASK-oauth-yandex-force-confirm.md)                   | [x]    | 0015, 0032               | —                              |
+| 0040 | TASK | [Явный выбор клиентских бандлов в SSR (dev/prod)](0040-TASK-ssr-asset-lookup.md)                                   | [x]    | —                        | — (прямой коммит в main)       |
+| 0041 | TASK | [Логотип шапки всегда ведёт на `/`](0041-TASK-header-logo-always-home.md)                                          | [x]    | —                        | 610ba20 (прямой коммит в main) |
+| 0042 | TASK | [Аудит `<title>`/`<meta description>` на страницах + правило в доске](0042-TASK-page-meta-audit-and-rule.md)       | [x]    | —                        | 610ba20 (прямой коммит в main) |
+| 0063 | TASK | [Закрыть `/project/:id` авторизацией (`RequireAuth`)](0063-TASK-project-route-require-auth.md)                     | [ ]    | 0011                     | —                              |
+| 0064 | TASK | [Демо-роут планера: заготовленный проект и локальный черновик](0064-TASK-planner-demo-route-and-guest-draft.md)    | [ ]    | 0063; шаг 3 (сохранение) | —                              |
+| 0065 | TASK | [Демо: Save → модалка авторизации → копия проекта в аккаунт](0065-TASK-planner-demo-save-gate-and-project-copy.md) | [ ]    | 0064; шаг 3 (сохранение) | —                              |

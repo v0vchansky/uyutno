@@ -21,8 +21,11 @@ export interface Point extends PlanPosition {
   id: Id;
 }
 
-/** Единицы отображения длин (спека 07). Внутренняя единица всегда см (B1). */
-export const UNITS = ['cm', 'm', 'mm', 'ftin'] as const;
+/**
+ * Единицы отображения длин (спека 07). Внутренняя единица всегда см (B1).
+ * Имперской системы в продукте нет (решение автора 2026-08-19) — только метрика.
+ */
+export const UNITS = ['cm', 'm', 'mm'] as const;
 export type Units = (typeof UNITS)[number];
 
 /** Высота стен по умолчанию, см (`DEFAULT_WALL_HEIGHT`, README «Единицы и координаты»). */

@@ -751,18 +751,18 @@ describe('tools — правка в editing (ADR 0019 E4, задача 0059)', (
       expect(s.manager.history.get()).toEqual({ canUndo: false, canRedo: true });
     });
 
-    it('шаг по единицам: mm — 0.1 см, ftin — 1.27 см, m — 1 см; factor 0.1', () => {
+    it('шаг по единицам: mm — 0.1 см, cm — 1 см, m — 1 см; factor 0.1', () => {
       const s = setup();
       s.click(2, 2);
       s.manager.document.setSettings({ units: 'mm' });
       s.tools.key({ kind: 'nudge', dx: 1, dy: 0, factor: 1 });
       expect(s.point('p1')).toEqual({ x: 0.1, y: 0 });
-      s.manager.document.setSettings({ units: 'ftin' });
+      s.manager.document.setSettings({ units: 'cm' });
       s.tools.key({ kind: 'nudge', dx: 0, dy: 1, factor: 1 });
-      expect(s.point('p1')).toEqual({ x: 0.1, y: 1.27 });
+      expect(s.point('p1')).toEqual({ x: 0.1, y: 1 });
       s.manager.document.setSettings({ units: 'm' });
       s.tools.key({ kind: 'nudge', dx: 1, dy: 0, factor: 0.1 });
-      expect(s.point('p1')).toEqual({ x: 0.2, y: 1.27 });
+      expect(s.point('p1')).toEqual({ x: 0.2, y: 1 });
     });
 
     it('сторона: оба конца, ключ nudge:<a>|<b>; смена выделения на другую сторону — новая серия', () => {

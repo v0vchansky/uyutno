@@ -63,10 +63,10 @@ describe('PlannerManager', () => {
 
       it('частичный patch не трогает остальные поля и не пишет undefined', () => {
         const { manager } = createManager();
-        manager.document.setSettings({ units: 'ftin' });
-        expect(manager.document.get().settings).toEqual({ units: 'ftin', wallHeight: 280 });
+        manager.document.setSettings({ units: 'mm' });
+        expect(manager.document.get().settings).toEqual({ units: 'mm', wallHeight: 280 });
         manager.document.setSettings({ wallHeight: 260, units: undefined });
-        expect(manager.document.get().settings).toEqual({ units: 'ftin', wallHeight: 260 });
+        expect(manager.document.get().settings).toEqual({ units: 'mm', wallHeight: 260 });
         expect('units' in manager.document.get().settings).toBe(true);
       });
 
