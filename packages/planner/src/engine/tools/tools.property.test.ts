@@ -32,8 +32,16 @@ type Op =
   /** Happy path «Комнаты по точкам»: старт → квадрат → клик в первую вершину. */
   | { kind: 'roomRing'; x: number; y: number; size: number }
   | { kind: 'dblclick'; x: number; y: number }
+  /** Нажатие основной кнопки ровно на вершине документа (по индексу в пуле) — заготовка драга вершины (0059). */
+  | { kind: 'pressPoint'; index: number }
+  /** Нажатие на середине ребра контура (по индексам) — заготовка драга стороны. */
+  | { kind: 'pressFace'; contour: number; edge: number }
+  /** Happy path драга вершины: нажатие на вершине → движение за порог → отпускание в `(x, y)`. */
+  | { kind: 'dragPoint'; index: number; x: number; y: number; ctrl: boolean }
+  /** Happy path драга стороны: нажатие на середине ребра → сдвиг курсора на `(dx, dy)` → отпускание. */
+  | { kind: 'dragWall'; contour: number; edge: number; dx: number; dy: number }
   | { kind: 'commitPoint'; x: number; y: number }
-  | { kind: 'key'; action: 'cancel' | 'undo' | 'redo' | 'nudge' }
+  | { kind: 'key'; action: 'cancel' | 'undo' | 'redo' | 'nudge' | 'delete' }
   | { kind: 'cancel' }
   | { kind: 'interrupt' }
   | { kind: 'pointerCancel' }
@@ -118,12 +126,49 @@ const arbOp: fc.Arbitrary<Op> = fc.oneof(
     }),
   },
   { weight: 1, arbitrary: fc.record({ kind: fc.constant('dblclick' as const), x: arbCoord, y: arbCoord }) },
-  { weight: 3, arbitrary: fc.record({ kind: fc.constant('commitPoint' as const), x: arbCoord, y: arbCoord }) },
+  { weight: 3, arbitrary: fc.record({ kind: fc.constant('pressPoint' as const), index: fc.nat({ max: 15 }) }) },
+  {
+    weight: 2,
+    arbitrary: fc.record({
+      kind: fc.constant('pressFace' as const),
+      contour: fc.nat({ max: 5 }),
+      edge: fc.nat({ max: 7 }),
+    }),
+  },
+  {
+    weight: 4,
+    arbitrary: fc.record({
+      kind: fc.constant('dragPoint' as const),
+      index: fc.nat({ max: 15 }),
+      x: arbCoord,
+      y: arbCoord,
+      ctrl: fc.boolean(),
+    }),
+  },
   {
     weight: 3,
     arbitrary: fc.record({
+      kind: fc.constant('dragWall' as const),
+      contour: fc.nat({ max: 5 }),
+      edge: fc.nat({ max: 7 }),
+      dx: arbCoord,
+      dy: arbCoord,
+    }),
+  },
+  { weight: 3, arbitrary: fc.record({ kind: fc.constant('commitPoint' as const), x: arbCoord, y: arbCoord }) },
+  {
+    weight: 4,
+    arbitrary: fc.record({
       kind: fc.constant('key' as const),
-      action: fc.constantFrom('cancel' as const, 'undo' as const, 'undo' as const, 'redo' as const, 'nudge' as const),
+      action: fc.constantFrom(
+        'cancel' as const,
+        'undo' as const,
+        'undo' as const,
+        'redo' as const,
+        'nudge' as const,
+        'nudge' as const,
+        'delete' as const,
+      ),
     }),
   },
   { weight: 1, arbitrary: fc.constant({ kind: 'cancel' as const }) },
@@ -171,12 +216,70 @@ const isDeepFrozen = (value: unknown): boolean => {
 };
 
 const isDrawing = (state: ToolState): boolean => state.kind !== 'editing';
+const isDragging = (state: ToolState): boolean => state.kind === 'dragging-point' || state.kind === 'dragging-wall';
+
+/** Вершина документа по индексу (по кругу); `null` — пул пуст. */
+const pointAt = (document: PlannerDocument, index: number) => {
+  const points = Object.values(document.floors[0]!.layout.points);
+  return points.length === 0 ? null : points[index % points.length]!;
+};
+
+/** Середина ребра контура по индексам (по кругу); `null` — контуров нет. */
+const faceMidpoint = (document: PlannerDocument, contour: number, edge: number) => {
+  const { layout } = document.floors[0]!;
+  if (layout.contours.length === 0) return null;
+  const ring = layout.contours[contour % layout.contours.length]!;
+  const n = ring.points.length;
+  const a = layout.points[ring.points[edge % n]!];
+  const b = layout.points[ring.points[(edge + 1) % n]!];
+  return a && b ? { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } : null;
+};
+
+/** Планировка как значение без порядка контуров/записей: точки и контуры (по id). */
+const layoutKey = (layout: PlannerDocument['floors'][number]['layout']) => ({
+  points: layout.points,
+  contours: [...layout.contours].sort((a, b) => a.id.localeCompare(b.id)),
+  rooms: [...layout.rooms].sort((a, b) => a.id.localeCompare(b.id)),
+});
+
+/** Живо ли выделение в документе (инвариант `editing.selection`, 0059). */
+const selectionAlive = (state: ToolState, document: PlannerDocument, roomIds: readonly string[]): boolean => {
+  if (state.kind !== 'editing' || state.selection === null) return true;
+  const { layout } = document.floors[0]!;
+  const target = state.selection;
+  switch (target.kind) {
+    case 'point':
+      return Object.hasOwn(layout.points, target.id);
+    case 'wall': {
+      const ring = layout.contours.find(c => c.id === target.face.contourId);
+      if (!ring) return false;
+      const n = ring.points.length;
+      return ring.points.some((a, i) => {
+        const b = ring.points[(i + 1) % n];
+        return (a === target.face.a && b === target.face.b) || (a === target.face.b && b === target.face.a);
+      });
+    }
+    case 'room':
+      return roomIds.includes(target.roomId);
+  }
+};
 
 /** Меняет ли шаг документ/историю по контракту (иначе они обязаны остаться прежними по ссылке/значению). */
 const mayTouchDocument = (op: Op, before: ToolState): boolean => {
   switch (op.kind) {
     case 'up':
+      // Рисование — постановка/завершение; драг — коммит `movePoints`.
       return isDrawing(before) && op.button === 0;
+    case 'dblclick':
+      // В `editing` — удаление выделенной вершины под курсором.
+      return before.kind === 'editing';
+    case 'dragPoint':
+    case 'dragWall':
+      return true;
+    case 'pressPoint':
+    case 'pressFace':
+      // Нажатие документ не трогает нигде: точку в рисовании ставит `pointerUp`, драг коммитит только `pointerUp`.
+      return false;
     case 'closeFirst':
     case 'closeLast':
       // В «Прямоугольнике» клик в origin — всегда дубль.
@@ -192,7 +295,7 @@ const mayTouchDocument = (op: Op, before: ToolState): boolean => {
     case 'roomRing':
       return true;
     case 'key':
-      return before.kind === 'editing' && (op.action === 'undo' || op.action === 'redo');
+      return before.kind === 'editing' && op.action !== 'cancel';
     case 'historyUndo':
     case 'historyRedo':
     case 'load':
@@ -208,6 +311,7 @@ describe('tools — property (ADR 0019 E8, testing-strategy)', () => {
     // Счётчики покрытия: набор операций обязан реально доводить каждый инструмент до коммита (иначе инварианты коммита пусты).
     const commits = { 'making-walls': 0, 'making-rect': 0, 'making-room': 0 };
     let rooms = 0;
+    let dragCommits = 0;
     fc.assert(
       fc.property(fc.array(arbOp, { minLength: 15, maxLength: 60 }), ops => {
         const tm = createTestManager(ringDocument());
@@ -313,6 +417,34 @@ describe('tools — property (ADR 0019 E8, testing-strategy)', () => {
             case 'dblclick':
               tools.doubleClick(input(op.x, op.y));
               break;
+            case 'pressPoint': {
+              const point = pointAt(docBefore, op.index);
+              if (point) tools.pointerDown(input(point.x, point.y));
+              break;
+            }
+            case 'pressFace': {
+              const mid = faceMidpoint(docBefore, op.contour, op.edge);
+              if (mid) tools.pointerDown(input(mid.x, mid.y));
+              break;
+            }
+            case 'dragPoint': {
+              const point = pointAt(docBefore, op.index);
+              if (!point) break;
+              tools.pointerDown(input(point.x, point.y, op.ctrl));
+              tools.pointerMove(input(point.x + 5, point.y + 5, op.ctrl));
+              tools.pointerMove(input(op.x, op.y, op.ctrl));
+              tools.pointerUp(input(op.x, op.y, op.ctrl));
+              break;
+            }
+            case 'dragWall': {
+              const mid = faceMidpoint(docBefore, op.contour, op.edge);
+              if (!mid) break;
+              tools.pointerDown(input(mid.x, mid.y));
+              tools.pointerMove(input(mid.x + op.dx / 2, mid.y + op.dy / 2));
+              tools.pointerMove(input(mid.x + op.dx, mid.y + op.dy));
+              tools.pointerUp(input(mid.x + op.dx, mid.y + op.dy));
+              break;
+            }
             case 'commitPoint':
               tools.commitPoint({ x: op.x, y: op.y });
               break;
@@ -360,15 +492,63 @@ describe('tools — property (ADR 0019 E8, testing-strategy)', () => {
           expect(tools.get()).toBe(after);
           expect(after.snapFlags).toEqual(expectedFlags);
           expect(after.viewport).toEqual(expectedViewport);
-          // Ровно одно событие на изменение состояния и ни одного на no-op (клик — два события указателя → до двух).
+          // Ровно одно событие на изменение состояния и ни одного на no-op (клик — два события указателя → до двух);
+          // каждая транзакция содержимого может добавить одно: пересчёт hover/выделения по `document:changed` (0059);
+          // `interrupt` по хуку `beforeReplace` (undo/redo/load) укладывается в собственное событие команды.
           const pointerEvents =
-            { click: 2, closeFirst: 2, closeLast: 2, square: 8, ring: 11, rect: 5, roomRing: 11 }[op.kind as string] ??
-            1;
+            {
+              click: 2,
+              closeFirst: 2,
+              closeLast: 2,
+              square: 8,
+              ring: 11,
+              rect: 5,
+              roomRing: 11,
+              dragPoint: 4,
+              dragWall: 4,
+            }[op.kind as string] ?? 1;
+          const changes = tm.events.filter(event => event === 'document:changed').length;
           if (after === before) expect(emitted.length).toBe(0);
-          else expect(emitted.length).toBeLessThanOrEqual(pointerEvents);
-          if (pointerEvents === 1 && after !== before) expect(emitted.length).toBe(1);
+          else expect(emitted.length).toBeLessThanOrEqual(pointerEvents + changes);
+          if (pointerEvents === 1 && after !== before && changes === 0) expect(emitted.length).toBe(1);
 
           if (isDrawing(after)) expect(manager.view.get().activeView).toBe('constructor');
+          const layoutAfter = manager.document.get().floors[0]!.layout;
+          const roomIds = manager.document.getDerived().floors[0]!.rooms.map(room => room.roomId);
+          // Правка (0059): выделение живо в документе; драг держит override ровно своих вершин, документ не трогает.
+          expect(selectionAlive(after, manager.document.get(), roomIds)).toBe(true);
+          if (after.kind === 'dragging-point') {
+            expect(Object.keys(after.pointOverrides)).toEqual([after.pointId]);
+            expect(layoutAfter.points[after.pointId]).toBeDefined();
+            expect(after.selection).toEqual({ kind: 'point', id: after.pointId });
+            const override = after.pointOverrides[after.pointId]!;
+            // Без цели дропа превью = снап (квантован); с целью — позиция дропа (координата цели / проекция на сторону).
+            if (!after.dropTarget) {
+              expect(override).toEqual(after.snap.snapped);
+              expect(override.x).toBe(quantize(override.x));
+              expect(override.y).toBe(quantize(override.y));
+            } else {
+              expect(after.dropTarget.kind).not.toBe('room');
+              if (after.dropTarget.kind === 'point') expect(after.dropTarget.id).not.toBe(after.pointId);
+            }
+          }
+          if (after.kind === 'dragging-wall') {
+            expect(Object.keys(after.pointOverrides).sort()).toEqual([after.face.a, after.face.b].sort());
+            expect(layoutAfter.points[after.face.a]).toBeDefined();
+            expect(layoutAfter.points[after.face.b]).toBeDefined();
+            expect(after.selection).toEqual({ kind: 'wall', face: after.face });
+            // Оба конца сдвинуты на один вектор: длина и направление грани сохранены.
+            const a0 = layoutAfter.points[after.face.a]!;
+            const b0 = layoutAfter.points[after.face.b]!;
+            const a1 = after.pointOverrides[after.face.a]!;
+            const b1 = after.pointOverrides[after.face.b]!;
+            expect(b1.x - a1.x).toBeCloseTo(b0.x - a0.x, 6);
+            expect(b1.y - a1.y).toBeCloseTo(b0.y - a0.y, 6);
+          }
+          if (isDragging(before) && !isDragging(after) && !mayTouchDocument(op, before)) {
+            // Отмена жеста — без записи и без правки документа.
+            expect(manager.document.get()).toBe(docBefore);
+          }
           if (after.kind === 'making-walls') {
             expect(after.sideFixed).toBe(after.points.length >= MIN_CONTOUR_POINTS);
             expect(after.cursor === null).toBe(after.snap === null);
@@ -436,6 +616,10 @@ describe('tools — property (ADR 0019 E8, testing-strategy)', () => {
               'rect',
               'roomRing',
               'ring',
+              'pressPoint',
+              'pressFace',
+              'dragPoint',
+              'dragWall',
             ];
             if (!places.includes(op.kind)) expect(after.origin).toBe(before.origin);
           }
@@ -444,9 +628,22 @@ describe('tools — property (ADR 0019 E8, testing-strategy)', () => {
             expect(manager.document.get()).toBe(docBefore);
             expect(manager.history.get()).toBe(historyBefore);
           }
-          // Коммит из рисования: ровно одна транзакция содержимого и переход в editing.
-          const changes = tm.events.filter(event => event === 'document:changed').length;
+          // Коммит из рисования/драга: не больше одной транзакции содержимого и переход в editing.
           expect(changes).toBeLessThanOrEqual(1);
+          if ((op.kind === 'dragPoint' || op.kind === 'dragWall') && before.kind === 'editing' && changes === 1) {
+            dragCommits++;
+            expect(after.kind).toBe('editing');
+            expect(manager.history.get().canUndo).toBe(true);
+            // Одна запись на жест: undo возвращает планировку до драга, redo — обратно (сравнение без учёта порядка
+            // контуров: `sortByArea` с допуском `SORT_AREA_EPS` не задаёт строгий порядок при близких площадях,
+            // и повторный `normalize` на restore может переставить контуры-близнецы — замечание к 0054, не к 0059).
+            const committed = manager.document.get().floors[0]!.layout;
+            expect(manager.history.undo().ok).toBe(true);
+            expect(layoutKey(manager.document.get().floors[0]!.layout)).toEqual(layoutKey(docBefore.floors[0]!.layout));
+            expect(manager.history.redo().ok).toBe(true);
+            expect(layoutKey(manager.document.get().floors[0]!.layout)).toEqual(layoutKey(committed));
+          }
+          if (op.kind === 'up' && op.button === 0 && isDragging(before)) expect(after.kind).toBe('editing');
           const composite = { ring: 'making-walls', rect: 'making-rect', roomRing: 'making-room' } as const;
           const drawingOp = ['up', 'click', 'closeFirst', 'closeLast', 'square', 'commitPoint'].includes(op.kind);
           const committed =
@@ -476,5 +673,6 @@ describe('tools — property (ADR 0019 E8, testing-strategy)', () => {
     expect(commits['making-rect']).toBeGreaterThan(50);
     expect(commits['making-room']).toBeGreaterThan(50);
     expect(rooms).toBeGreaterThan(30);
+    expect(dragCommits).toBeGreaterThan(50);
   });
 });

@@ -3,8 +3,11 @@ import type { Viewport } from '../../document/geometry/viewport';
 import type { Id } from '../../document/id';
 import type { PlannerDocument, PlanPosition } from '../../document/PlannerDocument';
 import type { AddContoursError, ContourInput } from '../commands/addContours';
+import type { DeletePointError } from '../commands/deletePoint';
+import type { MovePointsError, MovePointsOptions, PointMove } from '../commands/movePoints';
 import type { HistoryError } from '../history/HistoryLog';
 import type { PlannerLogger } from '../PlannerManager';
+import type { DerivedFloor } from '../rebuild';
 import type { Result } from '../Result';
 import type { SnapIndex } from '../SnapCandidateIndex';
 import type { EditingState, HitTarget, KeyAction, PointerInput, ToolVariant } from './ToolState';
@@ -19,6 +22,8 @@ export interface ToolContext {
   document: PlannerDocument;
   /** Активный этаж (v0 — единственный); `null` — этажей нет. */
   floorId: Id | null;
+  /** Производное активного этажа последнего rebuild (комнаты — для хит-теста); `null` — этажа нет. */
+  derived: DerivedFloor | null;
   viewport: Viewport;
   snapFlags: SnapFlags;
   /** Последний известный ввод указателя (для пересчёта снапа при смене флагов/viewport/документа). */
@@ -26,6 +31,8 @@ export interface ToolContext {
   /** Индекс кандидатов снапа активного этажа (пустой, если этажа нет). */
   snapIndex(): SnapIndex;
   addContours(floorId: Id, contours: readonly ContourInput[]): Result<void, AddContoursError>;
+  movePoints(floorId: Id, moves: readonly PointMove[], options?: MovePointsOptions): Result<void, MovePointsError>;
+  deletePoint(floorId: Id, id: Id): Result<void, DeletePointError>;
   historyUndo(): Result<void, HistoryError>;
   historyRedo(): Result<void, HistoryError>;
   logger: PlannerLogger;
@@ -53,8 +60,8 @@ export type HandlerKeyAction = Exclude<KeyAction, { kind: 'cancel' }>;
 /**
  * Обработчик одного состояния автомата — таблица переходов на discriminated union без классов состояний
  * (ADR 0019 E1). Возврат той же ссылки `state` = no-op (события нет). Обязательны отмена, прерывания (жест, хук,
- * выход из конструктора) и клавиши; остальные команды по умолчанию — no-op. Новое состояние (0059) = новый
- * член union + обработчик в таблице `HANDLERS` (и стартер в `STARTERS` для инструментов рисования), автомат не меняется.
+ * выход из конструктора) и клавиши; остальные команды по умолчанию — no-op. Новое состояние = новый член union +
+ * обработчик в таблице `HANDLERS` (и стартер в `STARTERS` для инструментов рисования), автомат не меняется.
  */
 export interface ToolHandler<S extends ToolVariant> {
   pointerDown?(state: S, input: PointerInput, ctx: ToolContext): Step;
@@ -78,8 +85,9 @@ export interface ToolHandler<S extends ToolVariant> {
   /** Окружение изменилось (viewport, флаги снапа, документ): пересчёт производного от последнего ввода. */
   refresh?(state: S, ctx: ToolContext): Step;
   /**
-   * Действующее выделение конструктора в этом состоянии — для `breakSeries` при его смене (ADR 0018 D5).
-   * По умолчанию: `editing.selection`, у остальных — нет; драг (0059) переопределяет, чтобы серия не рвалась.
+   * Действующее выделение конструктора в этом состоянии — для `breakSeries` при его смене (ADR 0018 D5), сравнение
+   * по ссылке. По умолчанию: `editing.selection`, у остальных — нет; драг переопределяет (та же ссылка цели, что в
+   * `editing`), чтобы вход в жест и выход из него серию не рвали.
    */
   selectionOf?(state: S): HitTarget | null;
 }

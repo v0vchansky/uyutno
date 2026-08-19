@@ -87,11 +87,10 @@ describe('tools — автомат инструментов (ADR 0019 E1)', () =
       expect(s.toolStates).toEqual([]);
     });
 
-    it('editing: указатель, dblClick, pointerCancel, blur, commitPoint, Esc без выделения — no-op без событий', () => {
+    it('editing на пустом этаже: движение, dblClick, pointerCancel, blur, commitPoint, Esc без выделения — no-op без событий; клик мимо — только pressed (два события), документ не тронут', () => {
       const s = setup();
       const before = s.tools.get();
       s.move(10, 10);
-      s.click(10, 10);
       s.tools.doubleClick(input(10, 10));
       s.tools.pointerCancel();
       s.tools.blur();
@@ -103,6 +102,12 @@ describe('tools — автомат инструментов (ADR 0019 E1)', () =
       expect(s.tools.get()).toBe(before);
       expect(s.toolStates).toEqual([]);
       expect(s.events).toEqual([]);
+      // Клик мимо: нажатие/отпускание — состояние `pressed` (0059), выделения и документа не касается.
+      s.click(10, 10);
+      expect(s.toolStates).toHaveLength(2);
+      expect(s.toolStates[0]).toMatchObject({ kind: 'editing', pressed: { target: null, origin: { x: 10, y: 10 } } });
+      expect(s.tools.get()).toEqual(before);
+      expect(s.events).toEqual(['tools:changed', 'tools:changed']);
     });
 
     it('editing: key undo/redo → history.undo/redo (handled), nudge — handled: false', () => {

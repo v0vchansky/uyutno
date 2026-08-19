@@ -119,6 +119,7 @@ export const makingRectHandler: ToolHandler<MakingRectState> = {
       case 'redo':
         return { state, handled: true };
       case 'nudge':
+      case 'delete':
         return { state, handled: false };
     }
   },

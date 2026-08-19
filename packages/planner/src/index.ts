@@ -28,12 +28,18 @@ export type {
   MakingWallsState,
   MakingRectState,
   MakingRoomState,
+  DraggingPointState,
+  DraggingWallState,
+  Pressed,
   HitTarget,
   DrawingTool,
   PointerInput,
   PointerMods,
   KeyAction,
 } from './engine/tools/ToolState';
+export type { HitRoom, HitTestOptions } from './document/geometry/hittest/hitTest';
+export { sameHitTarget, POINT_SIZE, WALL_HIT_DIST } from './document/geometry/hittest/hitTest';
+export { DRAG_THRESHOLD } from './engine/tools/editHit';
 export type { SnapFlags, SnapResult, SnapHit } from './document/geometry/snap/getSnapPoint';
 export type { SnapCandidate, Segment, AlignerPair } from './document/geometry/snap/candidates';
 export type { SnapGuide } from './document/geometry/snap/guidesFor';

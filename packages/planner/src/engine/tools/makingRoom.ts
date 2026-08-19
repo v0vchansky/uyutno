@@ -165,6 +165,7 @@ export const makingRoomHandler: ToolHandler<MakingRoomState> = {
       case 'redo':
         return { ...redoPoint(state, ctx), handled: true };
       case 'nudge':
+      case 'delete':
         return { state, handled: false };
     }
   },

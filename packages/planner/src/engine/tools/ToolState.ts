@@ -1,5 +1,6 @@
 import type { FaceRef } from '../../document/geometry/axes/findAxes';
 import type { StartNeighbourSegments, WallBlock } from '../../document/geometry/band/blocksFromContour';
+import type { HitTarget } from '../../document/geometry/hittest/hitTest';
 import type { OffsetSide } from '../../document/geometry/predicates/offsetPoint';
 import type { SnapFlags, SnapResult } from '../../document/geometry/snap/getSnapPoint';
 import type { SnapGuide } from '../../document/geometry/snap/guidesFor';
@@ -10,21 +11,77 @@ import type { PlanPosition } from '../../document/PlannerDocument';
 /**
  * Состояние автомата инструментов конструктора (ADR 0019 E1): один discriminated union по `kind`, plain-данные —
  * payload события `tools:changed` и снимок для `useSyncExternalStore`. Каждый переход — новый замороженный объект.
- * Здесь — состояния рисования шага 2 (`editing`, `making-walls` — 0057; `making-rect`, `making-room` — 0058);
- * `dragging-point`/`dragging-wall` (0059) добавляются членами union и обработчиками, не переписыванием.
+ * Состояния шага 2: `editing` (0057, правка — 0059), `making-walls` (0057), `making-rect`/`making-room` (0058),
+ * `dragging-point`/`dragging-wall` (0059).
  */
 
-/** Цель хит-теста конструктора: вершина, сторона (грань оси) или комната (ADR 0019 E1/E4; хит-тест — 0059). */
-export type HitTarget = { kind: 'point'; id: Id } | { kind: 'wall'; face: FaceRef } | { kind: 'room'; roomId: Id };
+/** Цель хит-теста конструктора (чистая функция `document/geometry/hittest/`): вершина, сторона (грань контура) или комната. */
+export type { HitTarget };
 
 /**
- * Хаб `editing` (ADR 0019 E1): hover/выделение конструктора живут здесь, не в неймспейсе `selection`.
- * Хит-тест, `pressed`/драг и dblClick-удаление — задача 0059; в 0057 hover/selection всегда `null`.
+ * Нажатие основной кнопки в `editing` до порога драга (ADR 0019 E1 `pressed`): цель под курсором в момент нажатия
+ * (`null` — пусто) и точка нажатия. Сдвиг > `DRAG_THRESHOLD/scale` от вершины/стороны → `dragging-*`;
+ * `pointerUp` без сдвига — клик (выделение цели).
+ */
+export interface Pressed {
+  target: HitTarget | null;
+  origin: PlanPosition;
+  /** Цель уже была выделена в момент нажатия (второй клик двойного клика по вершине — подтверждение удаления). */
+  selected: boolean;
+}
+
+/**
+ * Хаб `editing` (ADR 0019 E1/E4): hover (хит-тест на каждом `pointerMove`) и выделение конструктора живут здесь, не в
+ * неймспейсе `selection`; `pressed` — нажатие до порога драга (`undefined` — кнопка не зажата). Клик — выделение
+ * цели (Ctrl/Cmd+клик по стороне комнаты — комната), клик мимо/Esc — сброс; dblClick по уже выделенной вершине
+ * (`reclicked`) — `deletePoint`.
  */
 export interface EditingState {
   kind: 'editing';
   hover: HitTarget | null;
   selection: HitTarget | null;
+  pressed?: Pressed;
+  /**
+   * Вершина, по которой кликнули, когда она уже была выделена (второй клик двойного клика): только её удаляет
+   * `doubleClick`. Клик, завершивший рисование или впервые выделивший вершину, сюда не попадает — конец ленты/угол
+   * прямоугольника дабл-кликом не удаляется. Снимается любым следующим нажатием.
+   */
+  reclicked?: Id;
+}
+
+/**
+ * Драг вершины (ADR 0019 E4): `pointId` — перетаскиваемая (совладельцы общего id едут сами); `selection` — та же
+ * ссылка цели, что была/будет в `editing` (серия коалесинга при драге не рвётся); `origin` — позиция вершины до
+ * драга (отмена возвращает к ней, документ не тронут); `pointOverrides` — live-позиции для вьювера
+ * (`overrides[id] ?? layout.points[id]`, без ретриангуляции); `snap`/`guides` — снап курсора с `exceptIds = [pointId]`;
+ * `dropTarget` — что под снапнутой позицией (вершина → слияние координатой цели, сторона → проекция на неё и T-стык
+ * в `normalize`; `null` при Ctrl/Cmd — снап и цели выключены). `pointerUp` → `movePoints` одной записью.
+ */
+export interface DraggingPointState {
+  kind: 'dragging-point';
+  pointId: Id;
+  selection: HitTarget;
+  origin: PlanPosition;
+  pointOverrides: Readonly<Record<Id, PlanPosition>>;
+  snap: SnapResult;
+  guides: readonly SnapGuide[];
+  dropTarget: HitTarget | null;
+}
+
+/**
+ * Драг стороны (ADR 0019 E4, спека 01 «Перетаскивание стены»): дельта курсора от точки захвата `grab`
+ * проецируется на нормаль грани, оба конца сдвигаются одинаково; `snap` — снап позиции конца `a` с `exceptIds`
+ * обоих концов (гайды подавлены — поля `guides` нет); `shift` — итоговый сдвиг вдоль нормали, см. `pointerUp` →
+ * `movePoints` двух концов одной записью.
+ */
+export interface DraggingWallState {
+  kind: 'dragging-wall';
+  face: FaceRef;
+  selection: HitTarget;
+  grab: PlanPosition;
+  shift: number;
+  pointOverrides: Readonly<Record<Id, PlanPosition>>;
+  snap: SnapResult;
 }
 
 /**
@@ -89,7 +146,8 @@ export interface ToolCommon {
   viewport: Viewport;
 }
 
-export type ToolVariant = EditingState | MakingWallsState | MakingRectState | MakingRoomState;
+export type ToolVariant =
+  EditingState | MakingWallsState | MakingRectState | MakingRoomState | DraggingPointState | DraggingWallState;
 
 export type ToolState = ToolCommon & ToolVariant;
 
@@ -113,9 +171,17 @@ export interface PointerMods {
   alt: boolean;
 }
 
-/** Действие клавиатуры (ADR 0019 E5): keymap `projection/input/keyboard.ts` → `tools.key(action)`; кнопки панели — тем же путём. */
+/**
+ * Действие клавиатуры (ADR 0019 E5): keymap `projection/input/keyboard.ts` → `tools.key(action)`; кнопки панели —
+ * тем же путём. `nudge` — стрелки/WASD: `dx`/`dy` ∈ {−1, 0, 1} в осях плана (y вверх), `factor` — модификаторы
+ * (Shift ×10, Shift+Ctrl/Cmd ×0.1); `delete` — Delete/Backspace: выделенная вершина → `deletePoint` (0059).
+ */
 export type KeyAction =
-  { kind: 'cancel' } | { kind: 'undo' } | { kind: 'redo' } | { kind: 'nudge'; dx: number; dy: number; factor: number };
+  | { kind: 'cancel' }
+  | { kind: 'undo' }
+  | { kind: 'redo' }
+  | { kind: 'nudge'; dx: number; dy: number; factor: number }
+  | { kind: 'delete' };
 
 /**
  * Viewport до первого `tools.setViewport` от вьювера: базовый зум (`scale = 1`: 10 px = 10 см), центр в начале

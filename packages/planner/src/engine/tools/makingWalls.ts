@@ -247,6 +247,7 @@ export const makingWallsHandler: ToolHandler<MakingWallsState> = {
       case 'redo':
         return { ...redoPoint(state, ctx), handled: true };
       case 'nudge':
+      case 'delete':
         return { state, handled: false };
     }
   },

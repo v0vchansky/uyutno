@@ -5,11 +5,15 @@ import type { Viewport } from '../../document/geometry/viewport';
 import type { Id } from '../../document/id';
 import type { PlanPosition } from '../../document/PlannerDocument';
 import { addContours } from '../commands/addContours';
+import { deletePoint } from '../commands/deletePoint';
+import { movePoints } from '../commands/movePoints';
 import type { PlannerBus } from '../PlannerBus';
 import type { PlannerLogger } from '../PlannerManager';
 import type { PlannerStore } from '../PlannerStore';
 import { err, ok, type Result } from '../Result';
 import { SnapCandidateIndex, type SnapIndex } from '../SnapCandidateIndex';
+import { draggingPointHandler } from './draggingPoint';
+import { draggingWallHandler } from './draggingWall';
 import { editingHandler } from './editing';
 import { makingRectHandler, startMakingRect } from './makingRect';
 import { makingRoomHandler, startMakingRoom } from './makingRoom';
@@ -46,12 +50,14 @@ export type CommitPointError =
 
 export type SetViewportError = { kind: 'invalid-viewport'; field: string; value: unknown };
 
-/** Таблица обработчиков по `kind` — единственное место, где новое состояние (0059) регистрируется в автомате. */
+/** Таблица обработчиков по `kind` — единственное место, где новое состояние регистрируется в автомате. */
 const HANDLERS: ToolHandlers = {
   editing: editingHandler,
   'making-walls': makingWallsHandler,
   'making-rect': makingRectHandler,
   'making-room': makingRoomHandler,
+  'dragging-point': draggingPointHandler,
+  'dragging-wall': draggingWallHandler,
 };
 
 /** Стартовые состояния инструментов рисования по имени (`tools.start`). */
@@ -278,14 +284,18 @@ export class ToolsNamespace {
   private context(): ToolContext {
     const document = this.store.getDocument();
     const floorId: Id | null = document.floors[0]?.id ?? null;
+    const derived = this.store.getDerived().floors.find(floor => floor.id === floorId) ?? null;
     return {
       document,
       floorId,
+      derived,
       viewport: this.viewport,
       snapFlags: this.snapFlags,
       pointer: this.pointer,
       snapIndex: (): SnapIndex => this.index.get(document, floorId ?? ''),
       addContours: (id, contours) => addContours(this.store, id, contours),
+      movePoints: (id, moves, options) => movePoints(this.store, id, moves, options),
+      deletePoint: (id, pointId) => deletePoint(this.store, id, pointId),
       historyUndo: () => this.store.restore('undo'),
       historyRedo: () => this.store.restore('redo'),
       logger: this.logger,
