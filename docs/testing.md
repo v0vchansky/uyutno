@@ -39,3 +39,15 @@ PGPASSWORD=uyutno psql -h localhost -U uyutno -d uyutno -c \
      '<argon2id-хэш пароля test1234>'
    );"
 ```
+
+## Пользователь для e2e (Playwright)
+
+| Поле   | Значение           |
+| ------ | ------------------ |
+| Email  | `e2e@uyutno.test`  |
+| Пароль | `e2e-passw0rd`     |
+| Имя    | `E2E-пользователь` |
+
+Заводится и логинится автоматически, руками ничего делать не нужно: проект `setup` в [`apps/platform/playwright.config.ts`](../apps/platform/playwright.config.ts) выполняет [`e2e/auth.setup.ts`](../apps/platform/e2e/auth.setup.ts). Тот переиспользует сессию из `apps/platform/e2e/.auth/user.json` (в git не попадает), а если её нет или она протухла (`/auth/me` вернул `{ "user": null }`) — регистрирует пользователя либо логинит уже заведённого. Нужен с задачи 0063: `/project/:id` закрыт авторизацией, и планерные спеки без сессии уезжают на `/login`.
+
+Спеке, которой нужен именно гость, сессию надо отключить явно: `test.use({ storageState: GUEST_STORAGE_STATE })` из [`e2e/support/testUser.ts`](../apps/platform/e2e/support/testUser.ts) — иначе она унаследует сессию из конфига проекта.

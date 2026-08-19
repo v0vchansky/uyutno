@@ -58,3 +58,5 @@ Thumbs.db
 # Playwright (e2e, apps/platform/e2e) — артефакты прогонов
 test-results/
 playwright-report/
+# Сессия e2e-пользователя (apps/platform/e2e/auth.setup.ts) — локальный артефакт, не в репозиторий
+apps/platform/e2e/.auth/

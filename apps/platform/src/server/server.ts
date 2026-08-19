@@ -3,24 +3,18 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { createAuthRouter, createLogoutRouter, createOAuthCallbackRouter, createSessionMiddleware } from '@server/auth';
 import {
-  createAuthRouter,
-  createLogoutRouter,
-  createOAuthCallbackRouter,
-  createSessionMiddleware,
-  redirectIfAuthenticated,
-  requireAuth,
-} from '@server/auth';
-import { createClientAssetsResolver, createServerRegistry, errorMiddleware, pageMiddleware } from '@server/application';
+  createClientAssetsResolver,
+  createServerRegistry,
+  errorMiddleware,
+  pageMiddleware,
+  registerPageRoutes,
+} from '@server/application';
 import { createProjectsRouter } from '@server/projects';
-
-import { isKnownPagePath } from '../shared/router/routes';
 
 const PORT = 4000;
 const STATIC_URL = '/static';
-
-const AUTH_PAGE_PATHS = ['/login', '/register', '/forgot-password', '/reset-password'];
-const AUTH_REQUIRED_PAGE_PATHS = ['/projects'];
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const staticPath = path.resolve(__dirname, '../../dist/client');
@@ -69,19 +63,7 @@ const resolveClientAssets = createClientAssetsResolver({
 
 const page = pageMiddleware(resolveClientAssets, registry.oauthProviders);
 
-for (const authPath of AUTH_PAGE_PATHS) {
-  app.get(authPath, redirectIfAuthenticated, page);
-}
-for (const requireAuthPath of AUTH_REQUIRED_PAGE_PATHS) {
-  app.get(requireAuthPath, requireAuth('page'), page);
-}
-app.get('/_page-check', requireAuth('page'), page);
-app.get('/{*splat}', (req, res) => {
-  if (!isKnownPagePath(req.path)) {
-    res.status(404);
-  }
-  return page(req, res);
-});
+registerPageRoutes(app, page);
 
 app.use(errorMiddleware);
 

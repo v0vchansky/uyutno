@@ -185,6 +185,6 @@
 | 0040 | TASK | [Явный выбор клиентских бандлов в SSR (dev/prod)](0040-TASK-ssr-asset-lookup.md)                                   | [x]    | —                        | — (прямой коммит в main)       |
 | 0041 | TASK | [Логотип шапки всегда ведёт на `/`](0041-TASK-header-logo-always-home.md)                                          | [x]    | —                        | 610ba20 (прямой коммит в main) |
 | 0042 | TASK | [Аудит `<title>`/`<meta description>` на страницах + правило в доске](0042-TASK-page-meta-audit-and-rule.md)       | [x]    | —                        | 610ba20 (прямой коммит в main) |
-| 0063 | TASK | [Закрыть `/project/:id` авторизацией (`RequireAuth`)](0063-TASK-project-route-require-auth.md)                     | [ ]    | 0011                     | —                              |
+| 0063 | TASK | [Закрыть `/project/:id` авторизацией (`RequireAuth`)](0063-TASK-project-route-require-auth.md)                     | [x]    | 0011                     | — (прямой коммит в main)       |
 | 0064 | TASK | [Демо-роут планера: заготовленный проект и локальный черновик](0064-TASK-planner-demo-route-and-guest-draft.md)    | [ ]    | 0063; шаг 3 (сохранение) | —                              |
 | 0065 | TASK | [Демо: Save → модалка авторизации → копия проекта в аккаунт](0065-TASK-planner-demo-save-gate-and-project-copy.md) | [ ]    | 0064; шаг 3 (сохранение) | —                              |

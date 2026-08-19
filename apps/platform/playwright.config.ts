@@ -1,5 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
+import { STORAGE_STATE_PATH } from './e2e/support/testUser';
+
 /**
  * Playwright — слои 3–4 тестовой стратегии (docs/product/architecture/testing-strategy.md): реальный браузер и WebGL
  * для perf/leak-гвардов и E2E-смоука. Тесты — в `e2e/*.spec.ts` (не `*.test.ts`, чтобы не попадать под Jest).
@@ -8,6 +10,10 @@ import { defineConfig } from '@playwright/test';
  * собирать клиентский бандл не нужно: dev-сервер сам ждёт, пока клиентский watch его выпустит (задача 0040).
  * Гварды читают планер через dev-only событие `planner:ready` — нужен именно dev-бандл, не prod.
  * Требуется `apps/platform/.env` (dev-сервер стартует с `--env-file`) и Postgres из `infra/dev` — как для `pnpm dev`.
+ *
+ * Проект `setup` (`e2e/auth.setup.ts`) идёт первым и кладёт сессию общего e2e-пользователя в `STORAGE_STATE_PATH`:
+ * с задачи 0063 `/project/:id` закрыт авторизацией, гость туда не доходит. Спекам, которым нужен именно гость, —
+ * `test.use({ storageState: GUEST_STORAGE_STATE })` из `e2e/support/testUser.ts`.
  */
 export default defineConfig({
   testDir: './e2e',
@@ -21,7 +27,14 @@ export default defineConfig({
     baseURL: 'http://localhost:4000',
     trace: 'retain-on-failure',
   },
-  projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
+  projects: [
+    { name: 'setup', testMatch: /auth\.setup\.ts$/ },
+    {
+      name: 'chromium',
+      use: { browserName: 'chromium', storageState: STORAGE_STATE_PATH },
+      dependencies: ['setup'],
+    },
+  ],
   webServer: {
     command: 'pnpm dev',
     url: 'http://localhost:4000/api/v1/health',

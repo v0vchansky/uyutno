@@ -30,6 +30,7 @@
 - **Type-check тестов** идёт через `pnpm typecheck`, не через `pnpm test` — SWC стирает типы без проверки. Ошибки типов в тестах не завалят `pnpm test`, но завалят typecheck и pre-commit.
 - Запуск: `pnpm --filter platform test` (только платформа) или `pnpm test` в корне (все воркспейсы, включая `packages/planner`).
 - **Playwright (слои 3–4 [testing-strategy](../../docs/product/architecture/testing-strategy.md))** — `apps/platform/e2e/*.spec.ts` (не `*.test.ts`, чтобы не попадать под Jest), конфиг `playwright.config.ts`, свой `e2e/tsconfig.json` в `typecheck`. Запуск `pnpm --filter platform test:e2e` / `pnpm test:e2e` из корня; поднятый dev-сервер переиспользуется. Perf/leak-гварды планера читают экземпляр через dev-only событие `planner:ready` (`project/lib/plannerReadyEvent.ts`), не через `window.__*`.
+  - **Сессия в e2e.** `/project/:id` закрыт авторизацией, поэтому спеки ходят в редактор под сессией: проект `setup` (`e2e/auth.setup.ts`) добывает её общему e2e-пользователю (`docs/testing.md`) и кладёт в `e2e/.auth/user.json`, остальные проекты подхватывают через `storageState`. Спеке, которой нужен гость, — `test.use({ storageState: GUEST_STORAGE_STATE })` из `e2e/support/testUser.ts`.
 
 ## Что смотреть перед началом работы
 

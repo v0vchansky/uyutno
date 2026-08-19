@@ -21,8 +21,8 @@ export const Router: React.FC = () => {
       </RouterRoute>
       <RouterRoute element={<RequireAuth />}>
         <RouterRoute path={Route.Projects} element={<ProjectsPage />} />
+        <RouterRoute path={Route.Project} element={<ProjectPage />} />
       </RouterRoute>
-      <RouterRoute path={Route.Project} element={<ProjectPage />} />
       <RouterRoute path='*' element={<NotFoundPage />} />
     </Routes>
   );
