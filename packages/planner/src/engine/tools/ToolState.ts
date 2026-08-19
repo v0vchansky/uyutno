@@ -10,7 +10,7 @@ import type { PlanPosition } from '../../document/PlannerDocument';
 /**
  * Состояние автомата инструментов конструктора (ADR 0019 E1): один discriminated union по `kind`, plain-данные —
  * payload события `tools:changed` и снимок для `useSyncExternalStore`. Каждый переход — новый замороженный объект.
- * Здесь — состояния шага 2 из задачи 0057 (`editing`, `making-walls`); `making-rect`/`making-room` (0058),
+ * Здесь — состояния рисования шага 2 (`editing`, `making-walls` — 0057; `making-rect`, `making-room` — 0058);
  * `dragging-point`/`dragging-wall` (0059) добавляются членами union и обработчиками, не переписыванием.
  */
 
@@ -49,20 +49,54 @@ export interface MakingWallsState {
   redo: readonly (readonly PlanPosition[])[];
 }
 
+/**
+ * Инструмент «Прямоугольная комната» (ADR 0019 E3, спека 01 «Rectangle Room»): `origin` — первый угол (`null` до
+ * первого клика); `cursor` — живой снапнутый противоположный угол (`null` до первого события указателя);
+ * `preview` — квады будущей комнаты между `outer` и `inner` (`rectContours` по `origin`/`cursor`; полая — четыре,
+ * сплошная — один квад-прямоугольник; без `origin`/курсора или при нулевом размере — пусто) в форме ленты «Стен»,
+ * чтобы вьювер рисовал их одинаково; `snap`/`guides` — результат снапа последнего движения и что из него рисовать
+ * (только основные гайды — оси/точка/биссектриса, без расширенных: «последнего сегмента» нет). Локальных стеков нет:
+ * Ctrl+Z при поставленном угле — «undo до пустого холста» → `editing` (спека 09), Ctrl+Y — no-op.
+ */
+export interface MakingRectState {
+  kind: 'making-rect';
+  origin: PlanPosition | null;
+  cursor: PlanPosition | null;
+  preview: readonly WallBlock[];
+  snap: SnapResult | null;
+  guides: readonly SnapGuide[];
+}
+
+/**
+ * Инструмент «Комната по точкам» (ADR 0019 E3, спека 01 «Polyline Room»): контур без толщины — `points`
+ * зафиксированные вершины, `cursor` — живая снапнутая вершина (`null` до первого события указателя); превью —
+ * сам полигон `points + cursor`, вьювер рисует его без ленты; `snap`/`guides` — как у «Стен» (без пунктира
+ * второй грани); `undo`/`redo` — локальные стеки снимков `points` (ADR 0018 D8).
+ */
+export interface MakingRoomState {
+  kind: 'making-room';
+  points: readonly PlanPosition[];
+  cursor: PlanPosition | null;
+  snap: SnapResult | null;
+  guides: readonly SnapGuide[];
+  undo: readonly (readonly PlanPosition[])[];
+  redo: readonly (readonly PlanPosition[])[];
+}
+
 /** Общие поля вне union (ADR 0019 E1): флаги снапа (не документ, не сохраняются) и viewport вьювера. */
 export interface ToolCommon {
   snapFlags: SnapFlags;
   viewport: Viewport;
 }
 
-export type ToolVariant = EditingState | MakingWallsState;
+export type ToolVariant = EditingState | MakingWallsState | MakingRectState | MakingRoomState;
 
 export type ToolState = ToolCommon & ToolVariant;
 
 export type ToolKind = ToolVariant['kind'];
 
-/** Инструменты рисования, которые принимает `tools.start` в шаге 2; `'rect' | 'room'` — задача 0058. */
-export type DrawingTool = 'walls';
+/** Инструменты рисования, которые принимает `tools.start` в шаге 2 (ADR 0019 E3): «Стены», «Прямоугольная комната», «Комната по точкам». */
+export type DrawingTool = 'walls' | 'rect' | 'room';
 
 /** Ввод указателя в координатах **плана** (экран → план делает вьювер, ADR 0019 E5): `button` — как у PointerEvent. */
 export interface PointerInput {

@@ -11,6 +11,8 @@ import type { PlannerStore } from '../PlannerStore';
 import { err, ok, type Result } from '../Result';
 import { SnapCandidateIndex, type SnapIndex } from '../SnapCandidateIndex';
 import { editingHandler } from './editing';
+import { makingRectHandler, startMakingRect } from './makingRect';
+import { makingRoomHandler, startMakingRoom } from './makingRoom';
 import { makingWallsHandler, startMakingWalls } from './makingWalls';
 import type { KeyStep, Step, ToolContext, ToolHandler, ToolHandlers } from './ToolHandler';
 import {
@@ -25,7 +27,7 @@ import {
 } from './ToolState';
 
 export type StartToolError =
-  /** Инструмент не из списка шага 2 (`'walls'`; `'rect' | 'room'` — 0058). */
+  /** Инструмент не из списка шага 2 (`'walls' | 'rect' | 'room'`). */
   | { kind: 'unknown-tool'; tool: unknown }
   /** Рисование — только в конструкторе (`view.activeView === 'constructor'`, спека 08). */
   | { kind: 'view-not-constructor'; view: string }
@@ -37,22 +39,26 @@ export type CommitPointError =
   | { kind: 'invalid-point'; point: unknown }
   /** Автомат не в состоянии рисования — точку ставить некуда. */
   | { kind: 'not-drawing'; state: ToolVariant['kind'] }
-  /** Ребро короче `MIN_WALL_LENGTH` (спека 01 «Ограничения»); точка не поставлена, состояние не изменилось. */
+  /** Ребро (сторона прямоугольника) короче `MIN_WALL_LENGTH` (спека 01 «Ограничения»); точка не поставлена, состояние не изменилось. */
   | { kind: 'too-short' }
-  /** Точка совпала с уже поставленной; не поставлена. */
+  /** Точка совпала с уже поставленной (углом `origin`); не поставлена. */
   | { kind: 'duplicate-point' };
 
 export type SetViewportError = { kind: 'invalid-viewport'; field: string; value: unknown };
 
-/** Таблица обработчиков по `kind` — единственное место, где новое состояние (0058/0059) регистрируется в автомате. */
+/** Таблица обработчиков по `kind` — единственное место, где новое состояние (0059) регистрируется в автомате. */
 const HANDLERS: ToolHandlers = {
   editing: editingHandler,
   'making-walls': makingWallsHandler,
+  'making-rect': makingRectHandler,
+  'making-room': makingRoomHandler,
 };
 
-/** Стартовые состояния инструментов рисования по имени (`tools.start`); 0058 добавляет `rect`/`room` сюда. */
+/** Стартовые состояния инструментов рисования по имени (`tools.start`). */
 const STARTERS: Record<DrawingTool, (ctx: ToolContext) => ToolVariant> = {
   walls: startMakingWalls,
+  rect: startMakingRect,
+  room: startMakingRoom,
 };
 
 const handlerOf = <S extends ToolVariant>(state: S): ToolHandler<S> => HANDLERS[state.kind] as ToolHandler<S>;

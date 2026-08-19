@@ -10,20 +10,11 @@ import { dedupeConsecutivePoints } from '../../document/geometry/predicates/dedu
 import { euclDist } from '../../document/geometry/predicates/distance';
 import type { OffsetSide } from '../../document/geometry/predicates/offsetPoint';
 import { pointsMatch } from '../../document/geometry/predicates/pointsMatch';
-import { draftCandidates, type SnapCandidate } from '../../document/geometry/snap/candidates';
 import { findNearSegments } from '../../document/geometry/snap/findNearSegments';
-import {
-  getSnapPoint,
-  missSnap,
-  SNAP_DIST,
-  type SnapHit,
-  type SnapResult,
-} from '../../document/geometry/snap/getSnapPoint';
-import { guidesFor, type SnapGuide } from '../../document/geometry/snap/guidesFor';
-import { pixelsToPlan } from '../../document/geometry/viewport';
 import type { PlanPosition } from '../../document/PlannerDocument';
 import { quantize } from '../../document/quantize';
 import type { ContourInput } from '../commands/addContours';
+import { drawingGuides, sameCursorFrame, samePosition, snapCursor } from './drawingSnap';
 import type { PlaceStep, Step, ToolContext, ToolHandler } from './ToolHandler';
 import { createEditingState, type MakingWallsState, type PointerInput } from './ToolState';
 
@@ -54,23 +45,6 @@ const coreOf = ({ points, side, startNeighbours, undo, redo }: MakingWallsState)
 });
 
 const isSideFixed = (points: readonly PlanPosition[]): boolean => points.length >= SIDE_FIX_POINTS;
-
-/**
- * Snap-first (ADR 0019 E2, Q31): пул = индекс этажа + зафиксированные точки рисуемого контура (`draftCandidates`);
- * орто-якоря — зафиксированные точки без живого курсора; радиус — `SNAP_DIST` px в план по viewport.
- * Ctrl/Cmd зажат — снап выключен целиком: квантованный сырой курсор без гайдов.
- */
-const snapCursor = (points: readonly PlanPosition[], input: PointerInput, ctx: ToolContext): SnapResult => {
-  if (input.mods.ctrl || input.mods.meta) return missSnap(input);
-  const index = ctx.snapIndex();
-  const candidates: SnapCandidate[] = [...index.candidates, ...draftCandidates(points)];
-  return getSnapPoint(input, candidates, {
-    snapDist: pixelsToPlan(ctx.viewport, SNAP_DIST),
-    viewport: ctx.viewport,
-    flags: ctx.snapFlags,
-    contour: points,
-  });
-};
 
 /**
  * Автовыбор стороны (спека 01 «Polyline Walls», как `calcStart` референса): только при старте от чужой стены и до
@@ -104,47 +78,9 @@ const frame = (core: WallsCore, pointer: PointerInput | null, ctx: ToolContext):
   const last = points[points.length - 1] ?? null;
   const side = pickSide(core, cursor);
   const preview = points.length > 0 ? band([...points, cursor], side) : [];
-  const guides = guidesFor(snap, {
-    lastPoint: last,
-    segments: ctx.snapIndex().segments,
-    face: last ? { width: DEFAULT_WALL_WIDTH, side } : null,
-  });
+  const guides = drawingGuides(snap, ctx, { lastPoint: last, face: last ? { width: DEFAULT_WALL_WIDTH, side } : null });
   return { ...base, side, cursor, preview, snap, guides };
 };
-
-const samePosition = (a: PlanPosition | null, b: PlanPosition | null): boolean =>
-  a === b || (a !== null && b !== null && a.x === b.x && a.y === b.y);
-
-const sameCandidate = (a: SnapCandidate | null, b: SnapCandidate | null): boolean =>
-  a === b || (a !== null && b !== null && a.id === b.id && a.x === b.x && a.y === b.y);
-
-const sameHit = (a: SnapHit, b: SnapHit): boolean =>
-  a.kind === b.kind &&
-  ('id' in a ? a.id === (b as { id: string }).id : true) &&
-  ('axis' in a ? a.axis === (b as { axis: string }).axis : true);
-
-const sameSnap = (a: SnapResult | null, b: SnapResult | null): boolean => {
-  if (a === b) return true;
-  if (a === null || b === null) return false;
-  return (
-    samePosition(a.snapped, b.snapped) &&
-    sameHit(a.hit, b.hit) &&
-    sameCandidate(a.alignerX, b.alignerX) &&
-    sameCandidate(a.alignerY, b.alignerY) &&
-    sameCandidate(a.bisAnchor, b.bisAnchor) &&
-    sameCandidate(a.rawAlignersX[0], b.rawAlignersX[0]) &&
-    sameCandidate(a.rawAlignersX[1], b.rawAlignersX[1]) &&
-    sameCandidate(a.rawAlignersY[0], b.rawAlignersY[0]) &&
-    sameCandidate(a.rawAlignersY[1], b.rawAlignersY[1])
-  );
-};
-
-const sameGuide = (a: SnapGuide, b: SnapGuide): boolean =>
-  a.kind === b.kind &&
-  samePosition(a.from, b.from) &&
-  samePosition(a.to, b.to) &&
-  (a.face === b.face ||
-    (a.face !== null && b.face !== null && samePosition(a.face.a, b.face.a) && samePosition(a.face.b, b.face.b)));
 
 const sameNeighbours = (a: StartNeighbourSegments | null, b: StartNeighbourSegments | null): boolean =>
   a === b || (a !== null && b !== null && samePosition(a[0], b[0]) && samePosition(a[1], b[1]));
@@ -159,10 +95,7 @@ const sameFrame = (a: MakingWallsState, b: MakingWallsState): boolean =>
   sameNeighbours(a.startNeighbours, b.startNeighbours) &&
   a.undo === b.undo &&
   a.redo === b.redo &&
-  samePosition(a.cursor, b.cursor) &&
-  sameSnap(a.snap, b.snap) &&
-  a.guides.length === b.guides.length &&
-  a.guides.every((guide, index) => sameGuide(guide, b.guides[index]!));
+  sameCursorFrame(a, b);
 
 const reframe = (state: MakingWallsState, core: WallsCore, pointer: PointerInput | null, ctx: ToolContext): Step => {
   const next = frame(core, pointer, ctx);

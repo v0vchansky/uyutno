@@ -26,6 +26,8 @@ export type {
   ToolKind,
   EditingState,
   MakingWallsState,
+  MakingRectState,
+  MakingRoomState,
   HitTarget,
   DrawingTool,
   PointerInput,
