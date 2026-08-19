@@ -2,6 +2,7 @@ import mitt, { type Emitter } from 'mitt';
 
 import type { DocumentView, PlannerDocument } from '../document/PlannerDocument';
 import type { HistoryState } from './history/HistoryLog';
+import type { ToolState } from './tools/ToolState';
 
 /**
  * Карта событий шины (ADR 0015 A5). Имя — `<неймспейс>:<факт в прошедшем времени>`, payload — plain-данные
@@ -23,6 +24,11 @@ export type PlannerEvents = {
    * Может прийти без изменения документа: смена вида меняет активную зону (ADR 0018 D4).
    */
   'history:changed': HistoryState;
+  /**
+   * Изменилось состояние автомата инструментов (ADR 0019 E1) — на каждое изменение, включая `pointerMove`,
+   * `setViewport`, `setSnapFlags`; ни одного на no-op. Payload — новый замороженный снимок `tools.get()`.
+   */
+  'tools:changed': { state: ToolState };
 };
 
 export type PlannerEventType = keyof PlannerEvents;

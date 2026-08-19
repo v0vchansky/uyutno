@@ -20,6 +20,24 @@ export type { EdgeRef, SetEdgeLengthError, SetEdgeLengthOptions } from './engine
 export type { SetWallWidthError } from './engine/commands/setWallWidth';
 export type { SetActiveViewError, SetCameraError } from './engine/ViewNamespace';
 export type { HistoryError, HistoryState } from './engine/HistoryNamespace';
+export type { StartToolError, CommitPointError, SetViewportError } from './engine/tools/ToolsNamespace';
+export type {
+  ToolState,
+  ToolKind,
+  EditingState,
+  MakingWallsState,
+  HitTarget,
+  DrawingTool,
+  PointerInput,
+  PointerMods,
+  KeyAction,
+} from './engine/tools/ToolState';
+export type { SnapFlags, SnapResult, SnapHit } from './document/geometry/snap/getSnapPoint';
+export type { SnapCandidate, Segment, AlignerPair } from './document/geometry/snap/candidates';
+export type { SnapGuide } from './document/geometry/snap/guidesFor';
+export type { Viewport } from './document/geometry/viewport';
+export type { WallBlock, StartNeighbourSegments } from './document/geometry/band/blocksFromContour';
+export type { OffsetSide } from './document/geometry/predicates/offsetPoint';
 export type { DerivedState, DerivedFloor, DerivedWall, DerivedRoom, Triangle } from './engine/rebuild';
 export type { WallAxis, FaceRef } from './document/geometry/axes/findAxes';
 export type {

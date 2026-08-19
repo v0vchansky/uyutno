@@ -116,6 +116,9 @@ const result = (
   hit,
 });
 
+/** Промах без поиска (снап выключен — Ctrl/Cmd, ADR 0019 E2): квантованный сырой курсор, без выравнивателей и `hit: none`. */
+export const missSnap = (raw: PlanPosition): SnapResult => result(raw, NO_PERPENDICULAR, null, { kind: 'none' });
+
 /**
  * Лесенка приоритетов снапа (спека 01 «Приоритет», ADR 0019 E2; 1:1 с `getSnapPoint` референса, кроме явного
  * приоритета Y в ветке 5). Все пороги — в единицах плана; куллинг по `viewport` применяется ко всему пулу до

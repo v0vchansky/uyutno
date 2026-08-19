@@ -28,11 +28,13 @@ type Editing = { kind: 'editing'; hover: HitTarget | null; selection: HitTarget 
 type MakingWalls = {
   kind: 'making-walls';
   points: PlanPosition[];
-  cursor: PlanPosition;
-  side: Side;
+  cursor: PlanPosition | null; // null до первого события указателя (уточнено 0057)
+  side: OffsetSide;
   sideFixed: boolean;
-  preview: Quad[];
-  snap: SnapResult;
+  startNeighbours: StartNeighbourSegments | null; // T-стык: соседи первой точки на чужой стене (0057)
+  preview: WallBlock[];
+  snap: SnapResult | null;
+  guides: SnapGuide[]; // guidesFor(snap, { lastPoint, segments, face }) — вьювер только рисует (0057)
   undo: PlanPosition[][];
   redo: PlanPosition[][];
 };
@@ -126,3 +128,4 @@ Canvas2D-проекция конструктора — ADR 0020 (`./0020-canvas2
 - **`setPointerCapture` + `blur`:** при потере фокуса окна во время драга `pointercancel` приходит не всегда — `blur` окна слушается отдельно (спека 09 «blur во время drag»).
 - **Отказ команды инструмент не показывает** (спека 01), но пишет `logger.debug` с `error.kind` — единственный канал диагностики «почему контур не появился».
 - **Delete/Backspace в конструкторе шага 2 ничего не делает**; удаление комнаты, нудж комнаты — парковка. `making-area`/`making-cover`, состояния линеек и грипов мебели (2b/шаг 5/8) — режимы этого же автомата, второго не будет.
+- **Уточнения реализации (задача 0057, в рамках E1–E3/E5):** `blur`/`pointercancel` в `making-*` рисование **не рвут** — зажатой кнопки в рисовании нет, точки остаются («прерванный жест» выше — про драг, спека 09 «Blur во время drag»; отмена рисования — только Esc, `interrupt()`, смена вида, смена инструмента). Точку ставит `pointerUp` основной кнопки (как `mouseUp` референса), `pointerDown` лишь обновляет снап; отсюда **второй `pointerUp` двойного клика — клик у последней точки, то есть завершение открытой ленты** (как у roomtodo), команда `doubleClick` при этом no-op; хочет ли продукт иного — решить до 0056 (фильтр `event.detail > 1` во вьювере). Гард входа: точка, дающая ребро короче `MIN_WALL_LENGTH` (в т.ч. замыкающее ребро петли) или совпавшая с поставленной, молча игнорируется (`commitPoint` возвращает `too-short`/`duplicate-point`), иначе валидация на завершении теряла бы весь контур; самопересечение/вырожденность — на завершении, как в спеке. Ctrl+Z при пустом локальном стеке — no-op (кнопка disabled), при снятии последней точки → `editing`. `start` вне конструктора/без этажа — `Result`-ошибка. Ctrl/Cmd выключает снап и при рисовании. `viewport` до первого `setViewport` — `DEFAULT_VIEWPORT` (1024×768, `scale = 1`, центр `(0, 0)`), чтобы headless-сценарии снапили и куллили осмысленно.

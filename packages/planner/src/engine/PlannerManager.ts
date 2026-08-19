@@ -5,6 +5,7 @@ import { DocumentNamespace } from './DocumentNamespace';
 import { HistoryNamespace } from './HistoryNamespace';
 import { createPlannerBus, type PlannerBus, type PlannerEvents, type PlannerEventType } from './PlannerBus';
 import { PlannerStore } from './PlannerStore';
+import { ToolsNamespace } from './tools/ToolsNamespace';
 import { ViewNamespace } from './ViewNamespace';
 
 /** DI-контракт логгера (ADR 0015 A8): реализацию передаёт платформа, пакет знает только форму. */
@@ -24,8 +25,8 @@ export interface PlannerManagerParams {
 
 /**
  * Фасад движка (ADR 0015 A2): владеет документом, публичный API нарезан неймспейсами по доменам —
- * `document`, `view`, `history` (шаг 1; история реальная — 0055, ADR 0018); `selection`, `tools` добавятся
- * своими шагами. UI и проекции документ
+ * `document`, `view`, `history` (шаг 1; история реальная — 0055, ADR 0018), `tools` (автомат инструментов
+ * конструктора — 0057, ADR 0019); `selection` (мебель, ADR I) добавится своим шагом. UI и проекции документ
  * не мутируют — только зовут команды; читают через `get()`-снимки и подписываются через `subscribe`/`on`.
  * Шина наружу не отдаётся. Глобалов и синглтонов нет: один экземпляр на `createPlanner`.
  */
@@ -34,6 +35,7 @@ export class PlannerManager {
   readonly document: DocumentNamespace;
   readonly view: ViewNamespace;
   readonly history: HistoryNamespace;
+  readonly tools: ToolsNamespace;
 
   private readonly bus: PlannerBus;
   private readonly logger: PlannerLogger;
@@ -45,13 +47,15 @@ export class PlannerManager {
 
     const store = new PlannerStore(this.bus, document, {
       warn: message => this.logger.warn(`@uyutno/planner: ${message}`, { projectId }),
-      // Хук ADR 0018 D9: перед restore undo/redo и `load`. Сюда встанет `tools.interrupt()` (0057) и позже
-      // `selection.clear()` (ADR I); до них — no-op.
-      hooks: { beforeReplace: () => {} },
+      // Хук ADR 0018 D9: перед restore undo/redo и `load` — отмена жеста/рисования и сброс hover/выделения
+      // конструктора (`tools.interrupt()`); позже сюда же встанет `selection.clear()` (ADR I). Стрелка — ленивое
+      // обращение: `tools` создаётся после `store`.
+      hooks: { beforeReplace: () => this.tools.interrupt() },
     });
     this.document = new DocumentNamespace(store);
     this.view = new ViewNamespace(store);
     this.history = new HistoryNamespace(store);
+    this.tools = new ToolsNamespace(store, this.bus, this.logger);
 
     this.logger.debug('@uyutno/planner: PlannerManager created', { projectId });
   }
@@ -87,8 +91,9 @@ export class PlannerManager {
     }
   }
 
-  /** Снимает всех подписчиков; команды после `dispose()` событий не порождают. */
+  /** Снимает всех подписчиков (включая внутренние подписки `tools`); команды после `dispose()` событий не порождают. */
   dispose(): void {
+    this.tools.dispose();
     this.bus.all.clear();
     this.logger.debug('@uyutno/planner: PlannerManager disposed', { projectId: this.projectId });
   }

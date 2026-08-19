@@ -13,11 +13,20 @@ export interface TestManager {
   floorId: string;
 }
 
-/** Фасад над документом (по умолчанию — пустой этаж `f1` билдера) с журналом всех событий шины. */
-export const createTestManager = (document: PlannerDocument = createPlanBuilder().document()): TestManager => {
-  const manager = new PlannerManager({ projectId: 'p-test', logger: silentLogger, document });
+/** Фасад над документом (по умолчанию — пустой этаж `f1` билдера) с журналом всех событий шины; `logger` — для шпионов. */
+export const createTestManager = (
+  document: PlannerDocument = createPlanBuilder().document(),
+  logger: PlannerLogger = silentLogger,
+): TestManager => {
+  const manager = new PlannerManager({ projectId: 'p-test', logger, document });
   const events: PlannerEventType[] = [];
-  for (const type of ['document:changed', 'document:dirty-changed', 'view:changed', 'history:changed'] as const) {
+  for (const type of [
+    'document:changed',
+    'document:dirty-changed',
+    'view:changed',
+    'history:changed',
+    'tools:changed',
+  ] as const) {
     manager.on(type, () => events.push(type));
   }
   return { manager, events, floorId: manager.document.get().floors[0]!.id };
