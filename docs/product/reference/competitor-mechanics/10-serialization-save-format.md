@@ -7,6 +7,8 @@ Reverse-engineered from the competitor's un-minified planner bundles:
 
 All line numbers below refer to those two files. This is a functional spec written in our own words; snippets are minimal and only where the exact text is load-bearing.
 
+> **Сколько это весит:** здесь описана **структура** формата; её **вес** на живом плане (117.8 КБ минифицированного JSON, разбор по секциям, сжатие, избыточность) замерен в [deep-dives/12-save-payload-measurements.md](./deep-dives/12-save-payload-measurements.md).
+
 > **Terminology:** the wire format is a two-layer thing. (1) An _envelope_ `plan` object carries project metadata + `construction` + `scene`. (2) `construction` is a **normalized compact** graph produced by `WC.convert.structureToShort`: geometry points are stored **once with ids**, and everything else references those ids. This id-normalization is the single most important idea in the format.
 
 ---
