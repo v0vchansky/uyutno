@@ -68,7 +68,7 @@
         { "id": "n1", "kind": "outer", "points": ["p1", "p2", "p3", "p4"] },
         { "id": "n2", "kind": "inner", "points": ["p5", "p14", "p15", "p12"] }
       ],
-      "covers": [],
+      "covers": [{ "id": "n3", "kind": "outer", "points": ["p5", "p14", "p15", "p12"], "ceilingHidden": false }],
       "areas": [],
       "cuts": [],
       "rooms": [
@@ -142,6 +142,142 @@
             { "contourId": "n1", "a": "p4", "b": "p1" },
             { "contourId": "n2", "a": "p12", "b": "p5" }
           ]
+        }
+      ],
+      "covers": [
+        {
+          "coverId": "n3",
+          "roomId": "r1",
+          "outline": ["p5", "p14", "p15", "p12"],
+          "holes": [],
+          "triangles": [
+            ["p5", "p14", "p12"],
+            ["p14", "p15", "p12"]
+          ],
+          "area": 106400
+        }
+      ],
+      "ceilings": [{ "coverId": "n3", "height": 260, "hidden": false }],
+      "areas": [],
+      "cuts": [],
+      "faces": [
+        { "roomId": "r1", "contourId": "n2", "a": "p5", "b": "p14", "top": 260, "underArea": false },
+        { "roomId": "r1", "contourId": "n2", "a": "p14", "b": "p15", "top": 260, "underArea": false },
+        { "roomId": "r1", "contourId": "n2", "a": "p15", "b": "p12", "top": 260, "underArea": false },
+        { "roomId": "r1", "contourId": "n2", "a": "p12", "b": "p5", "top": 260, "underArea": false }
+      ],
+      "skirtings": [
+        {
+          "roomId": "r1",
+          "contourId": "n2",
+          "a": "p5",
+          "b": "p14",
+          "kind": "bottom",
+          "points": [
+            { "x": 10, "y": 10 },
+            { "x": 390, "y": 10 },
+            { "x": 11, "y": 11 },
+            { "x": 389, "y": 11 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "r1",
+          "contourId": "n2",
+          "a": "p5",
+          "b": "p14",
+          "kind": "top",
+          "points": [
+            { "x": 10, "y": 10 },
+            { "x": 390, "y": 10 },
+            { "x": 11, "y": 11 },
+            { "x": 389, "y": 11 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "r1",
+          "contourId": "n2",
+          "a": "p14",
+          "b": "p15",
+          "kind": "bottom",
+          "points": [
+            { "x": 390, "y": 10 },
+            { "x": 390, "y": 290 },
+            { "x": 389, "y": 11 },
+            { "x": 389, "y": 289 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "r1",
+          "contourId": "n2",
+          "a": "p14",
+          "b": "p15",
+          "kind": "top",
+          "points": [
+            { "x": 390, "y": 10 },
+            { "x": 390, "y": 290 },
+            { "x": 389, "y": 11 },
+            { "x": 389, "y": 289 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "r1",
+          "contourId": "n2",
+          "a": "p15",
+          "b": "p12",
+          "kind": "bottom",
+          "points": [
+            { "x": 390, "y": 290 },
+            { "x": 10, "y": 290 },
+            { "x": 389, "y": 289 },
+            { "x": 11, "y": 289 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "r1",
+          "contourId": "n2",
+          "a": "p15",
+          "b": "p12",
+          "kind": "top",
+          "points": [
+            { "x": 390, "y": 290 },
+            { "x": 10, "y": 290 },
+            { "x": 389, "y": 289 },
+            { "x": 11, "y": 289 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "r1",
+          "contourId": "n2",
+          "a": "p12",
+          "b": "p5",
+          "kind": "bottom",
+          "points": [
+            { "x": 10, "y": 290 },
+            { "x": 10, "y": 10 },
+            { "x": 11, "y": 289 },
+            { "x": 11, "y": 11 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "r1",
+          "contourId": "n2",
+          "a": "p12",
+          "b": "p5",
+          "kind": "top",
+          "points": [
+            { "x": 10, "y": 290 },
+            { "x": 10, "y": 10 },
+            { "x": 11, "y": 289 },
+            { "x": 11, "y": 11 }
+          ],
+          "gaps": []
         }
       ]
     },

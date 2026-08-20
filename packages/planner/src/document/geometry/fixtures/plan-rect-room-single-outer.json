@@ -68,7 +68,13 @@
             { "contourId": "c1", "a": "p2", "b": "p3" }
           ]
         }
-      ]
+      ],
+      "covers": [],
+      "ceilings": [],
+      "areas": [],
+      "cuts": [],
+      "faces": [],
+      "skirtings": []
     },
     "warnings": []
   }

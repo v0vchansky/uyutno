@@ -34,7 +34,18 @@
   },
   "expected": {
     "layout": { "points": {}, "contours": [], "covers": [], "areas": [], "cuts": [], "rooms": [] },
-    "derived": { "id": "f1", "walls": [], "rooms": [], "axes": [] },
+    "derived": {
+      "id": "f1",
+      "walls": [],
+      "rooms": [],
+      "axes": [],
+      "covers": [],
+      "ceilings": [],
+      "areas": [],
+      "cuts": [],
+      "faces": [],
+      "skirtings": []
+    },
     "warnings": []
   }
 }

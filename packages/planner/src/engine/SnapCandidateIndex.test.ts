@@ -112,7 +112,7 @@ describe('buildSnapIndex', () => {
     ]);
     const [a, b, c, d, e, f] = ids as [Id, Id, Id, Id, Id, Id];
     layout.areas.push({ id: createId(), points: [a, e, f], height: 200 });
-    layout.covers.push({ id: createId(), points: [a, b, f] });
+    layout.covers.push({ id: createId(), kind: 'outer', points: [a, b, f], ceilingHidden: false });
     layout.contours.push(contour([a, b, c, d]));
     const index = buildSnapIndex(layout);
     // a — во всех трёх: соседи из contour (prev d, next b).
@@ -198,7 +198,7 @@ describe('buildSnapIndex', () => {
       [100, 0],
       [100, 100],
     ]);
-    layout.covers.push({ id: createId(), points: [...ids] });
+    layout.covers.push({ id: createId(), kind: 'outer', points: [...ids], ceilingHidden: false });
     layout.areas.push({ id: createId(), points: [...ids], height: 200 });
     const index = buildSnapIndex(layout);
     expect(index.segments).toEqual([]);

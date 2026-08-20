@@ -45,6 +45,12 @@ export type { MovePointsError, MovePointsOptions, PointMove } from './engine/com
 export type { DeletePointError } from './engine/commands/deletePoint';
 export type { EdgeRef, SetEdgeLengthError, SetEdgeLengthOptions } from './engine/commands/setEdgeLength';
 export type { SetWallWidthError } from './engine/commands/setWallWidth';
+export type { AddCoverError, AddCoverOptions } from './engine/commands/addCover';
+export type { AddAreaError } from './engine/commands/addArea';
+export type { DeleteCoverError } from './engine/commands/deleteCover';
+export type { DeleteAreaError } from './engine/commands/deleteArea';
+export type { SetAreaHeightError } from './engine/commands/setAreaHeight';
+export type { UnknownCoverError, UnknownAreaError } from './engine/commands/loopAccess';
 export type { SetActiveViewError, SetCameraError } from './engine/ViewNamespace';
 export type { HistoryError, HistoryState } from './engine/HistoryNamespace';
 export type {
@@ -79,6 +85,11 @@ export type { Viewport } from './document/geometry/viewport';
 export type { WallBlock, StartNeighbourSegments } from './document/geometry/band/blocksFromContour';
 export type { OffsetSide } from './document/geometry/predicates/offsetPoint';
 export type { DerivedState, DerivedFloor, DerivedWall, DerivedRoom, Triangle } from './engine/rebuild';
+export type { DerivedCover, DerivedCeiling } from './engine/derivedCovers';
+export type { DerivedArea, DerivedCut } from './engine/derivedAreas';
+export type { DerivedFace, DerivedSkirting } from './engine/derivedFaces';
+export type { PlinthQuad } from './document/geometry/skirting/plinthQuad';
+export { PLINTH_OFFSET, PLINTH_MAX_MITER } from './document/geometry/skirting/plinthQuad';
 export type { WallAxis, FaceRef } from './document/geometry/axes/findAxes';
 export type {
   PlannerDocument,

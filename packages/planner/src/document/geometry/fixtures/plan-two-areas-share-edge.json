@@ -1,0 +1,216 @@
+{
+  "name": "две касающиеся зоны разной высоты: общий вырез берёт min/max их высот",
+  "input": {
+    "format": "uyutno.planner",
+    "version": 1,
+    "settings": { "units": "cm", "wallHeight": 280 },
+    "view": {
+      "activeView": "constructor",
+      "cameras": {
+        "plan": { "x": 0, "y": 0, "zoom": 0.5 },
+        "orbit": { "x": 0, "y": 0, "elevation": 110, "pan": 45, "tilt": 45, "zoom": 0.1 },
+        "walk": { "x": 0, "y": 0, "pan": 0, "tilt": 0 }
+      }
+    },
+    "floors": [
+      {
+        "id": "f1",
+        "layout": {
+          "points": {
+            "p1": { "id": "p1", "x": 0, "y": 0 },
+            "p2": { "id": "p2", "x": 200, "y": -50 },
+            "p3": { "id": "p3", "x": 400, "y": 0 },
+            "p4": { "id": "p4", "x": 400, "y": 200 },
+            "p5": { "id": "p5", "x": 200, "y": 250 },
+            "p6": { "id": "p6", "x": 0, "y": 200 }
+          },
+          "contours": [{ "id": "c1", "kind": "inner", "points": ["p1", "p2", "p3", "p4", "p5", "p6"] }],
+          "covers": [],
+          "areas": [
+            { "id": "ar1", "points": ["p1", "p2", "p5", "p6"], "height": 100 },
+            { "id": "ar2", "points": ["p2", "p3", "p4", "p5"], "height": 210 }
+          ],
+          "cuts": [],
+          "rooms": []
+        },
+        "scene": { "items": [], "rulers": [], "hidden": [] }
+      }
+    ]
+  },
+  "expected": {
+    "layout": {
+      "points": {
+        "p1": { "id": "p1", "x": 0, "y": 0 },
+        "p2": { "id": "p2", "x": 200, "y": -50 },
+        "p3": { "id": "p3", "x": 400, "y": 0 },
+        "p4": { "id": "p4", "x": 400, "y": 200 },
+        "p5": { "id": "p5", "x": 200, "y": 250 },
+        "p6": { "id": "p6", "x": 0, "y": 200 }
+      },
+      "contours": [{ "id": "c1", "kind": "inner", "points": ["p1", "p2", "p3", "p4", "p5", "p6"] }],
+      "covers": [
+        { "id": "n3", "kind": "outer", "points": ["p1", "p2", "p3", "p4", "p5", "p6"], "ceilingHidden": false }
+      ],
+      "areas": [
+        { "id": "ar1", "points": ["p1", "p2", "p5", "p6"], "height": 100 },
+        { "id": "ar2", "points": ["p2", "p3", "p4", "p5"], "height": 210 }
+      ],
+      "cuts": [{ "id": "n2", "a": "p2", "b": "p5" }],
+      "rooms": [{ "id": "n1", "anchor": ["p1", "p2", "p3", "p4", "p5", "p6"], "name": "", "ceilingHeight": 280 }]
+    },
+    "derived": {
+      "id": "f1",
+      "walls": [],
+      "rooms": [
+        {
+          "contourId": "c1",
+          "roomId": "n1",
+          "outline": ["p1", "p2", "p3", "p4", "p5", "p6"],
+          "holes": [],
+          "triangles": [
+            ["p1", "p2", "p6"],
+            ["p2", "p5", "p6"],
+            ["p2", "p3", "p5"],
+            ["p3", "p4", "p5"]
+          ],
+          "area": 100000
+        }
+      ],
+      "axes": [],
+      "covers": [
+        {
+          "coverId": "n3",
+          "roomId": "n1",
+          "outline": ["p1", "p2", "p3", "p4", "p5", "p6"],
+          "holes": [],
+          "triangles": [
+            ["p1", "p2", "p6"],
+            ["p2", "p5", "p6"],
+            ["p2", "p3", "p5"],
+            ["p3", "p4", "p5"]
+          ],
+          "area": 100000
+        }
+      ],
+      "ceilings": [{ "coverId": "n3", "height": 280, "hidden": false }],
+      "areas": [
+        {
+          "areaId": "ar1",
+          "roomId": "n1",
+          "outline": ["p1", "p2", "p5", "p6"],
+          "triangles": [
+            ["p1", "p2", "p6"],
+            ["p2", "p5", "p6"]
+          ],
+          "height": 100
+        },
+        {
+          "areaId": "ar2",
+          "roomId": "n1",
+          "outline": ["p2", "p3", "p4", "p5"],
+          "triangles": [
+            ["p2", "p3", "p5"],
+            ["p3", "p4", "p5"]
+          ],
+          "height": 210
+        }
+      ],
+      "cuts": [{ "cutId": "n2", "a": "p2", "b": "p5", "low": 100, "height": 210 }],
+      "faces": [
+        { "roomId": "n1", "contourId": "c1", "a": "p1", "b": "p2", "top": 100, "underArea": true },
+        { "roomId": "n1", "contourId": "c1", "a": "p2", "b": "p3", "top": 210, "underArea": true },
+        { "roomId": "n1", "contourId": "c1", "a": "p3", "b": "p4", "top": 210, "underArea": true },
+        { "roomId": "n1", "contourId": "c1", "a": "p4", "b": "p5", "top": 210, "underArea": true },
+        { "roomId": "n1", "contourId": "c1", "a": "p5", "b": "p6", "top": 100, "underArea": true },
+        { "roomId": "n1", "contourId": "c1", "a": "p6", "b": "p1", "top": 100, "underArea": true }
+      ],
+      "skirtings": [
+        {
+          "roomId": "n1",
+          "contourId": "c1",
+          "a": "p1",
+          "b": "p2",
+          "kind": "bottom",
+          "points": [
+            { "x": 0, "y": 0 },
+            { "x": 200, "y": -50 },
+            { "x": 1, "y": 0.780776 },
+            { "x": 200, "y": -48.969224 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "n1",
+          "contourId": "c1",
+          "a": "p2",
+          "b": "p3",
+          "kind": "bottom",
+          "points": [
+            { "x": 200, "y": -50 },
+            { "x": 400, "y": 0 },
+            { "x": 200, "y": -48.969224 },
+            { "x": 399, "y": 0.780776 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "n1",
+          "contourId": "c1",
+          "a": "p3",
+          "b": "p4",
+          "kind": "bottom",
+          "points": [
+            { "x": 400, "y": 0 },
+            { "x": 400, "y": 200 },
+            { "x": 399, "y": 0.780776 },
+            { "x": 399, "y": 199.219224 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "n1",
+          "contourId": "c1",
+          "a": "p4",
+          "b": "p5",
+          "kind": "bottom",
+          "points": [
+            { "x": 400, "y": 200 },
+            { "x": 200, "y": 250 },
+            { "x": 399, "y": 199.219224 },
+            { "x": 200, "y": 248.969224 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "n1",
+          "contourId": "c1",
+          "a": "p5",
+          "b": "p6",
+          "kind": "bottom",
+          "points": [
+            { "x": 200, "y": 250 },
+            { "x": 0, "y": 200 },
+            { "x": 200, "y": 248.969224 },
+            { "x": 1, "y": 199.219224 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "n1",
+          "contourId": "c1",
+          "a": "p6",
+          "b": "p1",
+          "kind": "bottom",
+          "points": [
+            { "x": 0, "y": 200 },
+            { "x": 0, "y": 0 },
+            { "x": 1, "y": 199.219224 },
+            { "x": 1, "y": 0.780776 }
+          ],
+          "gaps": []
+        }
+      ]
+    },
+    "warnings": []
+  }
+}

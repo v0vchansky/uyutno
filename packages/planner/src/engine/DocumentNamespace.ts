@@ -5,9 +5,14 @@ import {
   DOCUMENT_VERSION,
   UNITS,
   type DocumentSettings,
+  type PlanPosition,
   type PlannerDocument,
 } from '../document/PlannerDocument';
+import { addArea, type AddAreaError } from './commands/addArea';
 import { addContours, type AddContoursError, type ContourInput } from './commands/addContours';
+import { addCover, type AddCoverError, type AddCoverOptions } from './commands/addCover';
+import { deleteArea, type DeleteAreaError } from './commands/deleteArea';
+import { deleteCover, type DeleteCoverError } from './commands/deleteCover';
 import { deletePoint, type DeletePointError } from './commands/deletePoint';
 import { movePoints, type MovePointsError, type MovePointsOptions, type PointMove } from './commands/movePoints';
 import {
@@ -16,6 +21,7 @@ import {
   type SetEdgeLengthError,
   type SetEdgeLengthOptions,
 } from './commands/setEdgeLength';
+import { setAreaHeight, type SetAreaHeightError } from './commands/setAreaHeight';
 import { setWallWidth, type SetWallWidthError } from './commands/setWallWidth';
 import type { PlannerStore } from './PlannerStore';
 import { err, ok, type Result } from './Result';
@@ -112,6 +118,39 @@ export class DocumentNamespace {
   /** Ширина стены по паре граней оси из `getDerived()`: сдвиг `faces[0]` по нормали. Серия по грани — одна запись. */
   setWallWidth(floorId: Id, faces: readonly [FaceRef, FaceRef], width: number): Result<void, SetWallWidthError> {
     return setWallWidth(this.store, floorId, faces, width);
+  }
+
+  // --- Полы и зоны (эпик 0066; спека 02 «Полы», «Зоны (Areas)») -------------------------------------
+
+  /**
+   * Ручной пол одним контуром: `kind: 'outer'` (дефолт) — пол, `'inner'` — пол-вычитание (дырка).
+   * Подрезку под комнаты, слияние со связанными полами и снятие осиротевших дырок делает `normalize`.
+   */
+  addCover(floorId: Id, points: readonly PlanPosition[], options?: AddCoverOptions): Result<void, AddCoverError> {
+    return addCover(this.store, floorId, points, options);
+  }
+
+  /** Явное удаление пола (спека 02: «оставить комнату без покрытия»); авто-пол за ним пересобирает `normalize`. */
+  deleteCover(floorId: Id, id: Id): Result<void, DeleteCoverError> {
+    return deleteCover(this.store, floorId, id);
+  }
+
+  /**
+   * Зона с пониженным потолком. Отказ по правилам спеки 02 (стены, соседние зоны, опора) — типизированный
+   * `Result`; для пользователя он молчаливый (модалок и тостов в v0 нет).
+   */
+  addArea(floorId: Id, points: readonly PlanPosition[], height: number): Result<void, AddAreaError> {
+    return addArea(this.store, floorId, points, height);
+  }
+
+  /** Явное удаление зоны; её вертикальные грани `cuts[]` снимает `normalize` (владение вычисляется). */
+  deleteArea(floorId: Id, id: Id): Result<void, DeleteAreaError> {
+    return deleteArea(this.store, floorId, id);
+  }
+
+  /** Высота зоны, см (конечное число > 0). Серия правок одной зоны — одна запись истории. */
+  setAreaHeight(floorId: Id, id: Id, height: number): Result<void, SetAreaHeightError> {
+    return setAreaHeight(this.store, floorId, id, height);
   }
 
   // --- Dirty-флаг (ADR 0018 D7) ---------------------------------------------------------------------

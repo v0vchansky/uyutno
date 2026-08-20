@@ -161,13 +161,12 @@ describe('document.setEdgeLength (ADR 0018 D1, спека 01/07)', () => {
       expect(tm.manager.document.setEdgeLength(tm.floorId, { a: ids[4]!, b: ids[5]! }, 120).ok).toBe(true);
     });
 
-    it('degenerate-edge: концы совпадают (две точки пола в одной координате)', () => {
+    it('degenerate-edge: концы ребра — одна и та же точка (после normalize двух точек в одной координате нет)', () => {
       const b = createPlanBuilder();
-      const doc = b.document();
-      const cover = [b.point(0, 0), b.point(0, 0), b.point(100, 0), b.point(100, 100)];
-      doc.floors[0]!.layout.covers.push({ id: 'cv1', points: cover });
-      const tm = createTestManager(doc);
-      expectRejected(tm, () => tm.manager.document.setEdgeLength(tm.floorId, { a: cover[0]!, b: cover[1]! }, 100), {
+      const ids = [b.point(0, 0), b.point(300, 0), b.point(300, 200), b.point(0, 200)];
+      b.contour('inner', ids);
+      const tm = createTestManager(b.document());
+      expectRejected(tm, () => tm.manager.document.setEdgeLength(tm.floorId, { a: ids[0]!, b: ids[0]! }, 100), {
         kind: 'degenerate-edge',
       });
     });

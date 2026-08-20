@@ -79,7 +79,11 @@
         { "id": "n3", "kind": "outer", "points": ["p9", "p10", "p11", "p12"] },
         { "id": "n4", "kind": "inner", "points": ["p13", "p14", "p15", "p16"] }
       ],
-      "covers": [],
+      "covers": [
+        { "id": "n7", "kind": "outer", "points": ["p5", "p6", "p7", "p8"], "ceilingHidden": false },
+        { "id": "n8", "kind": "inner", "points": ["p9", "p12", "p11", "p10"], "ceilingHidden": false },
+        { "id": "n9", "kind": "outer", "points": ["p13", "p14", "p15", "p16"], "ceilingHidden": false }
+      ],
       "areas": [],
       "cuts": [],
       "rooms": [
@@ -219,6 +223,278 @@
             { "contourId": "n3", "a": "p12", "b": "p9" },
             { "contourId": "n4", "a": "p16", "b": "p13" }
           ]
+        }
+      ],
+      "covers": [
+        {
+          "coverId": "n7",
+          "roomId": "n5",
+          "outline": ["p5", "p6", "p7", "p8"],
+          "holes": [["p9", "p12", "p11", "p10"]],
+          "triangles": [
+            ["p9", "p8", "p5"],
+            ["p9", "p12", "p8"],
+            ["p9", "p5", "p10"],
+            ["p12", "p11", "p8"],
+            ["p11", "p10", "p6"],
+            ["p11", "p6", "p7"],
+            ["p11", "p7", "p8"],
+            ["p10", "p5", "p6"]
+          ],
+          "area": 91400
+        },
+        {
+          "coverId": "n9",
+          "roomId": "n6",
+          "outline": ["p13", "p14", "p15", "p16"],
+          "holes": [],
+          "triangles": [
+            ["p13", "p14", "p16"],
+            ["p14", "p15", "p16"]
+          ],
+          "area": 10400
+        }
+      ],
+      "ceilings": [
+        { "coverId": "n7", "height": 280, "hidden": false },
+        { "coverId": "n9", "height": 280, "hidden": false }
+      ],
+      "areas": [],
+      "cuts": [],
+      "faces": [
+        { "roomId": "n5", "contourId": "n2", "a": "p5", "b": "p6", "top": 280, "underArea": false },
+        { "roomId": "n5", "contourId": "n2", "a": "p6", "b": "p7", "top": 280, "underArea": false },
+        { "roomId": "n5", "contourId": "n2", "a": "p7", "b": "p8", "top": 280, "underArea": false },
+        { "roomId": "n5", "contourId": "n2", "a": "p8", "b": "p5", "top": 280, "underArea": false },
+        { "roomId": "n6", "contourId": "n4", "a": "p13", "b": "p14", "top": 280, "underArea": false },
+        { "roomId": "n6", "contourId": "n4", "a": "p14", "b": "p15", "top": 280, "underArea": false },
+        { "roomId": "n6", "contourId": "n4", "a": "p15", "b": "p16", "top": 280, "underArea": false },
+        { "roomId": "n6", "contourId": "n4", "a": "p16", "b": "p13", "top": 280, "underArea": false }
+      ],
+      "skirtings": [
+        {
+          "roomId": "n5",
+          "contourId": "n2",
+          "a": "p5",
+          "b": "p6",
+          "kind": "bottom",
+          "points": [
+            { "x": 10, "y": 10 },
+            { "x": 390, "y": 10 },
+            { "x": 11, "y": 11 },
+            { "x": 389, "y": 11 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "n5",
+          "contourId": "n2",
+          "a": "p5",
+          "b": "p6",
+          "kind": "top",
+          "points": [
+            { "x": 10, "y": 10 },
+            { "x": 390, "y": 10 },
+            { "x": 11, "y": 11 },
+            { "x": 389, "y": 11 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "n5",
+          "contourId": "n2",
+          "a": "p6",
+          "b": "p7",
+          "kind": "bottom",
+          "points": [
+            { "x": 390, "y": 10 },
+            { "x": 390, "y": 290 },
+            { "x": 389, "y": 11 },
+            { "x": 389, "y": 289 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "n5",
+          "contourId": "n2",
+          "a": "p6",
+          "b": "p7",
+          "kind": "top",
+          "points": [
+            { "x": 390, "y": 10 },
+            { "x": 390, "y": 290 },
+            { "x": 389, "y": 11 },
+            { "x": 389, "y": 289 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "n5",
+          "contourId": "n2",
+          "a": "p7",
+          "b": "p8",
+          "kind": "bottom",
+          "points": [
+            { "x": 390, "y": 290 },
+            { "x": 10, "y": 290 },
+            { "x": 389, "y": 289 },
+            { "x": 11, "y": 289 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "n5",
+          "contourId": "n2",
+          "a": "p7",
+          "b": "p8",
+          "kind": "top",
+          "points": [
+            { "x": 390, "y": 290 },
+            { "x": 10, "y": 290 },
+            { "x": 389, "y": 289 },
+            { "x": 11, "y": 289 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "n5",
+          "contourId": "n2",
+          "a": "p8",
+          "b": "p5",
+          "kind": "bottom",
+          "points": [
+            { "x": 10, "y": 290 },
+            { "x": 10, "y": 10 },
+            { "x": 11, "y": 289 },
+            { "x": 11, "y": 11 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "n5",
+          "contourId": "n2",
+          "a": "p8",
+          "b": "p5",
+          "kind": "top",
+          "points": [
+            { "x": 10, "y": 290 },
+            { "x": 10, "y": 10 },
+            { "x": 11, "y": 289 },
+            { "x": 11, "y": 11 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "n6",
+          "contourId": "n4",
+          "a": "p13",
+          "b": "p14",
+          "kind": "bottom",
+          "points": [
+            { "x": 110, "y": 110 },
+            { "x": 240, "y": 110 },
+            { "x": 111, "y": 111 },
+            { "x": 239, "y": 111 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "n6",
+          "contourId": "n4",
+          "a": "p13",
+          "b": "p14",
+          "kind": "top",
+          "points": [
+            { "x": 110, "y": 110 },
+            { "x": 240, "y": 110 },
+            { "x": 111, "y": 111 },
+            { "x": 239, "y": 111 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "n6",
+          "contourId": "n4",
+          "a": "p14",
+          "b": "p15",
+          "kind": "bottom",
+          "points": [
+            { "x": 240, "y": 110 },
+            { "x": 240, "y": 190 },
+            { "x": 239, "y": 111 },
+            { "x": 239, "y": 189 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "n6",
+          "contourId": "n4",
+          "a": "p14",
+          "b": "p15",
+          "kind": "top",
+          "points": [
+            { "x": 240, "y": 110 },
+            { "x": 240, "y": 190 },
+            { "x": 239, "y": 111 },
+            { "x": 239, "y": 189 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "n6",
+          "contourId": "n4",
+          "a": "p15",
+          "b": "p16",
+          "kind": "bottom",
+          "points": [
+            { "x": 240, "y": 190 },
+            { "x": 110, "y": 190 },
+            { "x": 239, "y": 189 },
+            { "x": 111, "y": 189 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "n6",
+          "contourId": "n4",
+          "a": "p15",
+          "b": "p16",
+          "kind": "top",
+          "points": [
+            { "x": 240, "y": 190 },
+            { "x": 110, "y": 190 },
+            { "x": 239, "y": 189 },
+            { "x": 111, "y": 189 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "n6",
+          "contourId": "n4",
+          "a": "p16",
+          "b": "p13",
+          "kind": "bottom",
+          "points": [
+            { "x": 110, "y": 190 },
+            { "x": 110, "y": 110 },
+            { "x": 111, "y": 189 },
+            { "x": 111, "y": 111 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "n6",
+          "contourId": "n4",
+          "a": "p16",
+          "b": "p13",
+          "kind": "top",
+          "points": [
+            { "x": 110, "y": 190 },
+            { "x": 110, "y": 110 },
+            { "x": 111, "y": 189 },
+            { "x": 111, "y": 111 }
+          ],
+          "gaps": []
         }
       ]
     },

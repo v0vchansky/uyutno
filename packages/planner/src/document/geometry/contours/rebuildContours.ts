@@ -1,4 +1,6 @@
 import type { PlanPosition } from '../../PlannerDocument';
+import { contourFaces } from '../areas/areaEdges';
+import { interiorCutEdges } from '../areas/cutEdges';
 import { contourArea, contourValid } from '../predicates/contourArea';
 import { groupTriangles } from '../triangulate/groupTriangles';
 import {
@@ -25,6 +27,7 @@ export interface ContourGroup {
   outline: number[];
   /** По часовой (`contourArea < 0`), то же правило начала. Дырки — по членству в группе, не containment-тестом. */
   holes: number[][];
+  /** Индексы треугольников группы **по возрастанию** — и у одиночной группы, и у склейки через cut-рёбра. */
   triangles: number[];
 }
 
@@ -55,7 +58,7 @@ export interface RebuildContoursResult {
  * оболочке триангуляции (замкнута телами стен), **либо** чей ближайший объемлющий контур — `inner`
  * (объявленная полость: «Комната по точкам» без стен, спека 01 «Polyline Room»); остальное — exterior.
  * Не-fill группы не сливаются через fixed-рёбра (в отличие от референса): ребро нарисованной комнаты —
- * граница и без стены; как это совместить с cut-парами зон — 2b (ADR 0017 C6). Контракт пригоден шагу 6
+ * граница и без стены. **Исключение — интерьерные cut-рёбра зон** (`detectRooms`). Контракт пригоден шагу 6
  * (юнион луток — `walls[].outline`) и полам (bound/subtract, `separateContacting`, `walls[].holes`).
  */
 export const rebuildContours = ({
@@ -70,6 +73,13 @@ export const rebuildContours = ({
     cutPairs: input.cutPairs ?? [],
   };
   const triangulation = triangulateContours(filtered);
+  // Грани контуров нужны только для классификации cut-рёбер: без зон их не собираем (горячий путь — каждая
+  // транзакция, ADR 0017 C11 «полный синхронный recompute»).
+  const cutPairs = filtered.cutPairs ?? [];
+  const cutEdges =
+    cutPairs.length === 0
+      ? EMPTY_CUT_EDGES
+      : interiorCutEdges(triangulation, cutPairs, contourFaces([...filtered.outer, ...filtered.inner]));
   const fillGroups = triangulation.groups.filter(group => group.fill);
   const fillTriangles = separateContacting
     ? fillGroups.map(group => group.triangles)
@@ -78,13 +88,13 @@ export const rebuildContours = ({
         fillGroups.flatMap(group => group.triangles),
         false,
       );
-  const roomTriangles = triangulation.groups.filter(isRoom).map(group => group.triangles);
+  const roomTriangles = detectRooms(triangulation, cutEdges);
 
   let softFail = false;
   const trace = (groups: readonly (readonly number[])[]): ContourGroup[] => {
     const result: ContourGroup[] = [];
     for (const triangles of groups) {
-      const traced = contoursFromGroup(triangulation, triangles);
+      const traced = contoursFromGroup(triangulation, triangles, cutEdges);
       if (traced.softFail) softFail = true;
       if (!traced.outline) continue;
       const outline = finishLoop(triangulation.vertices, traced.outline, 'ccw');
@@ -102,8 +112,82 @@ export const rebuildContours = ({
   return { triangulation, walls: trace(fillTriangles), rooms: trace(roomTriangles), softFail };
 };
 
+/** Общий пустой набор cut-рёбер — планы без зон не аллоцируют его на каждой транзакции. */
+const EMPTY_CUT_EDGES: ReadonlySet<number> = new Set<number>();
+
 /** Критерий комнаты — см. JSDoc `rebuildContours`. */
 const isRoom = (group: TriangleGroup): boolean => !group.fill && (!group.touchesHull || group.innermost === 'inner');
+
+/**
+ * **Cut-пары зон и критерий комнаты** (ADR 0017 C6). Рёбра зоны идут в триангуляцию как fixed — иначе
+ * треугольники не легли бы по границе зоны и крышку зоны нечем было бы
+ * набрать. Но fixed-ребро делит группы, а наш критерий («не-fill группа без ребра на выпуклой оболочке
+ * **или** ближайший объемлющий контур — `inner`») смотрит на группу: обе половинки разрезанной комнаты
+ * прошли бы его, и зона молча удваивала бы записи `rooms[]`.
+ *
+ * Правило: **интерьерное cut-ребро — не граница комнаты.** Не-fill группы, разделённые только такими
+ * рёбрами, склеиваются обратно (DSU по рёбрам из `interiorCutEdges`), и склейка считается комнатой, лишь
+ * когда критерий проходит **каждая** её часть. «Каждая», а не «хоть одна», потому что склейка обязана
+ * быть консервативной: у зоны, вылезшей за комнату (такую отбракует стадия (3), но в триангуляцию она уже
+ * попала), кусок экстерьера, отрезанный её рёбрами, критерий проходит — но склеивается с настоящим
+ * экстерьером, который его не проходит, и фантомной комнаты не возникает. Ребро зоны «по стене» в набор
+ * не входит и остаётся барьером — там граница комнаты настоящая.
+ *
+ * Что не меняется: `triangulation.groups` по-прежнему разрезаны cut-рёбрами — по ним 2b/0070 раздаёт
+ * треугольники зоне (центр репрезентативного треугольника группы через `pointInContour(area.points)`;
+ * у референса это буквально **первый** треугольник группы, sliver-safe выбор — наш), а склейка живёт
+ * только здесь, в детекции комнат. Без cut-рёбер (`cuts.size === 0`) функция тождественна прежнему
+ * `groups.filter(isRoom)` — и по составу, и по порядку; порядок треугольников в обеих ветках
+ * возрастающий (`groupTriangles` сортирует каждую группу, склейка сортирует результат).
+ *
+ * Гварды объединения (ребро не с двумя инцидентными треугольниками; треугольник не в не-fill группе)
+ * пропускают склейку, тогда как из графа обвода такое ребро снимается безусловно. Расхождения не
+ * возникает: ребро с одним инцидентным треугольником лежит на оболочке (группа заведомо exterior),
+ * а fill/не-fill соседство бывает только на грани контура — такое ребро в набор не попадает вовсе
+ * (`interiorCutEdges` его отсеивает), поэтому «хорда снята, а группы не склеены» невозможно.
+ */
+const detectRooms = (triangulation: Triangulation, cuts: ReadonlySet<number>): number[][] => {
+  const nonFill = triangulation.groups.filter(group => !group.fill);
+  if (cuts.size === 0) return nonFill.filter(isRoom).map(group => group.triangles);
+
+  const groupOf = new Map<number, number>();
+  nonFill.forEach((group, index) => group.triangles.forEach(t => groupOf.set(t, index)));
+  const parent = nonFill.map((_, index) => index);
+  const find = (index: number): number => {
+    let root = index;
+    while (parent[root] !== root) root = parent[root]!;
+    for (let i = index; parent[i] !== root;) {
+      const next = parent[i]!;
+      parent[i] = root;
+      i = next;
+    }
+    return root;
+  };
+  for (const index of cuts) {
+    const edge = triangulation.edges[index]!;
+    if (edge.triangles.length !== 2) continue;
+    const left = groupOf.get(edge.triangles[0]!);
+    const right = groupOf.get(edge.triangles[1]!);
+    if (left === undefined || right === undefined) continue;
+    const a = find(left);
+    const b = find(right);
+    if (a !== b) parent[Math.max(a, b)] = Math.min(a, b);
+  }
+
+  const merged = new Map<number, number[]>();
+  nonFill.forEach((_, index) => {
+    const root = find(index);
+    const parts = merged.get(root);
+    if (parts) parts.push(index);
+    else merged.set(root, [index]);
+  });
+  const rooms: number[][] = [];
+  for (const parts of merged.values()) {
+    if (!parts.every(index => isRoom(nonFill[index]!))) continue;
+    rooms.push(parts.flatMap(index => nonFill[index]!.triangles).sort((a, b) => a - b));
+  }
+  return rooms;
+};
 
 /** `filterContours` референса: чистка каждого контура, негодные — вон. */
 const filterContours = (contours: ContourSet): PlanPosition[][] => {

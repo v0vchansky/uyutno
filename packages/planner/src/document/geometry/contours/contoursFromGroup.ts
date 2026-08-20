@@ -23,10 +23,18 @@ export interface GroupContours {
  * повторные обходы с **минимальным** углом на первом шаге (обратная обмотка), пока граф не пуст.
  * Guard runaway walk: длина обхода больше числа вершин графа или вершина без продолжения → обход `null`,
  * `softFail = true`. Ориентация выхода здесь не нормализуется — это делает `rebuildContours` по знаку площади.
+ *
+ * `ignored` — индексы fixed-рёбер, которые границей не являются и в граф не попадают (интерьерные cut-рёбра
+ * зон, `areas/cutEdges`): они fixed для триангуляции, но внутри группы это хорда, а хорда сбила бы выбор
+ * соседа по экстремальному углу и осталась бы «дыркой» после `clearDict`. **В отличие от референса:** он
+ * хорды не исключает — cut-пары попадают в тот же массив ограничений без пометки, и он полагается на то,
+ * что хорда ограничивает группу, подчищая висяки в `clearDict`. У нас группы, разделённые только cut-ребром,
+ * склеиваются обратно (ADR 0017 C6), поэтому хорда внутри группы реальна и её надо снимать явно.
  */
 export const contoursFromGroup = (
   { vertices, edges, triangleEdges }: Pick<Triangulation, 'vertices' | 'edges' | 'triangleEdges'>,
   group: readonly number[],
+  ignored?: ReadonlySet<number>,
 ): GroupContours => {
   const adjacency = new Map<number, number[]>();
   const link = (a: number, b: number): void => {
@@ -40,7 +48,7 @@ export const contoursFromGroup = (
   for (const t of group) {
     for (const e of triangleEdges[t]!) {
       const edge = edges[e]!;
-      if (!edge.fixed) continue;
+      if (!edge.fixed || ignored?.has(e)) continue;
       link(edge.a, edge.b);
       link(edge.b, edge.a);
     }

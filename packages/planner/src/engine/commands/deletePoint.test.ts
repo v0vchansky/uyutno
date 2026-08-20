@@ -70,91 +70,159 @@ describe('document.deletePoint (ADR 0018 D2)', () => {
     expect(manager.document.getDerived().floors[0]!.walls).toHaveLength(1);
   });
 
+  /**
+   * Каскад D2 на непустых наборах полов/зон/cuts — обещание ADR 0018 D10, проверяемое только со стадиями
+   * (3)–(6) `normalize` (0069). Ожидания здесь — **после** нормализации, а не сразу после каскада: фаза (5)
+   * досоздаёт авто-пол под каждой комнатой, поэтому «пол удалён» и «полов стало 0» — разные утверждения,
+   * а набор `cuts[]` пересобирается `reconcileCuts` из интерьерных участков рёбер выживших зон. Опора зоны
+   * (ADR 0017 C9): каждая её вершина обязана совпасть с вершиной комнаты, иначе `normalize` зону отбракует —
+   * поэтому зоны фикстур сидят на точках контура комнаты, а не висят в воздухе.
+   */
   describe('владельцы: пол, зона, cut, общий id', () => {
-    it('пол: точка снята; пол с < 3 точек удалён', () => {
+    it('пол: вершина снята вместе с комнатой — общий id пола и контура переживает удаление', () => {
       const b = createPlanBuilder();
-      const doc = b.document();
-      const cover = [b.point(0, 0), b.point(100, 0), b.point(100, 100), b.point(0, 100)];
-      doc.floors[0]!.layout.covers.push({ id: 'cv1', points: cover });
-      const { manager, floorId } = createTestManager(doc);
-      manager.document.deletePoint(floorId, cover[0]!);
+      const ids = pentagonRoom(b);
+      const { manager, floorId } = createTestManager(b.document());
+      // Авто-пол фазы (5) лёг на комнату теми же точками (ADR 0016 B4).
+      expect(manager.document.get().floors[0]!.layout.covers.map(c => c.points)).toEqual([ids]);
+
+      manager.document.deletePoint(floorId, ids[3]!);
+      const layout = manager.document.get().floors[0]!.layout;
+      const survivors = [ids[0], ids[1], ids[2], ids[4]];
+      expect(layout.contours[0]!.points).toEqual(survivors);
+      // «Угол пола едет за углом стены»: пол — те же id, без своей копии вершины.
+      expect(layout.covers.map(c => c.points)).toEqual([survivors]);
+      expect(layout.points[ids[3]!]).toBeUndefined();
+    });
+
+    it('пол с < 3 точек удалён: вырез схлопнулся, пол стал сплошным; данные пола сохранены', () => {
+      const b = createPlanBuilder();
+      const room = [b.point(0, 0), b.point(400, 0), b.point(400, 400), b.point(0, 400)];
+      b.contour('inner', room);
+      // Ручной пол на всю комнату с вырезом посередине: вырез авто-полом не зарастает (спека 02).
+      const hole = [b.point(100, 100), b.point(200, 100), b.point(200, 200), b.point(100, 200)];
+      b.cover('outer', room, { ceilingHidden: true });
+      b.cover('inner', hole);
+      const { manager, floorId } = createTestManager(b.document());
+      expect(manager.document.get().floors[0]!.layout.covers.map(c => c.kind)).toEqual(['outer', 'inner']);
+
+      // 4 → 3 точки: вырез жив, вершина снята.
+      manager.document.deletePoint(floorId, hole[0]!);
       let layout = manager.document.get().floors[0]!.layout;
-      expect(layout.covers[0]!.points).toEqual(cover.slice(1));
-      expect(layout.points[cover[0]!]).toBeUndefined();
-      manager.document.deletePoint(floorId, cover[1]!);
+      expect(layout.covers.map(c => c.kind)).toEqual(['outer', 'inner']);
+      expect(layout.covers[1]!.points).not.toContain(hole[0]);
+      expect(layout.covers[1]!.points).toHaveLength(3);
+      expect(layout.points[hole[0]!]).toBeUndefined();
+
+      // 3 → 2 точки: вырез удалён целиком, пол сплошной; `ceilingHidden` пережил пересборку (донор — он сам).
+      manager.document.deletePoint(floorId, hole[1]!);
       layout = manager.document.get().floors[0]!.layout;
-      expect(layout.covers).toEqual([]);
-      expect(layout.points).toEqual({});
+      expect(layout.covers.map(c => c.kind)).toEqual(['outer']);
+      expect(layout.covers[0]!.points).toEqual(room);
+      expect(layout.covers[0]!.ceilingHidden).toBe(true);
+      expect(Object.keys(layout.points).sort()).toEqual([...room].sort());
     });
 
     it('зона и cuts: cut с удаляемым концом удаляется; зона с < 3 точек удаляется вместе со своими cuts', () => {
       const b = createPlanBuilder();
+      // Комната с серединными точками сверху и снизу — зона сидит на её вершинах (опора ADR 0017 C9).
+      const room = [
+        b.point(0, 0),
+        b.point(150, 0),
+        b.point(300, 0),
+        b.point(300, 300),
+        b.point(150, 300),
+        b.point(0, 300),
+      ];
+      b.contour('inner', room);
       const doc = b.document();
-      const area = [b.point(0, 0), b.point(100, 0), b.point(100, 100), b.point(0, 100)];
-      const other = [b.point(500, 0), b.point(600, 0), b.point(600, 100)];
-      const layout0 = doc.floors[0]!.layout;
-      layout0.areas.push({ id: 'a1', points: area, height: 200 }, { id: 'a2', points: other, height: 200 });
-      layout0.cuts.push(
-        { id: 'cut-ab', a: area[0]!, b: area[1]! },
-        { id: 'cut-cd', a: area[2]!, b: area[3]! },
-        { id: 'cut-other', a: other[0]!, b: other[1]! },
-      );
+      doc.floors[0]!.layout.areas.push({ id: 'a1', points: [room[0]!, room[1]!, room[4]!, room[5]!], height: 200 });
       const { manager, floorId } = createTestManager(doc);
+      const firstCut = manager.document.get().floors[0]!.layout.cuts[0]!;
+      // Единственная интерьерная грань зоны — перегородка по x = 150.
+      expect({ a: firstCut.a, b: firstCut.b }).toEqual({ a: room[1], b: room[4] });
 
-      manager.document.deletePoint(floorId, area[0]!);
+      manager.document.deletePoint(floorId, room[1]!);
       let layout = manager.document.get().floors[0]!.layout;
-      expect(layout.areas.map(a => a.points)).toEqual([area.slice(1), other]);
-      expect(layout.cuts.map(c => c.id)).toEqual(['cut-cd', 'cut-other']);
+      expect(layout.areas.map(a => a.points)).toEqual([[room[0], room[4], room[5]]]);
+      // Прежняя запись ушла с концом `room[1]`, новая грань зоны получила свою.
+      expect(layout.cuts).toHaveLength(1);
+      expect({ a: layout.cuts[0]!.a, b: layout.cuts[0]!.b }).toEqual({ a: room[0], b: room[4] });
+      expect(layout.cuts[0]!.id).not.toBe(firstCut.id);
 
-      manager.document.deletePoint(floorId, area[1]!);
+      manager.document.deletePoint(floorId, room[4]!);
       layout = manager.document.get().floors[0]!.layout;
-      expect(layout.areas.map(a => a.id)).toEqual(['a2']);
-      // `cut-cd` — cut удалённой зоны (оба конца среди её точек) — ушёл с ней; чужой cut остался.
-      expect(layout.cuts.map(c => c.id)).toEqual(['cut-other']);
-      expect(Object.keys(layout.points).sort()).toEqual([...other].sort());
+      expect(layout.areas).toEqual([]);
+      expect(layout.cuts).toEqual([]);
+      expect(Object.keys(layout.points).sort()).toEqual([room[0], room[2], room[3], room[5]].sort());
     });
 
-    it('cut удаляемой зоны, который держит выжившая зона (те же две точки), остаётся', () => {
+    it('cut удаляемой зоны, который держит выжившая зона, остаётся со своим id', () => {
       const b = createPlanBuilder();
+      const p = [
+        b.point(0, 0),
+        b.point(150, 0),
+        b.point(300, 0),
+        b.point(300, 150),
+        b.point(300, 300),
+        b.point(150, 300),
+        b.point(0, 300),
+        b.point(0, 150),
+      ];
+      b.contour('inner', p);
       const doc = b.document();
-      const shared = [b.point(0, 0), b.point(100, 0)];
-      const small = [...shared, b.point(50, 50)];
-      const big = [...shared, b.point(100, 100), b.point(0, 100)];
-      const layout0 = doc.floors[0]!.layout;
-      layout0.areas.push({ id: 'small', points: small, height: 200 }, { id: 'big', points: big, height: 200 });
-      layout0.cuts.push(
-        { id: 'cut-shared', a: shared[0]!, b: shared[1]! },
-        { id: 'cut-small', a: shared[1]!, b: small[2]! },
+      // `small` — треугольник, все три грани интерьерные; `top` держит одну из них (`p[7]`–`p[3]`).
+      doc.floors[0]!.layout.areas.push(
+        { id: 'small', points: [p[1]!, p[3]!, p[7]!], height: 200 },
+        { id: 'top', points: [p[7]!, p[3]!, p[4]!, p[5]!, p[6]!], height: 220 },
       );
       const { manager, floorId } = createTestManager(doc);
-      manager.document.deletePoint(floorId, small[2]!);
+      const isShared = (cut: { a: string; b: string }) => [cut.a, cut.b].sort().join() === [p[3]!, p[7]!].sort().join();
+      const shared = manager.document.get().floors[0]!.layout.cuts.find(isShared)!;
+      expect(manager.document.get().floors[0]!.layout.cuts).toHaveLength(3);
+
+      manager.document.deletePoint(floorId, p[1]!);
       const layout = manager.document.get().floors[0]!.layout;
-      expect(layout.areas.map(a => a.id)).toEqual(['big']);
-      expect(layout.cuts.map(c => c.id)).toEqual(['cut-shared']);
+      // `small` осталась с двумя точками — удалена; `top` цела.
+      expect(layout.areas.map(a => a.id)).toEqual(['top']);
+      // Две грани `small` ушли с её вершиной, третью держит `top` — запись переживает пересборку со своим id.
+      expect(layout.cuts.map(c => c.id)).toEqual([shared.id]);
+      expect(layout.cuts[0]!).toBe(shared);
     });
 
     it('общий id: точка снята со всех владельцев (контур + пол + зона + cut) в одной транзакции', () => {
       const b = createPlanBuilder();
+      const room = [
+        b.point(0, 0),
+        b.point(150, 0),
+        b.point(300, 0),
+        b.point(300, 300),
+        b.point(150, 300),
+        b.point(0, 300),
+      ];
+      b.contour('inner', room);
       const doc = b.document();
-      const ids = pentagonRoom(b);
-      const shared = ids[0]!;
-      const layout0 = doc.floors[0]!.layout;
-      layout0.covers.push({ id: 'cv1', points: [shared, ids[1]!, ids[2]!, ids[4]!] });
-      layout0.areas.push({ id: 'a1', points: [shared, ids[1]!, ids[2]!, ids[3]!], height: 200 });
-      layout0.cuts.push({ id: 'cut1', a: shared, b: ids[1]! }, { id: 'cut2', a: ids[1]!, b: ids[2]! });
+      doc.floors[0]!.layout.areas.push({ id: 'a1', points: [room[0]!, room[1]!, room[4]!, room[5]!], height: 200 });
       const { manager, events, floorId } = createTestManager(doc);
+      const shared = room[1]!;
+      const before = manager.document.get().floors[0]!.layout;
+      // Один и тот же id держат контур, авто-пол, зона и запись `cuts[]`.
+      expect(before.contours[0]!.points).toContain(shared);
+      expect(before.covers[0]!.points).toContain(shared);
+      expect(before.areas[0]!.points).toContain(shared);
+      expect(before.cuts[0]!.a).toBe(shared);
       events.length = 0;
 
       manager.document.deletePoint(floorId, shared);
       const layout = manager.document.get().floors[0]!.layout;
       expect(layout.contours[0]!.points).not.toContain(shared);
-      expect(layout.covers[0]!.points).toEqual([ids[1], ids[2], ids[4]]);
-      expect(layout.areas[0]!.points).toEqual([ids[1], ids[2], ids[3]]);
-      expect(layout.cuts.map(c => c.id)).toEqual(['cut2']);
+      expect(layout.covers[0]!.points).not.toContain(shared);
+      expect(layout.areas[0]!.points).not.toContain(shared);
+      expect(layout.cuts.every(cut => cut.a !== shared && cut.b !== shared)).toBe(true);
       expect(layout.points[shared]).toBeUndefined();
       expect(events.filter(e => e === 'document:changed')).toHaveLength(1);
       manager.history.undo();
-      expect(manager.document.get().floors[0]!.layout.points[shared]).toBeDefined();
+      expect(manager.document.get().floors[0]!.layout).toEqual(before);
     });
   });
 

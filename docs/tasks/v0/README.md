@@ -172,19 +172,33 @@
 | 0060 | TASK | [Live-инпуты длины при рисовании и правка длины ребра / ширины стены (DOM-оверлей)](0060-TASK-planner-live-length-inputs.md)                                                                | [x]    | 0057, 0058, 0059, 0056       | — (прямой коммит в main) |
 | 0061 | TASK | [Панель инструментов конструктора: инструменты, кнопки undo/redo, тумблеры снапа, переключение конструктор ↔ 2D-план](0061-TASK-planner-constructor-toolbar-and-shortcuts.md)               | [x]    | 0055, 0057, 0058, 0056, 0060 | — (прямой коммит в main) |
 
+### 0066 · Планер — шаг 2b: ядро полов, зон, вырезов, плинтусов и потолков · [x]
+
+Спека и общее описание: [0066-EPIC-planner-step2b-covers-areas-cuts-core.md](0066-EPIC-planner-step2b-covers-areas-cuts-core.md). Порядок шагов планера — [planner-build-order.md](../../product/architecture/planner-build-order.md) (строка «2b» и «Осознанные переносы»); спецификация стадий — [ADR 0017](../../adr/0017-geometricheskiy-payplayn-planera.md) C6/C9. **Авторинга здесь нет** (инструменты «Зона» и «Рисование пола» перенесены на шаг 7 решением автора 2026-08-20), поэтому у всех задач `Нужен дизайн: нет`, а всё проверяется фикстурами и командами ядра без интерфейса.
+
+| #    | Тип  | Название                                                                                                                             | Статус | Зависит от | PR  |
+| ---- | ---- | ------------------------------------------------------------------------------------------------------------------------------------ | ------ | ---------- | --- |
+| 0067 | TASK | [Геометрия полов: `rebuildCovers`, `findAutoCovers`, `findCoverHoles`](0067-TASK-planner-covers-geometry.md)                         | [x]    | 0054       | —   |
+| 0068 | TASK | [Геометрия зон и вырезов: опора, отбраковка, cut-пары, владение `cuts[]`](0068-TASK-planner-areas-and-cuts-geometry.md)              | [x]    | 0054       | —   |
+| 0069 | TASK | [Стадии `normalize` (3)–(6): зоны и cuts, полы, авто-полы, дырки](0069-TASK-planner-normalize-stages-covers-areas.md)                | [x]    | 0067, 0068 | —   |
+| 0070 | TASK | [Производное 2b: полы, зоны, вырезы, потолки, плинтусы, высоты граней](0070-TASK-planner-derived-covers-areas-ceilings-skirtings.md) | [x]    | 0069       | —   |
+| 0071 | TASK | [Команды ядра для полов и зон (`document.*`, без интерфейса)](0071-TASK-planner-cover-area-commands.md)                              | [x]    | 0069       | —   |
+| 0072 | TASK | [Golden-фикстуры с зонами, ручными полами и дырками + property-тесты](0072-TASK-planner-covers-areas-fixtures-and-property.md)       | [x]    | 0070, 0071 | —   |
+
 ### Без эпика
 
-| #    | Тип  | Название                                                                                                           | Статус | Зависит от               | PR                             |
-| ---- | ---- | ------------------------------------------------------------------------------------------------------------------ | ------ | ------------------------ | ------------------------------ |
-| 0004 | TASK | [Публичный layout (Header + Footer)](0004-TASK-public-layout.md)                                                   | [x]    | —                        | 2a41d29 (прямой коммит в main) |
-| 0030 | TASK | [Правки лэйаута: smooth scroll, скролл-лок бургера, курсор в меню](0030-TASK-layout-bugfixes.md)                   | [x]    | 0026, 0027               | 2cc85ae (прямой коммит в main) |
-| 0031 | TASK | [Липкая шапка (sticky `PublicHeader`)](0031-TASK-sticky-header.md)                                                 | [x]    | 0026, 0030               | 876fee3 (прямой коммит в main) |
-| 0032 | TASK | [OAuth Yandex: «OAuth-провайдер не найден»](0032-TASK-oauth-yandex-provider-not-found.md)                          | [x]    | 0015                     | —                              |
-| 0033 | TASK | [Единая высота шапки на всех экранах](0033-TASK-header-height-sync.md)                                             | [x]    | 0026, 0028, 0031         | —                              |
-| 0034 | TASK | [Yandex OAuth: `force_confirm=yes` для выбора аккаунта](0034-TASK-oauth-yandex-force-confirm.md)                   | [x]    | 0015, 0032               | —                              |
-| 0040 | TASK | [Явный выбор клиентских бандлов в SSR (dev/prod)](0040-TASK-ssr-asset-lookup.md)                                   | [x]    | —                        | — (прямой коммит в main)       |
-| 0041 | TASK | [Логотип шапки всегда ведёт на `/`](0041-TASK-header-logo-always-home.md)                                          | [x]    | —                        | 610ba20 (прямой коммит в main) |
-| 0042 | TASK | [Аудит `<title>`/`<meta description>` на страницах + правило в доске](0042-TASK-page-meta-audit-and-rule.md)       | [x]    | —                        | 610ba20 (прямой коммит в main) |
-| 0063 | TASK | [Закрыть `/project/:id` авторизацией (`RequireAuth`)](0063-TASK-project-route-require-auth.md)                     | [x]    | 0011                     | — (прямой коммит в main)       |
-| 0064 | TASK | [Демо-роут планера: заготовленный проект и локальный черновик](0064-TASK-planner-demo-route-and-guest-draft.md)    | [ ]    | 0063; шаг 3 (сохранение) | —                              |
-| 0065 | TASK | [Демо: Save → модалка авторизации → копия проекта в аккаунт](0065-TASK-planner-demo-save-gate-and-project-copy.md) | [ ]    | 0064; шаг 3 (сохранение) | —                              |
+| #    | Тип  | Название                                                                                                                              | Статус | Зависит от               | PR                             |
+| ---- | ---- | ------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------ | ------------------------------ |
+| 0004 | TASK | [Публичный layout (Header + Footer)](0004-TASK-public-layout.md)                                                                      | [x]    | —                        | 2a41d29 (прямой коммит в main) |
+| 0030 | TASK | [Правки лэйаута: smooth scroll, скролл-лок бургера, курсор в меню](0030-TASK-layout-bugfixes.md)                                      | [x]    | 0026, 0027               | 2cc85ae (прямой коммит в main) |
+| 0031 | TASK | [Липкая шапка (sticky `PublicHeader`)](0031-TASK-sticky-header.md)                                                                    | [x]    | 0026, 0030               | 876fee3 (прямой коммит в main) |
+| 0032 | TASK | [OAuth Yandex: «OAuth-провайдер не найден»](0032-TASK-oauth-yandex-provider-not-found.md)                                             | [x]    | 0015                     | —                              |
+| 0033 | TASK | [Единая высота шапки на всех экранах](0033-TASK-header-height-sync.md)                                                                | [x]    | 0026, 0028, 0031         | —                              |
+| 0034 | TASK | [Yandex OAuth: `force_confirm=yes` для выбора аккаунта](0034-TASK-oauth-yandex-force-confirm.md)                                      | [x]    | 0015, 0032               | —                              |
+| 0040 | TASK | [Явный выбор клиентских бандлов в SSR (dev/prod)](0040-TASK-ssr-asset-lookup.md)                                                      | [x]    | —                        | — (прямой коммит в main)       |
+| 0041 | TASK | [Логотип шапки всегда ведёт на `/`](0041-TASK-header-logo-always-home.md)                                                             | [x]    | —                        | 610ba20 (прямой коммит в main) |
+| 0042 | TASK | [Аудит `<title>`/`<meta description>` на страницах + правило в доске](0042-TASK-page-meta-audit-and-rule.md)                          | [x]    | —                        | 610ba20 (прямой коммит в main) |
+| 0063 | TASK | [Закрыть `/project/:id` авторизацией (`RequireAuth`)](0063-TASK-project-route-require-auth.md)                                        | [x]    | 0011                     | — (прямой коммит в main)       |
+| 0064 | TASK | [Демо-роут планера: заготовленный проект и локальный черновик](0064-TASK-planner-demo-route-and-guest-draft.md)                       | [ ]    | 0063; шаг 3 (сохранение) | —                              |
+| 0073 | TASK | [`normalize` фазы (1) не идемпотентен: T-стык появляется только на втором прогоне](0073-TASK-planner-normalize-phase1-idempotency.md) | [ ]    | 0054                     | —                              |
+| 0065 | TASK | [Демо: Save → модалка авторизации → копия проекта в аккаунт](0065-TASK-planner-demo-save-gate-and-project-copy.md)                    | [ ]    | 0064; шаг 3 (сохранение) | —                              |

@@ -57,7 +57,13 @@
         { "contourId": "n3", "triangles": [["n1", "p4", "p1"]] }
       ],
       "rooms": [],
-      "axes": []
+      "axes": [],
+      "covers": [],
+      "ceilings": [],
+      "areas": [],
+      "cuts": [],
+      "faces": [],
+      "skirtings": []
     },
     "warnings": []
   }

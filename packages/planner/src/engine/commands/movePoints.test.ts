@@ -31,7 +31,7 @@ describe('document.movePoints (ADR 0018 D1)', () => {
     const b = createPlanBuilder();
     const ring = b.ring(0, 0, 400, 300, 10);
     const cover = [ring.inner[0]!, ring.inner[1]!, ring.inner[2]!, ring.inner[3]!];
-    b.document().floors[0]!.layout.covers.push({ id: 'cover1', points: cover });
+    b.cover('outer', cover);
     const { manager, floorId } = createTestManager(b.document());
     const areaBefore = manager.document.getDerived().floors[0]!.rooms[0]!.area;
     // Сдвигаем внутреннюю сторону кольца (общие точки контура комнаты и пола) на 40 см внутрь.

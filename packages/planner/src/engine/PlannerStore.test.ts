@@ -34,7 +34,21 @@ describe('PlannerStore', () => {
 
     it('производное построено при создании и заморожено', () => {
       const derived = store.getDerived();
-      expect(derived.floors).toEqual([{ id: store.getDocument().floors[0]!.id, walls: [], rooms: [], axes: [] }]);
+      // Пустой этаж — пустые массивы по всем полям `DerivedFloor` (состав 2b, задача 0070).
+      expect(derived.floors).toEqual([
+        {
+          id: store.getDocument().floors[0]!.id,
+          walls: [],
+          rooms: [],
+          axes: [],
+          covers: [],
+          ceilings: [],
+          areas: [],
+          cuts: [],
+          faces: [],
+          skirtings: [],
+        },
+      ]);
       expect(isDeepFrozen(derived)).toBe(true);
     });
 

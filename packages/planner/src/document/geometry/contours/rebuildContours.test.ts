@@ -1,6 +1,8 @@
 import * as fc from 'fast-check';
 
 import type { PlanPosition } from '../../PlannerDocument';
+import { quantize } from '../../quantize';
+import { areaPairs } from '../areas/areaEdges';
 import { contourArea, contourValid } from '../predicates/contourArea';
 import { contourSelfIntersected } from '../predicates/contourSelfIntersected';
 import { arbConvexPolygon, fcParams } from '../testing/arbitraries';
@@ -202,6 +204,154 @@ describe('rebuildContours', () => {
     expect(result.walls).toEqual([]);
     expect(result.rooms).toEqual([]);
     expect(result.softFail).toBe(false);
+  });
+
+  describe('cut-пары зон и критерий комнаты', () => {
+    const walls = ring(0, 0, 400, 300, 10);
+    const cavity = rect(10, 10, 390, 290);
+
+    /**
+     * Выпуклая зона, заведомо лежащая строго внутри полости `cavity`: центр в 80..320 × 80..220, радиус
+     * ≤ 50 — крайняя вершина не ближе 20 см к стене. Джиттер угла до трети шага не даёт вершинам слипаться.
+     */
+    const arbAreaInRoom: fc.Arbitrary<PlanPosition[]> = fc
+      .record({
+        cx: fc.integer({ min: 80, max: 320 }),
+        cy: fc.integer({ min: 80, max: 220 }),
+        radius: fc.integer({ min: 20, max: 50 }),
+        count: fc.integer({ min: 3, max: 8 }),
+        jitter: fc.array(fc.double({ min: -1 / 3, max: 1 / 3, noNaN: true }), { minLength: 8, maxLength: 8 }),
+      })
+      .map(({ cx, cy, radius, count, jitter }) =>
+        Array.from({ length: count }, (_, i) => {
+          const step = (2 * Math.PI) / count;
+          const angle = (i + (jitter[i] ?? 0)) * step;
+          return { x: quantize(cx + radius * Math.cos(angle)), y: quantize(cy + radius * Math.sin(angle)) };
+        }),
+      );
+
+    it('зона внутри комнаты новой комнаты не порождает; обвод — прежний, дырок нет', () => {
+      const result = rebuildContours({ outer: walls, inner: [], cutPairs: areaPairs(rect(100, 100, 200, 200)) });
+      expect(result.softFail).toBe(false);
+      expect(result.rooms).toHaveLength(1);
+      expect(outlineOf(result, result.rooms[0]!)).toEqual(cavity);
+      expect(result.rooms[0]!.holes).toEqual([]);
+    });
+
+    it('но треугольники комнаты по cut-ребру разделены: крышке зоны есть что забрать', () => {
+      const withArea = rebuildContours({ outer: walls, inner: [], cutPairs: areaPairs(rect(100, 100, 200, 200)) });
+      const withoutArea = rebuildContours({ outer: walls, inner: [] });
+      // Кольцо стен занимает всю выпуклую оболочку: не-fill групп ровно две — комната вокруг зоны и сама зона.
+      expect(withArea.triangulation.groups.filter(group => !group.fill)).toHaveLength(2);
+      expect(withoutArea.triangulation.groups.filter(group => !group.fill)).toHaveLength(1);
+      // Ни один треугольник комнаты при склейке не потерян.
+      expect(withArea.rooms[0]!.triangles.length).toBeGreaterThan(withoutArea.rooms[0]!.triangles.length);
+    });
+
+    it('зона, касающаяся стены одной стороной, — одна комната полной площади (ребро по стене остаётся барьером)', () => {
+      const result = rebuildContours({ outer: walls, inner: [], cutPairs: areaPairs(rect(10, 100, 200, 200)) });
+      expect(result.rooms).toHaveLength(1);
+      const outline = outlineOf(result, result.rooms[0]!);
+      expect(contourArea(outline)).toBeCloseTo(380 * 280, 6);
+      // T-стыки зоны на грани стены остаются вершинами обвода: точка зоны — законный угол комнаты.
+      expect(outline).toContainEqual({ x: 10, y: 100 });
+      expect(outline).toContainEqual({ x: 10, y: 200 });
+    });
+
+    it('две касающиеся зоны — по-прежнему одна комната', () => {
+      const result = rebuildContours({
+        outer: walls,
+        inner: [],
+        cutPairs: [...areaPairs(rect(100, 100, 200, 200)), ...areaPairs(rect(200, 100, 300, 200))],
+      });
+      expect(result.rooms).toHaveLength(1);
+      expect(outlineOf(result, result.rooms[0]!)).toEqual(cavity);
+      expect(result.triangulation.groups.filter(group => !group.fill)).toHaveLength(3);
+    });
+
+    it('зона, совпавшая с комнатой по всем сторонам, — ни одного интерьерного cut-ребра, комната та же', () => {
+      const result = rebuildContours({ outer: walls, inner: [], cutPairs: areaPairs(cavity) });
+      expect(result.rooms).toHaveLength(1);
+      expect(outlineOf(result, result.rooms[0]!)).toEqual(cavity);
+    });
+
+    it('замкнутая петля cut-пар в экстерьере фантомной комнаты не даёт (склейка консервативна)', () => {
+      const result = rebuildContours({ outer: walls, inner: [], cutPairs: areaPairs(rect(500, 50, 600, 150)) });
+      expect(result.rooms).toHaveLength(1);
+      expect(outlineOf(result, result.rooms[0]!)).toEqual(cavity);
+    });
+
+    it('стены остаются барьерами: внутренняя стенка делит комнату надвое и при наличии cut-пар', () => {
+      const result = rebuildContours({
+        outer: [...walls, rect(195, 10, 205, 290)],
+        inner: [],
+        cutPairs: areaPairs(rect(50, 100, 150, 200)),
+      });
+      expect(outlines(result, result.rooms)).toEqual([rect(10, 10, 195, 290), rect(205, 10, 390, 290)]);
+    });
+
+    it('два смежных inner с общим ребром остаются двумя комнатами: cut-пары их ребра не касаются', () => {
+      const result = rebuildContours({
+        outer: [],
+        inner: [rect(0, 0, 100, 100), rect(100, 0, 200, 100)],
+        cutPairs: areaPairs(rect(20, 20, 80, 80)),
+      });
+      expect(result.rooms).toHaveLength(2);
+    });
+
+    it('зона, вылезшая из комнаты, не делает комнатой карман экстерьера: склейка требует критерия от каждой части', () => {
+      // Зона идёт из комнаты сквозь правую стену наружу; отрезанный её рёбрами карман экстерьера
+      // (x ∈ [400, 500]) сам оболочки не касается — критерий комнаты он проходит. Комнатой он не станет
+      // только потому, что склеен с настоящим экстерьером, который критерий не проходит.
+      const result = rebuildContours({
+        outer: [...walls, rect(590, 0, 600, 300)],
+        inner: [],
+        cutPairs: areaPairs(rect(300, 100, 500, 200)),
+      });
+      expect(result.rooms).toHaveLength(1);
+      expect(result.softFail).toBe(false);
+    });
+
+    it('грани для классификации берутся и из `inner`: ребро зоны по стороне нарисованной комнаты — барьер', () => {
+      const result = rebuildContours({
+        outer: [],
+        inner: [rect(0, 0, 300, 200)],
+        cutPairs: areaPairs(rect(0, 0, 100, 200)),
+      });
+      expect(result.rooms).toHaveLength(1);
+      expect(result.softFail).toBe(false);
+      const outline = outlineOf(result, result.rooms[0]!);
+      // Три стороны зоны легли на стороны комнаты (T-стыки остались вершинами), четвёртая — интерьерная.
+      expect(outline).toContainEqual({ x: 100, y: 0 });
+      expect(outline).toContainEqual({ x: 100, y: 200 });
+      expect(contourArea(outline)).toBeCloseTo(300 * 200, 6);
+    });
+
+    it('без cut-пар состав и порядок комнат тождественны прямой фильтрации групп по критерию', () => {
+      const result = rebuildContours({
+        outer: [...walls, ...ring(100, 100, 250, 200, 10)],
+        inner: [],
+      });
+      const expected = result.triangulation.groups
+        .filter(group => !group.fill && (!group.touchesHull || group.innermost === 'inner'))
+        .map(group => group.triangles);
+      expect(expected.length).toBeGreaterThan(1);
+      expect(result.rooms.map(room => room.triangles)).toEqual(expected);
+    });
+
+    it('property: зона внутри комнаты не меняет ни числа комнат, ни обвода, и не срывает обход', () => {
+      const base = rebuildContours({ outer: walls, inner: [] });
+      const baseOutline = outlineOf(base, base.rooms[0]!);
+      fc.assert(
+        fc.property(arbAreaInRoom, area => {
+          const withArea = rebuildContours({ outer: walls, inner: [], cutPairs: areaPairs(area) });
+          expect(withArea.softFail).toBe(false);
+          expect(withArea.rooms).toHaveLength(base.rooms.length);
+          expect(outlineOf(withArea, withArea.rooms[0]!)).toEqual(baseOutline);
+        }),
+        { ...fcParams, numRuns: 50 },
+      );
+    });
   });
 
   it('property: комнаты и тела — валидные, против часовой, без самопересечений; повторный прогон на выходе стабилен', () => {

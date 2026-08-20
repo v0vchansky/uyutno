@@ -1,0 +1,275 @@
+{
+  "name": "зона, касающаяся стены одной стороной: это ребро — не вырез, а грань под ним теряет верхний плинтус",
+  "input": {
+    "format": "uyutno.planner",
+    "version": 1,
+    "settings": { "units": "cm", "wallHeight": 280 },
+    "view": {
+      "activeView": "constructor",
+      "cameras": {
+        "plan": { "x": 0, "y": 0, "zoom": 0.5 },
+        "orbit": { "x": 0, "y": 0, "elevation": 110, "pan": 45, "tilt": 45, "zoom": 0.1 },
+        "walk": { "x": 0, "y": 0, "pan": 0, "tilt": 0 }
+      }
+    },
+    "floors": [
+      {
+        "id": "f1",
+        "layout": {
+          "points": {
+            "p1": { "id": "p1", "x": 0, "y": 0 },
+            "p2": { "id": "p2", "x": 400, "y": 0 },
+            "p3": { "id": "p3", "x": 400, "y": 200 },
+            "p4": { "id": "p4", "x": 200, "y": 200 },
+            "p5": { "id": "p5", "x": 200, "y": 400 },
+            "p6": { "id": "p6", "x": 0, "y": 400 }
+          },
+          "contours": [{ "id": "c1", "kind": "inner", "points": ["p1", "p2", "p3", "p4", "p5", "p6"] }],
+          "covers": [],
+          "areas": [{ "id": "ar1", "points": ["p1", "p3", "p4"], "height": 100 }],
+          "cuts": [],
+          "rooms": [
+            { "id": "r1", "anchor": ["p1", "p2", "p3", "p4", "p5", "p6"], "name": "Студия", "ceilingHeight": 270 }
+          ]
+        },
+        "scene": { "items": [], "rulers": [], "hidden": [] }
+      }
+    ]
+  },
+  "expected": {
+    "layout": {
+      "points": {
+        "p1": { "id": "p1", "x": 0, "y": 0 },
+        "p2": { "id": "p2", "x": 400, "y": 0 },
+        "p3": { "id": "p3", "x": 400, "y": 200 },
+        "p4": { "id": "p4", "x": 200, "y": 200 },
+        "p5": { "id": "p5", "x": 200, "y": 400 },
+        "p6": { "id": "p6", "x": 0, "y": 400 }
+      },
+      "contours": [{ "id": "c1", "kind": "inner", "points": ["p1", "p2", "p3", "p4", "p5", "p6"] }],
+      "covers": [
+        { "id": "n3", "kind": "outer", "points": ["p1", "p2", "p3", "p4", "p5", "p6"], "ceilingHidden": false }
+      ],
+      "areas": [{ "id": "ar1", "points": ["p1", "p3", "p4"], "height": 100 }],
+      "cuts": [
+        { "id": "n1", "a": "p1", "b": "p3" },
+        { "id": "n2", "a": "p4", "b": "p1" }
+      ],
+      "rooms": [{ "id": "r1", "anchor": ["p1", "p2", "p3", "p4", "p5", "p6"], "name": "Студия", "ceilingHeight": 270 }]
+    },
+    "derived": {
+      "id": "f1",
+      "walls": [],
+      "rooms": [
+        {
+          "contourId": "c1",
+          "roomId": "r1",
+          "outline": ["p1", "p2", "p3", "p4", "p5", "p6"],
+          "holes": [],
+          "triangles": [
+            ["p1", "p4", "p6"],
+            ["p1", "p2", "p3"],
+            ["p1", "p3", "p4"],
+            ["p4", "p5", "p6"]
+          ],
+          "area": 120000
+        }
+      ],
+      "axes": [],
+      "covers": [
+        {
+          "coverId": "n3",
+          "roomId": "r1",
+          "outline": ["p1", "p2", "p3", "p4", "p5", "p6"],
+          "holes": [],
+          "triangles": [
+            ["p1", "p4", "p6"],
+            ["p1", "p2", "p4"],
+            ["p2", "p3", "p4"],
+            ["p4", "p5", "p6"]
+          ],
+          "area": 120000
+        }
+      ],
+      "ceilings": [{ "coverId": "n3", "height": 270, "hidden": false }],
+      "areas": [
+        {
+          "areaId": "ar1",
+          "roomId": "r1",
+          "outline": ["p1", "p3", "p4"],
+          "triangles": [["p1", "p3", "p4"]],
+          "height": 100
+        }
+      ],
+      "cuts": [
+        { "cutId": "n1", "a": "p1", "b": "p3", "low": 100, "height": 270 },
+        { "cutId": "n2", "a": "p4", "b": "p1", "low": 100, "height": 270 }
+      ],
+      "faces": [
+        { "roomId": "r1", "contourId": "c1", "a": "p1", "b": "p2", "top": 270, "underArea": false },
+        { "roomId": "r1", "contourId": "c1", "a": "p2", "b": "p3", "top": 270, "underArea": false },
+        { "roomId": "r1", "contourId": "c1", "a": "p3", "b": "p4", "top": 100, "underArea": true },
+        { "roomId": "r1", "contourId": "c1", "a": "p4", "b": "p5", "top": 270, "underArea": false },
+        { "roomId": "r1", "contourId": "c1", "a": "p5", "b": "p6", "top": 270, "underArea": false },
+        { "roomId": "r1", "contourId": "c1", "a": "p6", "b": "p1", "top": 270, "underArea": false }
+      ],
+      "skirtings": [
+        {
+          "roomId": "r1",
+          "contourId": "c1",
+          "a": "p1",
+          "b": "p2",
+          "kind": "bottom",
+          "points": [
+            { "x": 0, "y": 0 },
+            { "x": 400, "y": 0 },
+            { "x": 1, "y": 1 },
+            { "x": 399, "y": 1 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "r1",
+          "contourId": "c1",
+          "a": "p1",
+          "b": "p2",
+          "kind": "top",
+          "points": [
+            { "x": 0, "y": 0 },
+            { "x": 400, "y": 0 },
+            { "x": 1, "y": 1 },
+            { "x": 399, "y": 1 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "r1",
+          "contourId": "c1",
+          "a": "p2",
+          "b": "p3",
+          "kind": "bottom",
+          "points": [
+            { "x": 400, "y": 0 },
+            { "x": 400, "y": 200 },
+            { "x": 399, "y": 1 },
+            { "x": 399, "y": 199 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "r1",
+          "contourId": "c1",
+          "a": "p2",
+          "b": "p3",
+          "kind": "top",
+          "points": [
+            { "x": 400, "y": 0 },
+            { "x": 400, "y": 200 },
+            { "x": 399, "y": 1 },
+            { "x": 399, "y": 199 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "r1",
+          "contourId": "c1",
+          "a": "p3",
+          "b": "p4",
+          "kind": "bottom",
+          "points": [
+            { "x": 400, "y": 200 },
+            { "x": 200, "y": 200 },
+            { "x": 399, "y": 199 },
+            { "x": 199, "y": 199 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "r1",
+          "contourId": "c1",
+          "a": "p4",
+          "b": "p5",
+          "kind": "bottom",
+          "points": [
+            { "x": 200, "y": 200 },
+            { "x": 200, "y": 400 },
+            { "x": 199, "y": 199 },
+            { "x": 199, "y": 399 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "r1",
+          "contourId": "c1",
+          "a": "p4",
+          "b": "p5",
+          "kind": "top",
+          "points": [
+            { "x": 200, "y": 200 },
+            { "x": 200, "y": 400 },
+            { "x": 199, "y": 199 },
+            { "x": 199, "y": 399 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "r1",
+          "contourId": "c1",
+          "a": "p5",
+          "b": "p6",
+          "kind": "bottom",
+          "points": [
+            { "x": 200, "y": 400 },
+            { "x": 0, "y": 400 },
+            { "x": 199, "y": 399 },
+            { "x": 1, "y": 399 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "r1",
+          "contourId": "c1",
+          "a": "p5",
+          "b": "p6",
+          "kind": "top",
+          "points": [
+            { "x": 200, "y": 400 },
+            { "x": 0, "y": 400 },
+            { "x": 199, "y": 399 },
+            { "x": 1, "y": 399 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "r1",
+          "contourId": "c1",
+          "a": "p6",
+          "b": "p1",
+          "kind": "bottom",
+          "points": [
+            { "x": 0, "y": 400 },
+            { "x": 0, "y": 0 },
+            { "x": 1, "y": 399 },
+            { "x": 1, "y": 1 }
+          ],
+          "gaps": []
+        },
+        {
+          "roomId": "r1",
+          "contourId": "c1",
+          "a": "p6",
+          "b": "p1",
+          "kind": "top",
+          "points": [
+            { "x": 0, "y": 400 },
+            { "x": 0, "y": 0 },
+            { "x": 1, "y": 399 },
+            { "x": 1, "y": 1 }
+          ],
+          "gaps": []
+        }
+      ]
+    },
+    "warnings": []
+  }
+}

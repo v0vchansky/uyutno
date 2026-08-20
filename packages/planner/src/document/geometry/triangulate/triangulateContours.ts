@@ -26,7 +26,11 @@ export interface TriangulateContoursInput {
   bound?: ContourSet;
   /** Вычитаемые контуры (полы, 2b): fill только вне их. */
   subtract?: ContourSet;
-  /** Отдельные fixed-рёбра (cut-пары зон, 2b). */
+  /**
+   * Отдельные fixed-рёбра (cut-пары зон, 2b): треугольники ложатся по границе зоны, и `groups` делятся по
+   * ней — по этому делению зоне раздаются её треугольники. Комнат такое деление не порождает: интерьерные
+   * cut-рёбра (`areas/cutEdges`) склеиваются обратно в `rebuildContours`.
+   */
   cutPairs?: readonly (readonly [PlanPosition, PlanPosition])[];
 }
 

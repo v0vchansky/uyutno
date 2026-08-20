@@ -15,7 +15,8 @@ export const createSequentialIds = (prefix: string): (() => Id) => {
 };
 
 /**
- * Билдер документов для тестов ядра: один этаж `f1`, точки `p*`, контуры `c*`, записи комнат `r*`.
+ * Билдер документов для тестов ядра: один этаж `f1`, точки `p*`, контуры `c*`, записи комнат `r*`,
+ * полы `cv*`, зоны `ar*`.
  * Точки с одинаковыми координатами **не** сливаются автоматически — вызывающий сам переиспользует id
  * (так строятся квады ленты с общими вершинами, ADR 0017 C1).
  */
@@ -31,6 +32,10 @@ export interface PlanBuilder {
    */
   ring(x0: number, y0: number, x1: number, y1: number, width: number): { outer: Id[]; inner: Id[]; contours: Id[] };
   room(anchor: readonly Id[], name?: string, ceilingHeight?: number): Id;
+  /** Хранимый пол (`cv*`): `outer` — пол, `inner` — пол-вычитание (дырка); `ceilingHidden` по умолчанию `false`. */
+  cover(kind: ContourKind, points: readonly Id[], opts?: { ceilingHidden?: boolean }): Id;
+  /** Хранимая зона (`ar*`) с высотой в см. */
+  area(points: readonly Id[], height: number): Id;
   document(): PlannerDocument;
 }
 
@@ -38,6 +43,8 @@ export const createPlanBuilder = (): PlanBuilder => {
   const nextPoint = createSequentialIds('p');
   const nextContour = createSequentialIds('c');
   const nextRoom = createSequentialIds('r');
+  const nextCover = createSequentialIds('cv');
+  const nextArea = createSequentialIds('ar');
   const doc: PlannerDocument = {
     format: DOCUMENT_FORMAT,
     version: DOCUMENT_VERSION,
@@ -90,6 +97,16 @@ export const createPlanBuilder = (): PlanBuilder => {
     room(anchor, name = '', ceilingHeight = DEFAULT_WALL_HEIGHT) {
       const id = nextRoom();
       layout.rooms.push({ id, anchor: [...anchor], name, ceilingHeight });
+      return id;
+    },
+    cover(kind, points, { ceilingHidden = false } = {}) {
+      const id = nextCover();
+      layout.covers.push({ id, kind, points: [...points], ceilingHidden });
+      return id;
+    },
+    area(points, height) {
+      const id = nextArea();
+      layout.areas.push({ id, points: [...points], height });
       return id;
     },
     document: () => doc,
