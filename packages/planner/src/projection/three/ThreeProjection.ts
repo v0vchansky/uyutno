@@ -11,7 +11,8 @@ import {
   type ViewportSize,
 } from './planCamera';
 import { PLAN_UP_IN_WORLD, planToWorld } from './planToWorld';
-import { RenderLoop } from './RenderLoop';
+import { ProjectionGate, THREE_VIEWS } from '../ProjectionGate';
+import { RenderLoop } from '../RenderLoop';
 
 export interface ThreeProjectionOptions {
   /** Бюджет кадров render-on-demand; дефолт — `FRAME_BUDGET` (`RenderLoop`). */
@@ -57,6 +58,7 @@ export class ThreeProjection {
   private readonly camera: OrthographicCamera;
   private readonly logger: PlannerLogger;
   private readonly loop: RenderLoop;
+  private readonly gate: ProjectionGate;
   private readonly resizeObserver: ResizeObserver;
   private readonly unsubscribe: (() => void)[];
   private viewport: ViewportSize = { width: 0, height: 0 };
@@ -90,10 +92,14 @@ export class ThreeProjection {
       this.planCamera = manager.view.get().cameras.plan;
       this.applyCamera();
 
+      // Пока активен конструктор, Three-проекция приостановлена (ADR 0020 P5): `tools:changed` идёт на каждый
+      // `pointerMove`, и без приостановки скрытый WebGL-канвас рисовал бы кадр на каждое движение мыши.
+      this.gate = new ProjectionGate(THREE_VIEWS, this.loop, manager.view.get().activeView);
+
       this.unsubscribe = [
         manager.on('view:changed', this.onViewChanged),
         // Любое событие шины (документ, вид, история) — кадр по требованию (ADR 0015 A7).
-        manager.subscribe(() => this.loop.invalidate()),
+        manager.subscribe(() => this.gate.invalidate()),
       ];
 
       // Контейнер канваса — родитель: канвас растянут CSS-ом страницы на весь контейнер, буфер подстраивается
@@ -122,7 +128,12 @@ export class ThreeProjection {
 
   /** Запросить кадр (render-on-demand). Идемпотентно; после `dispose()` — no-op. */
   invalidate(): void {
-    this.loop.invalidate();
+    this.gate.invalidate();
+  }
+
+  /** Активен ли вид этой проекции (`plan | orbit | walk`) — по нему `<Planner />` скрывает канвас. */
+  get isActive(): boolean {
+    return this.gate.isActive;
   }
 
   /** Есть ли запланированный кадр — в покое `false`. */
@@ -169,12 +180,13 @@ export class ThreeProjection {
     this.renderer.setPixelRatio(devicePixelRatio);
     this.renderer.setSize(viewport.width, viewport.height, false);
     this.applyCamera();
-    this.loop.invalidate();
+    this.gate.invalidate();
   }
 
   private readonly onViewChanged = (view: DocumentView): void => {
     this.planCamera = view.cameras.plan;
     this.applyCamera();
+    this.gate.setActiveView(view.activeView);
   };
 
   /** Ортокамера сверху из камеры вида `plan`: центр `(x, y)` плана → мир через `planToWorld`, фрустум по зуму и aspect. */
@@ -194,6 +206,8 @@ export class ThreeProjection {
 
   /** Кадр. Исключение рендера — в DI-логгер, не наружу из `rAF` (ADR 0015 A2): луп доиграет бюджет и уснёт. */
   private readonly render = (): void => {
+    // Остаток бюджета кадров, начатый до ухода на чужой вид, в скрытый канвас не рисуется (ADR 0020 P5).
+    if (!this.gate.isActive) return;
     try {
       this.renderer.render(this.scene, this.camera);
     } catch (error) {

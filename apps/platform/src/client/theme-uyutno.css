@@ -59,6 +59,22 @@
   /* Скругления: --radius задаёт всю шкалу, --radius-3xl = --radius * 3 = 24px */
   --radius: 0.5rem;
   --field-radius: 0.75rem;
+
+  /*
+   * Чертёжные токены конструктора планера.
+   * Значения — docs/ui/handoffs/planner/planner-canvas-reference.md («Новые токены»).
+   * Тема красит интерфейс, чертёж — свои семантические имена (решение 21):
+   * имя говорит, что токен красит, и не переиспользует роли светлой темы.
+   * Читает их Canvas2D-проекция через getComputedStyle, HEX в коде не хардкодится.
+   */
+  --draft-canvas: #ffffff;
+  --draft-wall-body: #dedede;
+  --draft-contour-line: #949494;
+  --draft-room-fill: #fcfcfc;
+  --draft-room-hatch: #f0f0f0;
+  --draft-point: #767676;
+  --draft-furniture-muted: #ededed;
+  --draft-guide: var(--accent);
 }
 
 /*

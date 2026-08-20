@@ -1,11 +1,13 @@
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 
-import type { PlannerLogger, PlannerManager } from '../../engine/PlannerManager';
+import type { ViewKind } from '../../document/PlannerDocument';
+import type { PlannerLogger } from '../../engine/PlannerManager';
 import { createPlanner, type PlannerInstance } from '../../projection/createPlanner';
 import { PlannerContext } from '../PlannerContext';
+import { planDescription } from './planDescription';
 
-/** Пропсы = DI-контракт с платформой (ADR 0015 A8): `projectId`, `logger`; canvas создаёт сам компонент. */
+/** Пропсы = DI-контракт с платформой (ADR 0015 A8): `projectId`, `logger`; канвасы создаёт сам компонент. */
 export interface PlannerProps {
   projectId: string;
   /** Может быть любой ссылкой: смена `logger` не пересоздаёт планер — новые записи идут в актуальный логгер. */
@@ -24,18 +26,39 @@ export interface PlannerProps {
 }
 
 /**
- * Тонкая обёртка над фабрикой (ADR 0015 A7): рендерит `<canvas>`, в `useEffect` поднимает планер через
- * `createPlanner`, кладёт `manager` в `PlannerContext`, на unmount зовёт `dispose()`. Единственный слой
- * пакета с React; владелец canvas один — React создаёт элемент и передаёт его фабрике.
- * Дети рендерятся только когда менеджер есть: до первого эффекта (и в SSR) контекст пуст.
- * Планер пересоздаётся только при смене `projectId` — вместе с новым `<canvas>` (`key`): после `dispose()`
- * контекст старого канваса потерян (`forceContextLoss`), второй рендерер на нём ничего бы не нарисовал.
- * `frameBudget` читается при монтировании. Если планер не поднялся (например, нет WebGL), ошибка уходит в
- * `logger.error`, контекст остаётся пустым — приложение-хост не падает; UI-фолбэк — отдельная задача.
+ * Канвасы позиционируются инлайновым стилем, а не утилитами Tailwind: пакет не знает о CSS-стеке платформы
+ * (ADR 0015 A8) и не должен зависеть от того, сканирует ли её сборка `packages/planner`. `display` задан явно —
+ * атрибут `hidden` пришлось бы перебивать `!important`, если бы поверх лежал класс с `display`.
+ */
+const canvasStyle = (visible: boolean): React.CSSProperties => ({
+  position: 'absolute',
+  inset: 0,
+  width: '100%',
+  height: '100%',
+  display: visible ? 'block' : 'none',
+});
+
+/**
+ * Тонкая обёртка над фабрикой (ADR 0015 A7, ADR 0020 P6): **контейнер** (`position: relative`, размер задаёт
+ * страница через `className`) с двумя канвасами абсолютом на весь контейнер — Three снизу, Canvas2D конструктора
+ * сверху, неактивный скрыт атрибутом `hidden`. Над ними — `children` (панели скина, 0061). В `useEffect`
+ * поднимает планер через `createPlanner`, кладёт `PlannerInstance` в `PlannerContext`, на unmount зовёт
+ * `dispose()`. Единственный слой пакета с React; владелец канвасов один — React создаёт элементы и передаёт их
+ * фабрике.
+ *
+ * Планер пересоздаётся только при смене `projectId` — вместе с новыми `<canvas>` (`key`): после `dispose()`
+ * контекст старого Three-канваса потерян (`forceContextLoss`). Скрытие через `hidden` безопасно: `ResizeObserver`
+ * обеих проекций смотрит на контейнер, а не на канвас (ADR 0020 «Что важно знать»).
+ *
+ * Холст конструктора — графика с текстовым описанием плана (решение 22): `role="img"` и `aria-label`,
+ * обновляемый при изменении геометрии. Полной клавиатурной навигации по хендлам в этой версии нет.
  */
 export const Planner: React.FC<PlannerProps> = ({ projectId, logger, frameBudget, className, onReady, children }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [manager, setManager] = useState<PlannerManager | null>(null);
+  const threeRef = useRef<HTMLCanvasElement>(null);
+  const canvas2dRef = useRef<HTMLCanvasElement>(null);
+  const [instance, setInstance] = useState<PlannerInstance | null>(null);
+  const [activeView, setActiveView] = useState<ViewKind>('constructor');
+  const [description, setDescription] = useState<string>(() => planDescription(null));
 
   // Актуальные колбэки — через ref, планеру отдаётся стабильный делегат: пропсы-функции вне deps эффекта.
   const loggerRef = useRef(logger);
@@ -53,28 +76,58 @@ export const Planner: React.FC<PlannerProps> = ({ projectId, logger, frameBudget
   }));
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const three = threeRef.current;
+    const canvas2d = canvas2dRef.current;
+    if (!three || !canvas2d) return;
 
     let planner: PlannerInstance;
     try {
-      planner = createPlanner({ canvas, projectId, logger: stableLogger, frameBudget: frameBudgetRef.current });
+      planner = createPlanner({
+        canvas: { three, canvas2d },
+        projectId,
+        logger: stableLogger,
+        frameBudget: frameBudgetRef.current,
+      });
     } catch (error) {
       stableLogger.error('@uyutno/planner: failed to start planner', error);
       return;
     }
-    setManager(planner.manager);
+    const { manager } = planner;
+    setInstance(planner);
+    setActiveView(manager.view.get().activeView);
+    setDescription(planDescription(manager.document.getDerived()));
+
+    const offView = manager.on('view:changed', view => setActiveView(view.activeView));
+    const offDocument = manager.on('document:changed', () =>
+      setDescription(planDescription(manager.document.getDerived())),
+    );
+
     onReadyRef.current?.(planner);
     return () => {
-      setManager(null);
+      offView();
+      offDocument();
+      setInstance(null);
       planner.dispose();
     };
   }, [projectId, stableLogger]);
 
   return (
-    <>
-      <canvas key={projectId} ref={canvasRef} className={className} />
-      {manager && <PlannerContext value={manager}>{children}</PlannerContext>}
-    </>
+    <div className={className} style={{ position: 'relative' }}>
+      <canvas
+        key={`three-${projectId}`}
+        ref={threeRef}
+        style={canvasStyle(activeView !== 'constructor')}
+        hidden={activeView === 'constructor'}
+      />
+      <canvas
+        key={`canvas2d-${projectId}`}
+        ref={canvas2dRef}
+        style={canvasStyle(activeView === 'constructor')}
+        hidden={activeView !== 'constructor'}
+        role='img'
+        aria-label={description}
+      />
+      {instance && <PlannerContext value={instance}>{children}</PlannerContext>}
+    </div>
   );
 };

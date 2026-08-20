@@ -11,6 +11,12 @@ import { E2E_USER, GUEST_STORAGE_STATE } from './support/testUser';
 const PROJECT_ID = 'e2e-auth-guard';
 const PROJECT_URL = `/project/${PROJECT_ID}`;
 const LOGIN_URL_WITH_FROM = `/login?from=${encodeURIComponent(PROJECT_URL)}`;
+/**
+ * Канвасов у планера два — Three и Canvas2D конструктора (ADR 0020 P6), неактивный скрыт. «Редактор открылся» —
+ * это видимый холст активного вида; по умолчанию активен конструктор, его канвас — единственный с `role="img"`.
+ * Проверки «канвасов нет» остаются на общем `canvas`: не должно быть ни одного.
+ */
+const VISIBLE_CANVAS = 'canvas[role="img"]';
 
 test.describe('гость на /project/:id', () => {
   test.use({ storageState: GUEST_STORAGE_STATE });
@@ -53,7 +59,7 @@ test.describe('гость на /project/:id', () => {
     await page.getByRole('button', { name: 'Войти' }).click();
 
     await expect(page).toHaveURL(PROJECT_URL);
-    await expect(page.locator('canvas')).toBeVisible();
+    await expect(page.locator(VISIBLE_CANVAS)).toBeVisible();
   });
 });
 
@@ -62,6 +68,6 @@ test.describe('вошедший пользователь', () => {
     await page.goto(PROJECT_URL);
 
     await expect(page).toHaveURL(PROJECT_URL);
-    await expect(page.locator('canvas')).toBeVisible();
+    await expect(page.locator(VISIBLE_CANVAS)).toBeVisible();
   });
 });

@@ -3,14 +3,23 @@ import type React from 'react';
 import { act, render, renderHook, screen } from '@testing-library/react';
 
 import { PlannerManager, type PlannerLogger } from '../engine/PlannerManager';
-import { PlannerContext, usePlannerManager } from './PlannerContext';
+import type { PlannerInstance, PlannerProjections } from '../projection/createPlanner';
+import { PlannerContext, usePlannerManager, usePlannerProjections } from './PlannerContext';
 import { usePlannerSelector } from './usePlannerSelector';
 
 const silentLogger: PlannerLogger = { debug() {}, info() {}, warn() {}, error() {} };
 
+/** Контекст несёт `PlannerInstance` (ADR 0020 P6); проекции здесь не нужны — хукам достаточно ссылки. */
+const createInstance = (manager: PlannerManager): PlannerInstance => ({
+  manager,
+  projections: { three: {}, canvas2d: {} } as unknown as PlannerProjections,
+  dispose: () => manager.dispose(),
+});
+
 const createWrapper = (manager: PlannerManager): React.FC<{ children: React.ReactNode }> => {
+  const instance = createInstance(manager);
   const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-    <PlannerContext value={manager}>{children}</PlannerContext>
+    <PlannerContext value={instance}>{children}</PlannerContext>
   );
   return Wrapper;
 };
@@ -28,6 +37,26 @@ describe('usePlannerManager', () => {
     const manager = new PlannerManager({ projectId: 'p', logger: silentLogger });
     const { result } = renderHook(() => usePlannerManager(), { wrapper: createWrapper(manager) });
     expect(result.current).toBe(manager);
+  });
+});
+
+describe('usePlannerProjections', () => {
+  it('вне <Planner /> бросает понятную ошибку', () => {
+    const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+    expect(() => renderHook(() => usePlannerProjections())).toThrow(
+      /usePlannerProjections\(\) must be used inside <Planner \/>/,
+    );
+    error.mockRestore();
+  });
+
+  it('внутри провайдера возвращает проекции инстанса', () => {
+    const manager = new PlannerManager({ projectId: 'p', logger: silentLogger });
+    const instance = createInstance(manager);
+    const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+      <PlannerContext value={instance}>{children}</PlannerContext>
+    );
+    const { result } = renderHook(() => usePlannerProjections(), { wrapper: Wrapper });
+    expect(result.current).toBe(instance.projections);
   });
 });
 

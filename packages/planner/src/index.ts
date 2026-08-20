@@ -3,11 +3,17 @@
  * Слои: `document/` → `engine/` → `projection/` → `ui/`; направление импортов энфорсится ESLint.
  */
 export { createPlanner } from './projection/createPlanner';
-export type { CreatePlannerParams, PlannerInstance } from './projection/createPlanner';
+export type {
+  CreatePlannerParams,
+  PlannerCanvases,
+  PlannerInstance,
+  PlannerProjections,
+} from './projection/createPlanner';
 export type { ThreeProjection, ProjectionStats } from './projection/three/ThreeProjection';
+export type { Canvas2dProjection, Canvas2dStats, ZoomState } from './projection/canvas2d/Canvas2dProjection';
 export { Planner } from './ui/Planner/Planner';
 export type { PlannerProps } from './ui/Planner/Planner';
-export { usePlannerManager } from './ui/PlannerContext';
+export { usePlannerManager, usePlannerProjections } from './ui/PlannerContext';
 export { usePlannerSelector } from './ui/usePlannerSelector';
 export type { PlannerLogger, PlannerManager } from './engine/PlannerManager';
 export type { PlannerEvents } from './engine/PlannerBus';
