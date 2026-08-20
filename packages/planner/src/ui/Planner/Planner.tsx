@@ -2,17 +2,24 @@ import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 
 import type { ViewKind } from '../../document/PlannerDocument';
+import type { PlannerStorage } from '../../engine/PersistenceNamespace';
 import type { PlannerLogger } from '../../engine/PlannerManager';
 import { createPlanner, type PlannerInstance } from '../../projection/createPlanner';
 import { PlannerContext } from '../PlannerContext';
 import { PlannerOverlayProvider } from '../PlannerOverlayContext';
 import { planDescription } from './planDescription';
 
-/** Пропсы = DI-контракт с платформой (ADR 0015 A8): `projectId`, `logger`; канвасы создаёт сам компонент. */
+/** Пропсы = DI-контракт с платформой (ADR 0015 A8): `projectId`, `logger`, `storage`; канвасы создаёт сам компонент. */
 export interface PlannerProps {
   projectId: string;
   /** Может быть любой ссылкой: смена `logger` не пересоздаёт планер — новые записи идут в актуальный логгер. */
   logger: PlannerLogger;
+  /**
+   * Транспорт сохранения (ADR 0021): платформа знает, куда и чем писать, планер — когда. Необязателен: без него
+   * `persistence` отвечает «сохранять некуда» и таймеров не заводит. Как и `logger`, может быть любой ссылкой —
+   * смена не пересоздаёт планер; **присутствие** пропа читается при монтировании.
+   */
+  storage?: PlannerStorage;
   /** Бюджет кадров render-on-demand (ADR 0015 A7); по умолчанию `FRAME_BUDGET = 5`. Читается при монтировании. */
   frameBudget?: number;
   className?: string;
@@ -56,7 +63,15 @@ const canvasStyle = (visible: boolean): React.CSSProperties => ({
  * Холст конструктора — графика с текстовым описанием плана (решение 22): `role="img"` и `aria-label`,
  * обновляемый при изменении геометрии. Полной клавиатурной навигации по хендлам в этой версии нет.
  */
-export const Planner: React.FC<PlannerProps> = ({ projectId, logger, frameBudget, className, onReady, children }) => {
+export const Planner: React.FC<PlannerProps> = ({
+  projectId,
+  logger,
+  storage,
+  frameBudget,
+  className,
+  onReady,
+  children,
+}) => {
   const threeRef = useRef<HTMLCanvasElement>(null);
   const canvas2dRef = useRef<HTMLCanvasElement>(null);
   const [instance, setInstance] = useState<PlannerInstance | null>(null);
@@ -66,10 +81,12 @@ export const Planner: React.FC<PlannerProps> = ({ projectId, logger, frameBudget
   // Актуальные колбэки — через ref, планеру отдаётся стабильный делегат: пропсы-функции вне deps эффекта.
   const loggerRef = useRef(logger);
   const onReadyRef = useRef(onReady);
+  const storageRef = useRef(storage);
   const frameBudgetRef = useRef(frameBudget);
   useEffect(() => {
     loggerRef.current = logger;
     onReadyRef.current = onReady;
+    storageRef.current = storage;
   });
   const [stableLogger] = useState<PlannerLogger>(() => ({
     debug: (message, ...args) => loggerRef.current.debug(message, ...args),
@@ -77,6 +94,24 @@ export const Planner: React.FC<PlannerProps> = ({ projectId, logger, frameBudget
     warn: (message, ...args) => loggerRef.current.warn(message, ...args),
     error: (message, ...args) => loggerRef.current.error(message, ...args),
   }));
+  /**
+   * Стабильный делегат транспорта — та же схема, что у `stableLogger`: смена ссылки `storage` планер не
+   * пересоздаёт, вызовы уходят в актуальную реализацию. **Присутствие** пропа и набор draft-методов читаются при
+   * монтировании (как `frameBudget`): режим редактора — обычный проект или демо — по ходу жизни планера не
+   * меняется, а под новый режим планер поднимается заново вместе с `projectId`.
+   */
+  const [stableStorage] = useState<PlannerStorage | undefined>(() => {
+    if (!storage) return undefined;
+    const at = (): PlannerStorage => storageRef.current ?? storage;
+    const delegate: PlannerStorage = {
+      load: projectId => at().load(projectId),
+      save: (projectId, document, options) => at().save(projectId, document, options),
+    };
+    if (storage.loadDraft) delegate.loadDraft = () => at().loadDraft?.() ?? Promise.resolve(null);
+    if (storage.saveDraft) delegate.saveDraft = document => at().saveDraft?.(document) ?? Promise.resolve();
+    if (storage.clearDraft) delegate.clearDraft = () => at().clearDraft?.() ?? Promise.resolve();
+    return delegate;
+  });
 
   useEffect(() => {
     const three = threeRef.current;
@@ -89,6 +124,7 @@ export const Planner: React.FC<PlannerProps> = ({ projectId, logger, frameBudget
         canvas: { three, canvas2d },
         projectId,
         logger: stableLogger,
+        storage: stableStorage,
         frameBudget: frameBudgetRef.current,
       });
     } catch (error) {
@@ -112,7 +148,7 @@ export const Planner: React.FC<PlannerProps> = ({ projectId, logger, frameBudget
       setInstance(null);
       planner.dispose();
     };
-  }, [projectId, stableLogger]);
+  }, [projectId, stableLogger, stableStorage]);
 
   return (
     <div className={className} style={{ position: 'relative' }}>

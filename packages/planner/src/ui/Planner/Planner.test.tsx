@@ -4,6 +4,7 @@ import { act, render, screen } from '@testing-library/react';
 
 import { renderToString } from 'react-dom/server';
 
+import type { PlannerStorage } from '../../engine/PersistenceNamespace';
 import type { PlannerLogger } from '../../engine/PlannerManager';
 import { ringDocument } from '../../engine/testing/testManager';
 import type { PlannerInstance } from '../../projection/createPlanner';
@@ -185,6 +186,72 @@ describe('<Planner />', () => {
     unmount();
     expect(first).not.toHaveBeenCalled();
     expect(second.mock.calls.some(call => /disposed/.test(String(call[0])))).toBe(true);
+  });
+
+  describe('storage (DI-транспорт сохранения, ADR 0015 A8 / ADR 0021)', () => {
+    /** Транспорт-двойник: отвечает сразу, чтобы тест смотрел на разводку пропа, а не на очередь `persistence`. */
+    const fakeStorage = (save: jest.Mock): PlannerStorage => ({
+      load: () => Promise.resolve(null),
+      save: (projectId, document, options) => {
+        save(projectId, document, options);
+        return Promise.resolve({ updatedAt: 'u1' });
+      },
+    });
+
+    it('доезжает до PlannerManager: persistence зовёт переданную реализацию с projectId и снимком', async () => {
+      const save = jest.fn();
+      const { captured, onReady } = captureInstance();
+      render(<Planner projectId='p-1' logger={silentLogger} storage={fakeStorage(save)} onReady={onReady} />);
+      const { manager } = captured.current!;
+
+      act(() => {
+        manager.document.setSettings({ wallHeight: 300 });
+      });
+      await act(async () => {
+        await manager.persistence.save('manual');
+      });
+
+      expect(save).toHaveBeenCalledTimes(1);
+      expect(save.mock.calls[0]![0]).toBe('p-1');
+      expect(save.mock.calls[0]![1]).toBe(manager.document.get());
+      expect(save.mock.calls[0]![2]).toEqual({ autosave: false });
+    });
+
+    it('без storage планер поднимается как обычно, ручной Save отвечает типизированной ошибкой', async () => {
+      const { captured, onReady } = captureInstance();
+      render(<Planner projectId='p-1' logger={silentLogger} onReady={onReady} />);
+      const { manager } = captured.current!;
+      act(() => {
+        manager.document.setSettings({ wallHeight: 300 });
+      });
+
+      await expect(manager.persistence.save('manual')).resolves.toEqual({ ok: false, error: { kind: 'no-storage' } });
+      expect(manager.document.get().settings.wallHeight).toBe(300);
+    });
+
+    it('смена storage-ссылки НЕ пересоздаёт планер, но новые вызовы идут в новую реализацию', async () => {
+      const first = jest.fn();
+      const second = jest.fn();
+      const { captured, onReady } = captureInstance();
+      const { rerender } = render(
+        <Planner projectId='p-1' logger={silentLogger} storage={fakeStorage(first)} onReady={onReady} />,
+      );
+      const instance = captured.current!;
+
+      rerender(<Planner projectId='p-1' logger={silentLogger} storage={fakeStorage(second)} onReady={onReady} />);
+
+      expect(captured.current).toBe(instance);
+      expect(mockThreeCtor).toHaveBeenCalledTimes(1);
+      const { manager } = instance;
+      act(() => {
+        manager.document.setSettings({ wallHeight: 300 });
+      });
+      await act(async () => {
+        await manager.persistence.save('manual');
+      });
+      expect(first).not.toHaveBeenCalled();
+      expect(second).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('SSR: renderToString отдаёт контейнер с двумя канвасами, планер не поднимает и детей не рендерит', () => {

@@ -2,6 +2,7 @@ import mitt, { type Emitter } from 'mitt';
 
 import type { DocumentView, PlannerDocument } from '../document/PlannerDocument';
 import type { HistoryState } from './history/HistoryLog';
+import type { PersistenceState } from './PersistenceNamespace';
 import type { ToolState } from './tools/ToolState';
 
 /**
@@ -29,6 +30,11 @@ export type PlannerEvents = {
    * `setViewport`, `setSnapFlags`; ни одного на no-op. Payload — новый замороженный снимок `tools.get()`.
    */
   'tools:changed': { state: ToolState };
+  /**
+   * Изменилось состояние сохранения (ADR 0021): статус, метки времени, последняя ошибка, зеркало dirty.
+   * Ровно одно событие на изменение снимка — завершение сохранения меняет несколько полей и эмитит один раз.
+   */
+  'persistence:changed': { state: PersistenceState };
 };
 
 export type PlannerEventType = keyof PlannerEvents;

@@ -1,3 +1,4 @@
+import type { PlannerStorage } from '../engine/PersistenceNamespace';
 import { PlannerManager, type PlannerLogger } from '../engine/PlannerManager';
 import { Canvas2dProjection } from './canvas2d/Canvas2dProjection';
 import { KeyboardInput } from './input/keyboard';
@@ -14,6 +15,11 @@ export interface CreatePlannerParams {
   canvas: PlannerCanvases;
   projectId: string;
   logger: PlannerLogger;
+  /**
+   * Транспорт сохранения (ADR 0015 A8, ADR 0021): реализует платформа, `persistence` владеет политикой.
+   * Необязателен — без него планер поднимается как прежде, а сохранение отвечает `no-storage`.
+   */
+  storage?: PlannerStorage;
   /** Бюджет кадров render-on-demand; дефолт `FRAME_BUDGET = 5` — в `RenderLoop` (ADR 0015 A7). */
   frameBudget?: number;
 }
@@ -36,8 +42,14 @@ export interface PlannerInstance {
  * клавиатура → `canvas2d` → `three` → менеджер. Если что-то не поднялось, всё уже поднятое освобождается
  * и ошибка пробрасывается: полуживого планера не остаётся.
  */
-export const createPlanner = ({ canvas, projectId, logger, frameBudget }: CreatePlannerParams): PlannerInstance => {
-  const manager = new PlannerManager({ projectId, logger });
+export const createPlanner = ({
+  canvas,
+  projectId,
+  logger,
+  storage,
+  frameBudget,
+}: CreatePlannerParams): PlannerInstance => {
+  const manager = new PlannerManager({ projectId, logger, storage });
   const started: (() => void)[] = [() => manager.dispose()];
 
   const start = <T>(create: () => T): T => {

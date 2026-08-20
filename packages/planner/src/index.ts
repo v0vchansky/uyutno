@@ -52,6 +52,19 @@ export type { DeleteAreaError } from './engine/commands/deleteArea';
 export type { SetAreaHeightError } from './engine/commands/setAreaHeight';
 export type { UnknownCoverError, UnknownAreaError } from './engine/commands/loopAccess';
 export type { SetActiveViewError, SetCameraError } from './engine/ViewNamespace';
+/**
+ * Неймспейс `persistence` и его DI-транспорт (ADR 0021, задача 0081): политика сохранения — в планере,
+ * транспорт и `localStorage` — в платформе, которая и реализует `PlannerStorage`.
+ */
+export type {
+  PersistenceState,
+  PersistenceStatus,
+  PlannerStorage,
+  SaveAck,
+  SaveError,
+  SaveOutcome,
+  SaveReason,
+} from './engine/PersistenceNamespace';
 export type { HistoryError, HistoryState } from './engine/HistoryNamespace';
 export type {
   StartToolError,
