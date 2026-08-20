@@ -187,20 +187,21 @@
 
 ### 0077 · Планер — шаг 3: сохранение и загрузка проекта · [ ]
 
-Спека и общее описание: [0077-EPIC-planner-step3-save-load.md](0077-EPIC-planner-step3-save-load.md). Все решения приняты [ADR 0021](../../adr/0021-hranenie-dokumenta-planera-i-format-sohraneniya.md) (ADR F, 2026-08-21) — задачи его исполняют, а не переоткрывают; спека — [10-save-load.md](../../product/features/planner/10-save-load.md), порядок шагов — [planner-build-order.md](../../product/architecture/planner-build-order.md) (шаг 3). `0078` и `0079` независимы и идут первыми, `0080` зависит от обеих. Две задачи с `Нужен дизайн: да` (`0084`, `0085`) ждут макета оболочки — бриф [planner-editor-shell.md](../../ui/briefs/planner-editor-shell.md), блоки B3/B4/B6 — и без ссылки в строке «Дизайн» в работу не берутся. Эпик разблокирует уже заведённые `0064` и `0065`; лимит 2 МБ бесполезен для пользователя без [0076](0076-TASK-error-middleware-express-errors.md).
+Спека и общее описание: [0077-EPIC-planner-step3-save-load.md](0077-EPIC-planner-step3-save-load.md). Все решения приняты [ADR 0021](../../adr/0021-hranenie-dokumenta-planera-i-format-sohraneniya.md) (ADR F, 2026-08-21) — задачи его исполняют, а не переоткрывают; спека — [10-save-load.md](../../product/features/planner/10-save-load.md), порядок шагов — [planner-build-order.md](../../product/architecture/planner-build-order.md) (шаг 3). `0078` и `0079` независимы и идут первыми, `0080` зависит от обеих. Две задачи с `Нужен дизайн: да` (`0084`, `0085`) ждут макета оболочки — бриф [planner-editor-shell.md](../../ui/briefs/planner-editor-shell.md), блоки B3/B4/B6 — и без ссылки в строке «Дизайн» в работу не берутся. `0088` (каркас оболочки) макет уже получила — приёмка [`README-audit-shell.md`](../../ui/handoffs/planner/README-audit-shell.md), блоки B1/B2 — и от задач шага 3 не зависит; зато от неё зависит `0084`: индикатору нужен слот в шапке. Эпик разблокирует уже заведённые `0064` и `0065`; лимит 2 МБ бесполезен для пользователя без [0076](0076-TASK-error-middleware-express-errors.md).
 
-| #    | Тип  | Название                                                                                                                                        | Статус | Зависит от | PR  |
-| ---- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ---------- | --- |
-| 0078 | TASK | [Миграция `projects`: `document JSONB`, `preview text NULL`, кодоген, явная проекция колонок](0078-TASK-projects-document-preview-migration.md) | [x]    | 0036       | —   |
-| 0079 | TASK | [Формат в ядре: вход `@uyutno/planner/format`, zod-схема, `serialize`/`parse`, `migrate`](0079-TASK-planner-format-serialize-parse-migrate.md)  | [x]    | 0066       | —   |
-| 0080 | TASK | [Бэкенд документа: `GET`/`PUT …/document`, миграция на чтении, лимит, рейт-лимит](0080-TASK-project-document-api.md)                            | [ ]    | 0078, 0079 | —   |
-| 0081 | TASK | [Неймспейс `persistence` фасада и DI-проп `storage`](0081-TASK-planner-persistence-namespace-and-storage-prop.md)                               | [ ]    | 0080       | —   |
-| 0082 | TASK | [Ручной Save и серверный автосейв раз в 60 с](0082-TASK-planner-manual-save-and-server-autosave.md)                                             | [ ]    | 0081       | —   |
-| 0083 | TASK | [Локальный черновик демо-роута: `planner_demo_draft`, 30 с, diff-guard, квота](0083-TASK-planner-demo-local-draft.md)                           | [ ]    | 0081       | —   |
-| 0084 | TASK | [UI сохранения в шапке: индикатор, тихая иконка, модалка ошибки ручного Save](0084-TASK-planner-save-indicator-and-error-modals.md)             | [ ]    | 0082       | —   |
-| 0085 | TASK | [Загрузка проекта: фазы прогресса, восстановление вида и камер, авто-fit, модалка ошибки](0085-TASK-planner-project-load.md)                    | [ ]    | 0081       | —   |
-| 0086 | TASK | [Golden-фикстуры в формате сейва + детерминированный генератор id](0086-TASK-planner-golden-fixtures-in-save-format.md)                         | [ ]    | 0079       | —   |
-| 0087 | TASK | [`duplicate` копирует документ и превью, «Save As» через create + PUT](0087-TASK-projects-duplicate-document-and-save-as.md)                    | [ ]    | 0080       | —   |
+| #    | Тип  | Название                                                                                                                                        | Статус | Зависит от       | PR  |
+| ---- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ---------------- | --- |
+| 0078 | TASK | [Миграция `projects`: `document JSONB`, `preview text NULL`, кодоген, явная проекция колонок](0078-TASK-projects-document-preview-migration.md) | [x]    | 0036             | —   |
+| 0079 | TASK | [Формат в ядре: вход `@uyutno/planner/format`, zod-схема, `serialize`/`parse`, `migrate`](0079-TASK-planner-format-serialize-parse-migrate.md)  | [x]    | 0066             | —   |
+| 0080 | TASK | [Бэкенд документа: `GET`/`PUT …/document`, миграция на чтении, лимит, рейт-лимит](0080-TASK-project-document-api.md)                            | [ ]    | 0078, 0079       | —   |
+| 0081 | TASK | [Неймспейс `persistence` фасада и DI-проп `storage`](0081-TASK-planner-persistence-namespace-and-storage-prop.md)                               | [ ]    | 0080             | —   |
+| 0082 | TASK | [Ручной Save и серверный автосейв раз в 60 с](0082-TASK-planner-manual-save-and-server-autosave.md)                                             | [ ]    | 0081             | —   |
+| 0083 | TASK | [Локальный черновик демо-роута: `planner_demo_draft`, 30 с, diff-guard, квота](0083-TASK-planner-demo-local-draft.md)                           | [ ]    | 0081             | —   |
+| 0084 | TASK | [UI сохранения в шапке: индикатор, тихая иконка, модалка ошибки ручного Save](0084-TASK-planner-save-indicator-and-error-modals.md)             | [ ]    | 0082, 0088       | —   |
+| 0085 | TASK | [Загрузка проекта: фазы прогресса, восстановление вида и камер, авто-fit, модалка ошибки](0085-TASK-planner-project-load.md)                    | [ ]    | 0081             | —   |
+| 0086 | TASK | [Golden-фикстуры в формате сейва + детерминированный генератор id](0086-TASK-planner-golden-fixtures-in-save-format.md)                         | [ ]    | 0079             | —   |
+| 0087 | TASK | [`duplicate` копирует документ и превью, «Save As» через create + PUT](0087-TASK-projects-duplicate-document-and-save-as.md)                    | [ ]    | 0080             | —   |
+| 0088 | TASK | [Каркас оболочки редактора: шапка 48px, имя проекта, слот индикатора, рамка холста](0088-TASK-planner-editor-shell-frame.md)                    | [ ]    | 0037, 0039, 0063 | —   |
 
 ### Без эпика
 

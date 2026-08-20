@@ -5,7 +5,7 @@
 - Зависит от: 0081
 - Спека: docs/product/features/planner/10-save-load.md («Load проекта» целиком, «Версионирование формата»); docs/adr/0021-hranenie-dokumenta-planera-i-format-sohraneniya.md («Хранилище и API» — две фазы открытия, «Смежное» → «Камера при открытии»); docs/adr/0020-canvas2d-proektsiya-konstruktora.md (камера конструктора в документ не пишется, `fitToContent`); docs/ui/briefs/planner-editor-shell.md (B6 состояния экрана, B1 шапка)
 - Нужен дизайн: да
-- Дизайн: —
+- Дизайн: [planner-editor-ui.md](../../ui/handoffs/planner/planner-editor-ui.md), раздел «Оболочка редактора (P1)»; прототип [Planner Editor Shell.dc.html](../../ui/handoffs/planner/Planner%20Editor%20Shell.dc.html); приёмка — [README-audit-shell.md](../../ui/handoffs/planner/README-audit-shell.md) (блоки B3/B4 закрыты)
 - PR: —
 
 ## Описание
