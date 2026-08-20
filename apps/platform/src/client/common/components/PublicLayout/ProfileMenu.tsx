@@ -7,7 +7,7 @@ import type { User } from '@app/auth';
 
 import { useRegistry } from '../../registry/useRegistry';
 
-import { displayNameOrEmailFallback, initialsFromName } from './userDisplay';
+import { displayNameOrEmailFallback, initialsFromName } from '../../lib/userDisplay';
 
 interface Props {
   user: User;

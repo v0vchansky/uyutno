@@ -4,7 +4,7 @@ import { Link } from 'react-router';
 import type { User } from '@app/auth';
 
 import { LANDING_NAV_ITEMS } from './landingNav';
-import { Logo } from './Logo';
+import { Logo } from '../Logo/Logo';
 import { MobileMenu } from './MobileMenu';
 import { ProfileMenu } from './ProfileMenu';
 

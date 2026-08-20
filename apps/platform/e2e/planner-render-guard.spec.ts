@@ -113,6 +113,21 @@ const expectBufferMatchesCss = (metrics: CanvasMetrics, name: string): void => {
   ).toBeLessThanOrEqual(1);
 };
 
+/**
+ * Обе ширины resize'а — **выше порога входа в редактор** (1024px, задача 0088): ниже него оболочка отдаёт
+ * заглушку «Редактор работает на компьютере» и планер не монтируется вовсе, так что мерить на 768 и 390 стало
+ * нечего. Порог проверяется своей вёрсткой, а этот гвард — про кадры и память.
+ */
+const FIRST_RESIZE_WIDTH = 1200;
+const SECOND_RESIZE_WIDTH = 1100;
+
+/**
+ * Ширина холста при ширине окна `viewportWidth`: рамка холста (задача 0088) забирает по 8px внешнего отступа и
+ * по 1px рамки с каждой стороны. Канвасы занимают эту рамку целиком (ADR 0020 P6).
+ */
+const CANVAS_FRAME_INSET = 2 * (8 + 1);
+const canvasWidthAt = (viewportWidth: number): number => viewportWidth - CANVAS_FRAME_INSET;
+
 /** Активный (видимый) канвас: CSS-размер равен контейнеру, буфер — под DPR. */
 const expectFillsContainer = (metrics: CanvasMetrics, name: string): void => {
   expect(metrics.cssWidth, `${name}: ширина по контейнеру`).toBeCloseTo(metrics.parentWidth, 0);
@@ -285,18 +300,20 @@ test.describe('планер: render-on-demand и утечки', () => {
     const before = await r.canvas2d(0);
     const threeBefore = await r.three(0);
 
-    await page.setViewportSize({ width: 768, height: 900 });
+    await page.setViewportSize({ width: FIRST_RESIZE_WIDTH, height: 900 });
     await page.waitForTimeout(SETTLE_MS);
     const afterFirst = await r.canvas2d(0);
     expect(afterFirst.frame, 'resize даёт кадры активной проекции').toBeGreaterThan(before.frame);
     const firstSize = await r.metrics(0, 'canvas2d');
     expectFillsContainer(firstSize, 'canvas2d после первого resize');
-    expect(Math.abs(firstSize.bufferWidth - 768 * firstSize.dpr)).toBeLessThanOrEqual(1);
+    expect(Math.abs(firstSize.bufferWidth - canvasWidthAt(FIRST_RESIZE_WIDTH) * firstSize.dpr)).toBeLessThanOrEqual(1);
     // Буфер приостановленной Three тоже подстроился: `ResizeObserver` смотрит на контейнер, а не на канвас.
     const hiddenThree = await r.metrics(0, 'three');
-    expect(Math.abs(hiddenThree.bufferWidth - 768 * hiddenThree.dpr)).toBeLessThanOrEqual(1);
+    expect(Math.abs(hiddenThree.bufferWidth - canvasWidthAt(FIRST_RESIZE_WIDTH) * hiddenThree.dpr)).toBeLessThanOrEqual(
+      1,
+    );
 
-    await page.setViewportSize({ width: 390, height: 700 });
+    await page.setViewportSize({ width: SECOND_RESIZE_WIDTH, height: 700 });
     await page.waitForTimeout(SETTLE_MS);
     const afterSecond = await r.canvas2d(0);
     expect(afterSecond.frame).toBeGreaterThan(afterFirst.frame);

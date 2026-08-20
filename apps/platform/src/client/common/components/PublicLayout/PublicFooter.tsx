@@ -1,7 +1,7 @@
 import type React from 'react';
 import { Link } from 'react-router';
 
-import { Logo } from './Logo';
+import { Logo } from '../Logo/Logo';
 
 export type FooterMode = 'guest-landing' | 'auth-landing' | 'app' | 'auth';
 

@@ -8,7 +8,7 @@ import type { User } from '@app/auth';
 import { useRegistry } from '../../registry/useRegistry';
 
 import { LANDING_NAV_ITEMS } from './landingNav';
-import { displayNameOrEmailFallback, initialsFromName } from './userDisplay';
+import { displayNameOrEmailFallback, initialsFromName } from '../../lib/userDisplay';
 
 type Mode = 'guest-landing' | 'auth-landing' | 'app';
 
