@@ -201,4 +201,5 @@
 | 0063 | TASK | [Закрыть `/project/:id` авторизацией (`RequireAuth`)](0063-TASK-project-route-require-auth.md)                                        | [x]    | 0011                     | — (прямой коммит в main)       |
 | 0064 | TASK | [Демо-роут планера: заготовленный проект и локальный черновик](0064-TASK-planner-demo-route-and-guest-draft.md)                       | [ ]    | 0063; шаг 3 (сохранение) | —                              |
 | 0073 | TASK | [`normalize` фазы (1) не идемпотентен: T-стык появляется только на втором прогоне](0073-TASK-planner-normalize-phase1-idempotency.md) | [ ]    | 0054                     | —                              |
+| 0074 | TASK | [Дореверс банка из 16 профилей плинтуса](0074-TASK-plinth-profiles-reverse.md)                                                        | [ ]    | —                        | —                              |
 | 0065 | TASK | [Демо: Save → модалка авторизации → копия проекта в аккаунт](0065-TASK-planner-demo-save-gate-and-project-copy.md)                    | [ ]    | 0064; шаг 3 (сохранение) | —                              |
