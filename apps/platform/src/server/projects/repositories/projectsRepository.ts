@@ -97,6 +97,38 @@ export class ProjectsRepository {
   }
 
   /**
+   * Дублирование проекта — **одним `INSERT … SELECT`**, целиком внутри базы (ADR 0021, задача 0087):
+   * новый `id`, тот же `user_id`, имя с суффиксом, `document` и `preview` из исходной строки, свежие
+   * `created_at`/`updated_at` из дефолтов колонок. Читать документ в Node и писать его обратно значило бы
+   * гонять сотню килобайт через процесс ради копии, которую база делает сама.
+   *
+   * Владение зашито в тот же запрос: не подошедший `where` не выбирает строку, вставлять становится
+   * нечего, и наружу уходит `null` — чужой и несуществующий проект неотличимы, оба дают 404 у менеджера.
+   */
+  async duplicateForUser(id: string, userId: string, nameSuffix: string): Promise<ProjectRow | null> {
+    const row = await this.db
+      .insertInto('projects')
+      .columns(['id', 'user_id', 'name', 'document', 'preview'])
+      .expression(eb =>
+        eb
+          .selectFrom('projects')
+          .select(source => [
+            source.val(uuidv7()).as('id'),
+            source.ref('user_id').as('user_id'),
+            sql<string>`${source.ref('name')} || ${nameSuffix}`.as('name'),
+            source.ref('document').as('document'),
+            source.ref('preview').as('preview'),
+          ])
+          .where('id', '=', id)
+          .where('user_id', '=', userId),
+      )
+      .returning(PROJECT_COLUMNS)
+      .executeTakeFirst();
+
+    return row ? mapRow(row) : null;
+  }
+
+  /**
    * Единственная выборка, которой документ и нужен, — чтение самого документа (ADR 0021). `updated_at`
    * едет тем же запросом: он нужен клиенту как метка серверного снимка и в ответе с пустой колонкой тоже.
    */

@@ -25,16 +25,30 @@ interface ProjectsRouterDeps {
 export const createProjectsRouter = ({ projectsManager }: ProjectsRouterDeps): Router => {
   const router = Router();
 
+  /**
+   * Оба маршрута создают проект, поэтому висят на **одних и тех же экземплярах** лимитеров, а не на двух
+   * парах с одинаковыми числами (задача 0087): счётчик живёт в замыкании `rateLimit`, и отдельный
+   * экземпляр под `duplicate` удваивал бы разрешённое число созданий в час.
+   */
+  const createProjectIpRateLimit = createCreateProjectIpRateLimit();
+  const createProjectUserRateLimit = createCreateProjectUserRateLimit();
+
   router.get('/', requireAuth('api'), createListProjectsController(projectsManager));
   router.post(
     '/',
     requireAuth('api'),
-    createCreateProjectIpRateLimit(),
-    createCreateProjectUserRateLimit(),
+    createProjectIpRateLimit,
+    createProjectUserRateLimit,
     createCreateProjectController(projectsManager),
   );
   router.patch('/:id', requireAuth('api'), createRenameProjectController(projectsManager));
-  router.post('/:id/duplicate', requireAuth('api'), createDuplicateProjectController(projectsManager));
+  router.post(
+    '/:id/duplicate',
+    requireAuth('api'),
+    createProjectIpRateLimit,
+    createProjectUserRateLimit,
+    createDuplicateProjectController(projectsManager),
+  );
   router.delete('/:id', requireAuth('api'), createDeleteProjectController(projectsManager));
 
   router.get(

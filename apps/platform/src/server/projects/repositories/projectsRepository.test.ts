@@ -94,6 +94,53 @@ describe('ProjectsRepository — явная проекция колонок', ()
   });
 });
 
+describe('ProjectsRepository.duplicateForUser', () => {
+  /**
+   * Ядро задачи 0087: копия делается **одним `INSERT … SELECT`**, а не чтением документа в Node и
+   * обратной записью — тащить сотню килобайт через процесс ради копии незачем (ADR 0021). Проверяется это
+   * по компилированному SQL: «документ не проходит через Node» — утверждение о форме запроса, и доказать
+   * его фейком репозитория нельзя.
+   */
+  it('копирует строку одним INSERT … SELECT: документ и превью едут внутри базы', async () => {
+    const { db, compiledSql } = createCapturingDb();
+
+    await new ProjectsRepository(db).duplicateForUser(PROJECT_ID, USER_ID, ' (копия)');
+
+    const sql = singleCompiledSql(compiledSql);
+    expect(sql).toContain('insert into "projects"');
+    expect(sql).toContain('from "projects"');
+    for (const column of HEAVY_COLUMNS) {
+      expect(sql).toContain(`"${column}"`);
+    }
+  });
+
+  it('копирует только свою строку — владение зашито в тот же запрос', async () => {
+    const { db, compiledSql } = createCapturingDb();
+
+    await new ProjectsRepository(db).duplicateForUser(PROJECT_ID, USER_ID, ' (копия)');
+
+    const sql = singleCompiledSql(compiledSql);
+    expect(sql).toContain('"id" = $');
+    expect(sql).toContain('"user_id" = $');
+  });
+
+  it('наружу возвращает по-прежнему только метаданные — тяжёлые колонки в returning не попадают', async () => {
+    const { db, compiledSql } = createCapturingDb();
+
+    await new ProjectsRepository(db).duplicateForUser(PROJECT_ID, USER_ID, ' (копия)');
+
+    const sql = singleCompiledSql(compiledSql);
+    expectLightProjection(sql.slice(sql.indexOf(' returning ')));
+  });
+
+  it('строки не оказалось (чужой или несуществующий проект) — null, а не исключение драйвера', async () => {
+    const { db } = createCapturingDb();
+
+    // DummyDriver не отдаёт строк — ровно то же, что «SELECT ничего не выбрал, вставлять было нечего».
+    await expect(new ProjectsRepository(db).duplicateForUser(PROJECT_ID, USER_ID, ' (копия)')).resolves.toBeNull();
+  });
+});
+
 describe('ProjectsRepository — чтение и запись документа', () => {
   it('findDocumentForUser берёт документ и метку снимка — единственная выборка, которой документ нужен', async () => {
     const { db, compiledSql } = createCapturingDb();

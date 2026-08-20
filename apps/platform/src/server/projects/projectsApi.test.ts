@@ -20,10 +20,11 @@ import type { ProjectsRepository } from './repositories/projectsRepository';
 import { createProjectsRouter } from './router';
 
 /**
- * HTTP-контур пары эндпоинтов документа. Приложение поднимается настоящее и **в том же порядке
- * middleware, что `server.ts`**: половина задачи 0080 — именно порядок (глобальный `express.json` стоит
- * до роутеров, и без исключения по пути роут-локальный лимит 2 МБ молча не сработал бы), проверить его
- * моками контроллера нельзя.
+ * HTTP-контур REST проектов: пара эндпоинтов документа (задача 0080) и дублирование (задача 0087).
+ * Приложение поднимается настоящее и **в том же порядке middleware, что `server.ts`**: половина задачи
+ * 0080 — именно порядок (глобальный `express.json` стоит до роутеров, и без исключения по пути
+ * роут-локальный лимит 2 МБ молча не сработал бы), проверить его моками контроллера нельзя. По той же
+ * причине здесь живут и рейт-лимиты: они middleware, а не логика менеджера.
  */
 
 const OWNER_ID = '01900000-0000-7000-8000-000000000001';
@@ -43,6 +44,8 @@ interface FakeProject {
   userId: string;
   name: string;
   document: JsonObject | null;
+  /** Колонка заведена задачей 0078 и в v0 всегда пуста; дублирование обязано переносить её вместе с документом. */
+  preview: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -59,6 +62,7 @@ const createStore = (): { projects: FakeProject[]; repository: ProjectsRepositor
       userId: OWNER_ID,
       name: 'Квартира',
       document: documentOfVersion(1),
+      preview: 'data:image/png;base64,AAAA',
       createdAt: new Date('2026-08-11T20:00:00.000Z'),
       updatedAt: new Date('2026-08-11T20:00:00.000Z'),
     },
@@ -67,6 +71,7 @@ const createStore = (): { projects: FakeProject[]; repository: ProjectsRepositor
       userId: OWNER_ID,
       name: 'Ни разу не сохранён',
       document: null,
+      preview: null,
       createdAt: new Date('2026-08-12T20:00:00.000Z'),
       updatedAt: new Date('2026-08-12T20:00:00.000Z'),
     },
@@ -87,11 +92,29 @@ const createStore = (): { projects: FakeProject[]; repository: ProjectsRepositor
         userId,
         name,
         document: null,
+        preview: null,
         createdAt: tick(),
         updatedAt: tick(),
       };
       projects.push(project);
       return project;
+    },
+    /**
+     * Модель `INSERT … SELECT`: строка копируется целиком, меняются только `id`, имя и даты. Фейк обязан
+     * повторять именно это — что копия несёт документ, доказывает не он, а SQL-тест репозитория.
+     */
+    duplicateForUser: async (id: string, userId: string, nameSuffix: string) => {
+      const source = own(id, userId);
+      if (!source) return null;
+      const copy: FakeProject = {
+        ...source,
+        id: `generated-${projects.length}`,
+        name: `${source.name}${nameSuffix}`,
+        createdAt: tick(),
+        updatedAt: tick(),
+      };
+      projects.push(copy);
+      return copy;
     },
     renameForUser: async (id: string, userId: string, name: string) => {
       const project = own(id, userId);
@@ -203,6 +226,12 @@ const putDocument = (
   user: string = OWNER_ID,
 ): Promise<TestResponse> =>
   call(server, projectDocumentApiPath(projectId), { method: 'PUT', user, body: JSON.stringify(payload) });
+
+/** Каноническое имя эндпоинта — `/:id/duplicate` (ADR 0021, «Что важно знать»), а не `/:id/copy`. */
+const duplicateProject = (server: TestServer, projectId: string, user: string = OWNER_ID): Promise<TestResponse> =>
+  call(server, `${PROJECTS_API_BASE}/${projectId}/duplicate`, { method: 'POST', user });
+
+const projectIdOf = (response: TestResponse): string => (response.body.project as { id: string }).id;
 
 describe('GET /api/v1/projects/:id/document', () => {
   let server: TestServer;
@@ -316,6 +345,80 @@ describe('PUT /api/v1/projects/:id/document', () => {
   });
 });
 
+describe('POST /api/v1/projects/:id/duplicate', () => {
+  let server: TestServer;
+
+  beforeEach(async () => {
+    server = await startApp();
+    jest.spyOn(console, 'info').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+  afterEach(async () => {
+    jest.restoreAllMocks();
+    await server.close();
+  });
+
+  /**
+   * До задачи 0087 «Дублировать» давало пустой холст вместо копии плана: `duplicate` создавал новый
+   * проект и ничего не копировал. С появлением колонки `document` это уже потеря данных.
+   */
+  it('копия несёт документ исходника — открытие копии показывает тот же план', async () => {
+    const created = await duplicateProject(server, PROJECT_ID);
+
+    expect(created.status).toBe(201);
+    const copyDocument = await call(server, projectDocumentApiPath(projectIdOf(created)), { user: OWNER_ID });
+    expect(copyDocument.status).toBe(200);
+    expect(copyDocument.body.document).toEqual(documentOfVersion(1));
+  });
+
+  it('копия несёт превью исходника', async () => {
+    const created = await duplicateProject(server, PROJECT_ID);
+
+    const copy = server.projects.find(project => project.id === projectIdOf(created));
+    expect(copy?.preview).toBe('data:image/png;base64,AAAA');
+  });
+
+  it('имя копии — «{название} (копия)», исходник не тронут', async () => {
+    const created = await duplicateProject(server, PROJECT_ID);
+
+    expect((created.body.project as { name: string }).name).toBe('Квартира (копия)');
+    expect(server.projects[0]!.name).toBe('Квартира');
+    expect(server.projects[0]!.document).toEqual(documentOfVersion(1));
+  });
+
+  it('проект без документа дублируется и даёт копию с пустым документом, а не падает', async () => {
+    const created = await duplicateProject(server, EMPTY_PROJECT_ID);
+
+    expect(created.status).toBe(201);
+    const copyDocument = await call(server, projectDocumentApiPath(projectIdOf(created)), { user: OWNER_ID });
+    expect(copyDocument.status).toBe(200);
+    expect(copyDocument.body.document).toBeNull();
+  });
+
+  it('чужой и несуществующий проект — 404 без различия', async () => {
+    const foreign = await duplicateProject(server, PROJECT_ID, STRANGER_ID);
+    const missing = await duplicateProject(server, MISSING_PROJECT_ID);
+
+    expect(foreign.status).toBe(404);
+    expect(missing.status).toBe(404);
+    expect(foreign.body).toEqual(missing.body);
+  });
+
+  it('чужой проект копии не создаёт вовсе', async () => {
+    const before = server.projects.length;
+
+    await duplicateProject(server, PROJECT_ID, STRANGER_ID);
+
+    expect(server.projects).toHaveLength(before);
+  });
+
+  it('без сессии — 401', async () => {
+    const response = await call(server, `${PROJECTS_API_BASE}/${PROJECT_ID}/duplicate`, { method: 'POST' });
+
+    expect(response.status).toBe(401);
+  });
+});
+
 describe('лимит тела документа — 2 МБ по сырому телу', () => {
   let server: TestServer;
 
@@ -401,6 +504,27 @@ describe('рейт-лимиты (ADR 0021: квоты на число проек
   it(`POST /projects: ${CREATE_PROJECT_USER_LIMIT} в час на пользователя, следующий — 429`, async () => {
     const inside = await repeat(CREATE_PROJECT_USER_LIMIT, () => createProject(OWNER_ID));
     const overflow = await createProject(OWNER_ID);
+
+    expect(inside.every(response => response.status === 201)).toBe(true);
+    expect(overflow.status).toBe(429);
+  });
+
+  /**
+   * `POST /:id/duplicate` тоже создаёт проект, поэтому висит на **том же счётчике**, что и `POST /projects`
+   * (задача 0087): отдельный экземпляр лимитера удваивал бы разрешённое число созданий в час.
+   */
+  it(`POST /:id/duplicate делит счётчик с POST /projects: после ${CREATE_PROJECT_USER_LIMIT} созданий дубликат — 429`, async () => {
+    const inside = await repeat(CREATE_PROJECT_USER_LIMIT, () => createProject(OWNER_ID));
+    const overflow = await duplicateProject(server, PROJECT_ID);
+
+    expect(inside.every(response => response.status === 201)).toBe(true);
+    expect(overflow.status).toBe(429);
+    expect(typeof overflow.body.error).toBe('string');
+  });
+
+  it(`POST /:id/duplicate: ${CREATE_PROJECT_USER_LIMIT} за окно проходят, следующий — 429`, async () => {
+    const inside = await repeat(CREATE_PROJECT_USER_LIMIT, () => duplicateProject(server, PROJECT_ID));
+    const overflow = await duplicateProject(server, PROJECT_ID);
 
     expect(inside.every(response => response.status === 201)).toBe(true);
     expect(overflow.status).toBe(429);

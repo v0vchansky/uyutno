@@ -23,6 +23,7 @@ interface RepoStub {
   findByIdForUser: jest.Mock;
   create: jest.Mock;
   renameForUser: jest.Mock;
+  duplicateForUser: jest.Mock;
   deleteForUser: jest.Mock;
   findDocumentForUser: jest.Mock;
   findDocumentVersionForUser: jest.Mock;
@@ -35,6 +36,7 @@ const buildRepository = (overrides: Partial<RepoStub> = {}): { repo: ProjectsRep
     findByIdForUser: jest.fn(async () => null),
     create: jest.fn(async ({ userId, name }: { userId: string; name: string }) => buildRow({ userId, name })),
     renameForUser: jest.fn(async (id: string, userId: string, name: string) => buildRow({ id, userId, name })),
+    duplicateForUser: jest.fn(async () => null),
     deleteForUser: jest.fn(async () => undefined),
     findDocumentForUser: jest.fn(async () => null),
     findDocumentVersionForUser: jest.fn(async () => null),
@@ -158,21 +160,40 @@ describe('ProjectsManager.rename', () => {
 
 describe('ProjectsManager.duplicate', () => {
   it('копирует свой проект с суффиксом «(копия)»', async () => {
-    const original = buildRow({ name: 'Гостиная' });
+    const copy = buildRow({ id: 'copy', name: 'Гостиная (копия)' });
     const { repo, stub } = buildRepository({
-      findByIdForUser: jest.fn(async () => original),
+      duplicateForUser: jest.fn(async () => copy),
     });
     const manager = new ProjectsManager(repo);
 
     const dto = await manager.duplicate(OWNER_ID, PROJECT_ID);
 
-    expect(stub.create).toHaveBeenCalledWith({ userId: OWNER_ID, name: 'Гостиная (копия)' });
+    expect(stub.duplicateForUser).toHaveBeenCalledWith(PROJECT_ID, OWNER_ID, ' (копия)');
     expect(dto.name).toBe('Гостиная (копия)');
+    expect(dto.id).toBe('copy');
+  });
+
+  /**
+   * Копирование документа — работа базы, а не процесса (ADR 0021, задача 0087). Менеджер обязан не
+   * читать документ исходника и не писать его в копию: круговой рейс через Node означал бы сотню
+   * килобайт на каждое «Дублировать» из галереи.
+   */
+  it('документ копируется в базе: менеджер его не читает и не записывает', async () => {
+    const { repo, stub } = buildRepository({
+      duplicateForUser: jest.fn(async () => buildRow({ id: 'copy', name: 'Гостиная (копия)' })),
+    });
+    const manager = new ProjectsManager(repo);
+
+    await manager.duplicate(OWNER_ID, PROJECT_ID);
+
+    expect(stub.findDocumentForUser).not.toHaveBeenCalled();
+    expect(stub.updateDocumentForUser).not.toHaveBeenCalled();
+    expect(stub.create).not.toHaveBeenCalled();
   });
 
   it('бросает NotFoundError на чужом проекте', async () => {
     const { repo, stub } = buildRepository({
-      findByIdForUser: jest.fn(async () => null),
+      duplicateForUser: jest.fn(async () => null),
     });
     const manager = new ProjectsManager(repo);
 

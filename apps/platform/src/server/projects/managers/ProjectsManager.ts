@@ -9,6 +9,8 @@ import type { ProjectRow, ProjectsRepository } from '../repositories/projectsRep
 const INVALID_NAME_MESSAGE = 'Неверный формат имени проекта';
 const PROJECT_NOT_FOUND_MESSAGE = 'Проект не найден';
 const INVALID_DOCUMENT_MESSAGE = 'Документ проекта не соответствует формату';
+/** Имя копии — «`{название}` (копия)» (`features/projects.md`, «Дублировать»); склейка идёт в SQL. */
+const DUPLICATE_NAME_SUFFIX = ' (копия)';
 /** Текст пользователю: понятно, что делать (перезагрузить), а не «сервер сломался». */
 const OUTDATED_DOCUMENT_MESSAGE =
   'Проект уже сохранён в более новом формате. Перезагрузите страницу, иначе изменения будут потеряны';
@@ -151,12 +153,19 @@ export class ProjectsManager {
     return toDto(row);
   }
 
+  /**
+   * Дублирование копирует **и документ, и превью** (ADR 0021, «Смежное»): пользователь жмёт «Дублировать»
+   * в галерее, документа на руках у него нет, и копией обязан заниматься сервер. Вся работа — один
+   * `INSERT … SELECT` в репозитории; менеджер только называет копию и переводит «строки нет» в 404.
+   *
+   * Это **не** «Save As»: тот сохраняет состояние с экрана, а не последний серверный снимок, и делается
+   * `POST /projects` + `PUT …/document` с клиента. Слить их в один вызов нельзя, не нарушив спеку 10.
+   */
   async duplicate(userId: string, id: string): Promise<ProjectDto> {
-    const existing = await this.projectsRepository.findByIdForUser(id, userId);
-    if (!existing) {
+    const row = await this.projectsRepository.duplicateForUser(id, userId, DUPLICATE_NAME_SUFFIX);
+    if (!row) {
       throw new NotFoundError(PROJECT_NOT_FOUND_MESSAGE);
     }
-    const row = await this.projectsRepository.create({ userId, name: `${existing.name} (копия)` });
     return toDto(row);
   }
 
