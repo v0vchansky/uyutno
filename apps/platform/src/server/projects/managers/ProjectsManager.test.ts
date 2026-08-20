@@ -1,4 +1,6 @@
-import { NotFoundError, ValidationError } from '@server/common';
+import type { JsonObject, Migration } from '@uyutno/planner/format';
+
+import { ConflictError, NotFoundError, ValidationError } from '@server/common';
 
 import type { ProjectRow, ProjectsRepository } from '../repositories/projectsRepository';
 import { ProjectsManager } from './ProjectsManager';
@@ -22,6 +24,9 @@ interface RepoStub {
   create: jest.Mock;
   renameForUser: jest.Mock;
   deleteForUser: jest.Mock;
+  findDocumentForUser: jest.Mock;
+  findDocumentVersionForUser: jest.Mock;
+  updateDocumentForUser: jest.Mock;
 }
 
 const buildRepository = (overrides: Partial<RepoStub> = {}): { repo: ProjectsRepository; stub: RepoStub } => {
@@ -31,9 +36,58 @@ const buildRepository = (overrides: Partial<RepoStub> = {}): { repo: ProjectsRep
     create: jest.fn(async ({ userId, name }: { userId: string; name: string }) => buildRow({ userId, name })),
     renameForUser: jest.fn(async (id: string, userId: string, name: string) => buildRow({ id, userId, name })),
     deleteForUser: jest.fn(async () => undefined),
+    findDocumentForUser: jest.fn(async () => null),
+    findDocumentVersionForUser: jest.fn(async () => null),
+    updateDocumentForUser: jest.fn(async () => new Date()),
     ...overrides,
   };
   return { repo: stub as unknown as ProjectsRepository, stub };
+};
+
+const SAVED_AT = new Date('2026-08-11T20:00:00.000Z');
+
+/** Минимальный документ, проходящий `documentSchema`: остальное схема дефолтит. */
+const documentOfVersion = (version: number): JsonObject => ({
+  format: 'uyutno.planner',
+  version,
+  floors: [{ id: 'floor-1' }],
+});
+
+/**
+ * Фиктивный шаг цепочки: в v0 боевая цепочка пуста, и на ней `migrate` — тождество с `changed: false`.
+ * Проверить перезапись на чтении можно только цепочкой-параметром — ровно ради этого `migrateWith`
+ * и принимает её отдельным аргументом (задача 0079), а менеджер — конструктором.
+ */
+const BUMP_TO_V2: Migration = raw => ({ ...raw, version: 2, migratedBy: 'test-step' });
+
+/**
+ * Колонка `projects.document` как она есть в БД: **триггера на `updated_at` нет** (задача 0078),
+ * поэтому дата двигается ровно тогда, когда репозиторий передал её в `set`. Фейк моделирует именно это,
+ * иначе «дата не сдвинулась» проверялось бы против заглушки, которая её и не умеет двигать.
+ */
+const buildDocumentColumn = (
+  initial: JsonObject | null,
+  updatedAt: Date = SAVED_AT,
+): { column: { document: JsonObject | null; updatedAt: Date }; overrides: Partial<RepoStub> } => {
+  const column = { document: initial, updatedAt };
+  const overrides: Partial<RepoStub> = {
+    findDocumentForUser: jest.fn(async (_id: string, userId: string) =>
+      userId === OWNER_ID ? { document: column.document, updatedAt: column.updatedAt } : null,
+    ),
+    findDocumentVersionForUser: jest.fn(async (_id: string, userId: string) => {
+      if (userId !== OWNER_ID) return null;
+      const version = column.document?.['version'];
+      return { version: typeof version === 'number' ? version : null };
+    }),
+    updateDocumentForUser: jest.fn(
+      async (_id: string, _userId: string, document: JsonObject, options: { touchUpdatedAt: boolean }) => {
+        column.document = document;
+        if (options.touchUpdatedAt) column.updatedAt = new Date('2027-03-04T05:06:07.000Z');
+        return column.updatedAt;
+      },
+    ),
+  };
+  return { column, overrides };
 };
 
 describe('ProjectsManager.create', () => {
@@ -168,5 +222,213 @@ describe('ProjectsManager.list', () => {
       createdAt: rowA.createdAt.toISOString(),
       updatedAt: rowA.updatedAt.toISOString(),
     });
+  });
+});
+
+describe('ProjectsManager.getDocument — миграция на чтении (ADR 0021)', () => {
+  beforeEach(() => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(console, 'info').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('migrate что-то изменил — колонка перезаписана сразу, клиент получает уже мигрированный документ', async () => {
+    const { column, overrides } = buildDocumentColumn(documentOfVersion(1));
+    const { repo, stub } = buildRepository(overrides);
+    const manager = new ProjectsManager(repo, [BUMP_TO_V2]);
+
+    const result = await manager.getDocument(OWNER_ID, PROJECT_ID);
+
+    expect(result.document).toEqual({ ...documentOfVersion(1), version: 2, migratedBy: 'test-step' });
+    expect(stub.updateDocumentForUser).toHaveBeenCalledTimes(1);
+    expect(stub.updateDocumentForUser).toHaveBeenCalledWith(PROJECT_ID, OWNER_ID, result.document, {
+      touchUpdatedAt: false,
+    });
+    expect(column.document).toEqual(result.document);
+  });
+
+  it('служебная перезапись НЕ двигает updated_at: значение до и после совпадает', async () => {
+    const { column, overrides } = buildDocumentColumn(documentOfVersion(1));
+    const { repo, stub } = buildRepository(overrides);
+    const manager = new ProjectsManager(repo, [BUMP_TO_V2]);
+    const before = column.updatedAt;
+
+    const result = await manager.getDocument(OWNER_ID, PROJECT_ID);
+
+    // Запись обязана была произойти — иначе «дата не сдвинулась» ничего не значит.
+    expect(stub.updateDocumentForUser).toHaveBeenCalledWith(PROJECT_ID, OWNER_ID, expect.anything(), {
+      touchUpdatedAt: false,
+    });
+    expect(column.updatedAt).toBe(before);
+    expect(result.updatedAt).toBe(before.toISOString());
+  });
+
+  it('migrate ничего не изменил — колонка не переписывается вовсе', async () => {
+    const { overrides } = buildDocumentColumn(documentOfVersion(1));
+    const { repo, stub } = buildRepository(overrides);
+    const manager = new ProjectsManager(repo);
+
+    const result = await manager.getDocument(OWNER_ID, PROJECT_ID);
+
+    expect(result.document).toEqual(documentOfVersion(1));
+    expect(stub.updateDocumentForUser).not.toHaveBeenCalled();
+  });
+
+  it('не удалась перезапись — документ всё равно отдаётся мигрированным, ошибка уходит в логгер', async () => {
+    const { overrides } = buildDocumentColumn(documentOfVersion(1));
+    const { repo } = buildRepository({
+      ...overrides,
+      updateDocumentForUser: jest.fn(async () => {
+        throw new Error('deadlock detected');
+      }),
+    });
+    const manager = new ProjectsManager(repo, [BUMP_TO_V2]);
+
+    const result = await manager.getDocument(OWNER_ID, PROJECT_ID);
+
+    expect(result.document).toEqual({ ...documentOfVersion(1), version: 2, migratedBy: 'test-step' });
+    expect(result.updatedAt).toBe(SAVED_AT.toISOString());
+    expect(console.error).toHaveBeenCalled();
+  });
+
+  it('битый документ в колонке отдаётся как есть — модалку показывает клиент', async () => {
+    const broken = { format: 'uyutno.planner', floors: [] } as unknown as JsonObject;
+    const { overrides } = buildDocumentColumn(broken);
+    const { repo, stub } = buildRepository(overrides);
+    const manager = new ProjectsManager(repo);
+
+    const result = await manager.getDocument(OWNER_ID, PROJECT_ID);
+
+    expect(result.document).toEqual(broken);
+    expect(stub.updateDocumentForUser).not.toHaveBeenCalled();
+  });
+
+  it('пустая колонка — { document: null } и метка снимка, а не 404', async () => {
+    const { overrides } = buildDocumentColumn(null);
+    const { repo } = buildRepository(overrides);
+    const manager = new ProjectsManager(repo);
+
+    const result = await manager.getDocument(OWNER_ID, PROJECT_ID);
+
+    expect(result.document).toBeNull();
+    expect(result.updatedAt).toBe(SAVED_AT.toISOString());
+  });
+
+  it('чужой проект — NotFoundError, без различия с несуществующим', async () => {
+    const { overrides } = buildDocumentColumn(documentOfVersion(1));
+    const { repo, stub } = buildRepository(overrides);
+    const manager = new ProjectsManager(repo);
+
+    await expect(manager.getDocument(STRANGER_ID, PROJECT_ID)).rejects.toBeInstanceOf(NotFoundError);
+    expect(stub.updateDocumentForUser).not.toHaveBeenCalled();
+  });
+});
+
+describe('ProjectsManager.saveDocument', () => {
+  beforeEach(() => {
+    jest.spyOn(console, 'info').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('сохраняет документ владельцу и двигает updated_at', async () => {
+    const { column, overrides } = buildDocumentColumn(documentOfVersion(1));
+    const { repo, stub } = buildRepository(overrides);
+    const manager = new ProjectsManager(repo);
+    const before = column.updatedAt;
+
+    const result = await manager.saveDocument(OWNER_ID, PROJECT_ID, documentOfVersion(1), { autosave: false });
+
+    expect(stub.updateDocumentForUser).toHaveBeenCalledWith(PROJECT_ID, OWNER_ID, documentOfVersion(1), {
+      touchUpdatedAt: true,
+    });
+    expect(column.updatedAt).not.toBe(before);
+    expect(result.updatedAt).toBe(column.updatedAt.toISOString());
+  });
+
+  it('version ниже сохранённой — ConflictError, документ не тронут', async () => {
+    const { column, overrides } = buildDocumentColumn(documentOfVersion(3));
+    const { repo, stub } = buildRepository(overrides);
+    const manager = new ProjectsManager(repo);
+
+    await expect(
+      manager.saveDocument(OWNER_ID, PROJECT_ID, documentOfVersion(2), { autosave: true }),
+    ).rejects.toBeInstanceOf(ConflictError);
+    expect(stub.updateDocumentForUser).not.toHaveBeenCalled();
+    expect(column.document).toEqual(documentOfVersion(3));
+  });
+
+  it('version равная сохранённой проходит', async () => {
+    const { overrides } = buildDocumentColumn(documentOfVersion(3));
+    const { repo, stub } = buildRepository(overrides);
+    const manager = new ProjectsManager(repo);
+
+    await manager.saveDocument(OWNER_ID, PROJECT_ID, documentOfVersion(3), { autosave: false });
+
+    expect(stub.updateDocumentForUser).toHaveBeenCalled();
+  });
+
+  it('version выше сохранённой проходит', async () => {
+    const { overrides } = buildDocumentColumn(documentOfVersion(3));
+    const { repo, stub } = buildRepository(overrides);
+    const manager = new ProjectsManager(repo);
+
+    await manager.saveDocument(OWNER_ID, PROJECT_ID, documentOfVersion(4), { autosave: false });
+
+    expect(stub.updateDocumentForUser).toHaveBeenCalled();
+  });
+
+  it.each([
+    ['нет format', { version: 1, floors: [] }],
+    ['нет floors', { format: 'uyutno.planner', version: 1 }],
+    ['мусор вместо объекта', 'не документ'],
+    ['ничего не прислали', undefined],
+  ])('невалидный конверт (%s) — ValidationError до похода в БД', async (_name, payload) => {
+    const { overrides } = buildDocumentColumn(null);
+    const { repo, stub } = buildRepository(overrides);
+    const manager = new ProjectsManager(repo);
+
+    await expect(manager.saveDocument(OWNER_ID, PROJECT_ID, payload, { autosave: false })).rejects.toBeInstanceOf(
+      ValidationError,
+    );
+    expect(stub.updateDocumentForUser).not.toHaveBeenCalled();
+  });
+
+  it('чужой проект — NotFoundError, запись не идёт', async () => {
+    const { overrides } = buildDocumentColumn(documentOfVersion(1));
+    const { repo, stub } = buildRepository(overrides);
+    const manager = new ProjectsManager(repo);
+
+    await expect(
+      manager.saveDocument(STRANGER_ID, PROJECT_ID, documentOfVersion(1), { autosave: false }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    expect(stub.updateDocumentForUser).not.toHaveBeenCalled();
+  });
+
+  it('первое сохранение в пустую колонку проходит — сравнивать не с чем', async () => {
+    const { column, overrides } = buildDocumentColumn(null);
+    const { repo } = buildRepository(overrides);
+    const manager = new ProjectsManager(repo);
+
+    await manager.saveDocument(OWNER_ID, PROJECT_ID, documentOfVersion(1), { autosave: false });
+
+    expect(column.document).toEqual(documentOfVersion(1));
+  });
+
+  it('флаг autosave принимается и попадает в лог, на поведение не влияя', async () => {
+    const { overrides } = buildDocumentColumn(documentOfVersion(1));
+    const { repo, stub } = buildRepository(overrides);
+    const manager = new ProjectsManager(repo);
+
+    await manager.saveDocument(OWNER_ID, PROJECT_ID, documentOfVersion(1), { autosave: true });
+
+    expect(stub.updateDocumentForUser).toHaveBeenCalledWith(PROJECT_ID, OWNER_ID, documentOfVersion(1), {
+      touchUpdatedAt: true,
+    });
+    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('autosave'));
   });
 });

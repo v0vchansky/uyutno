@@ -1,4 +1,5 @@
 export { errorMiddleware } from './middleware/error';
+export { createGlobalJsonParser, GLOBAL_JSON_BODY_LIMIT } from './middleware/jsonBody';
 export { pageMiddleware } from './middleware/page';
 export { registerPageRoutes } from './pageRoutes';
 export { createServerRegistry } from './createRegistry';

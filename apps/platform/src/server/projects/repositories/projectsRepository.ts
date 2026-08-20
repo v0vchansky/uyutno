@@ -1,4 +1,5 @@
-import type { Kysely } from 'kysely';
+import type { JsonObject } from '@uyutno/planner/format';
+import { sql, type Kysely } from 'kysely';
 import { uuidv7 } from 'uuidv7';
 
 import { NotFoundError } from '@server/common';
@@ -9,6 +10,12 @@ export interface ProjectRow {
   userId: string;
   name: string;
   createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ProjectDocumentRow {
+  /** `null` — проект создан, но ни разу не сохранён. Не «нет проекта» (ADR 0021). */
+  document: JsonObject | null;
   updatedAt: Date;
 }
 
@@ -87,6 +94,75 @@ export class ProjectsRepository {
     }
 
     return mapRow(row);
+  }
+
+  /**
+   * Единственная выборка, которой документ и нужен, — чтение самого документа (ADR 0021). `updated_at`
+   * едет тем же запросом: он нужен клиенту как метка серверного снимка и в ответе с пустой колонкой тоже.
+   */
+  async findDocumentForUser(id: string, userId: string): Promise<ProjectDocumentRow | null> {
+    const row = await this.db
+      .selectFrom('projects')
+      .select(['document', 'updated_at'])
+      .where('id', '=', id)
+      .where('user_id', '=', userId)
+      .executeTakeFirst();
+
+    if (!row) return null;
+
+    return { document: (row.document ?? null) as JsonObject | null, updatedAt: row.updated_at };
+  }
+
+  /**
+   * Версия сохранённого документа — без самого документа: `PUT` сверяет с ней пришедшую (ADR 0021,
+   * «версия только растёт»), и тянуть ради одного числа сотню килобайт на каждом автосейве незачем.
+   *
+   * `null` наружу означает «строки нет» (чужой или несуществующий проект), `{ version: null }` —
+   * «проект есть, документа ещё нет». Разница существенная: первое даёт 404, второе — обычную запись.
+   * `->>` вместо `->` и разбор числа в JS вместо `::int` в SQL: непригодное значение в колонке должно
+   * давать «версии нет», а не ошибку драйвера в 500.
+   */
+  async findDocumentVersionForUser(id: string, userId: string): Promise<{ version: number | null } | null> {
+    const row = await this.db
+      .selectFrom('projects')
+      .select(sql<string | null>`"document" ->> 'version'`.as('version'))
+      .where('id', '=', id)
+      .where('user_id', '=', userId)
+      .executeTakeFirst();
+
+    if (!row) return null;
+
+    const version = row.version === null ? Number.NaN : Number.parseInt(row.version, 10);
+    return { version: Number.isInteger(version) ? version : null };
+  }
+
+  /**
+   * Запись документа. **`touchUpdatedAt` — несущий параметр, а не удобство.**
+   *
+   * Настоящее сохранение (`PUT`) дату меняет; служебная перезапись после миграции на чтении — нет,
+   * иначе после выката новой версии формата достаточно полистать старые проекты, чтобы галерея,
+   * отсортированная по дате изменения, перетасовалась сама собой (ADR 0021). Триггера на `updated_at`
+   * в схеме нет (задача 0078), поэтому «не двигать» — это буквально «не передавать колонку в `set`».
+   */
+  async updateDocumentForUser(
+    id: string,
+    userId: string,
+    document: JsonObject,
+    options: { touchUpdatedAt: boolean },
+  ): Promise<Date> {
+    const row = await this.db
+      .updateTable('projects')
+      .set({ document, ...(options.touchUpdatedAt ? { updated_at: new Date() } : {}) })
+      .where('id', '=', id)
+      .where('user_id', '=', userId)
+      .returning('updated_at')
+      .executeTakeFirst();
+
+    if (!row) {
+      throw new NotFoundError(`Project ${id} not found`);
+    }
+
+    return row.updated_at;
   }
 
   async deleteForUser(id: string, userId: string): Promise<void> {

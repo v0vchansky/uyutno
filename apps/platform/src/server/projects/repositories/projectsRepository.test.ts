@@ -93,3 +93,72 @@ describe('ProjectsRepository — явная проекция колонок', ()
     expectLightProjection(singleCompiledSql(compiledSql));
   });
 });
+
+describe('ProjectsRepository — чтение и запись документа', () => {
+  it('findDocumentForUser берёт документ и метку снимка — единственная выборка, которой документ нужен', async () => {
+    const { db, compiledSql } = createCapturingDb();
+
+    await new ProjectsRepository(db).findDocumentForUser(PROJECT_ID, USER_ID);
+
+    const sql = singleCompiledSql(compiledSql);
+    expect(sql).toContain('"document"');
+    expect(sql).toContain('"updated_at"');
+    expect(sql).not.toContain('preview');
+    expect(sql).not.toContain('*');
+  });
+
+  it('findDocumentVersionForUser не тянет весь документ ради одного числа', async () => {
+    const { db, compiledSql } = createCapturingDb();
+
+    await new ProjectsRepository(db).findDocumentVersionForUser(PROJECT_ID, USER_ID);
+
+    // Точное сравнение: «не тянет документ» здесь означает, что колонка вообще не попадает в проекцию
+    // сама по себе — только выражение над ней.
+    expect(singleCompiledSql(compiledSql)).toBe(
+      `select "document" ->> 'version' as "version" from "projects" where "id" = $1 and "user_id" = $2`,
+    );
+  });
+
+  /**
+   * Ядро задачи 0080: служебная перезапись после миграции не двигает `updated_at`. Триггера в схеме нет
+   * (задача 0078), поэтому «не двигать» = «колонки нет в `set`» — и проверяется это по компилированному SQL,
+   * а не по значению в фейке: значение в фейке доказывало бы только сам фейк.
+   */
+  it('updateDocumentForUser с touchUpdatedAt: false не пишет updated_at в set', async () => {
+    const { db, compiledSql } = createCapturingDb();
+
+    await expect(
+      new ProjectsRepository(db).updateDocumentForUser(
+        PROJECT_ID,
+        USER_ID,
+        { format: 'uyutno.planner' },
+        {
+          touchUpdatedAt: false,
+        },
+      ),
+    ).rejects.toThrow();
+
+    const sql = singleCompiledSql(compiledSql);
+    expect(sql).toContain('set "document"');
+    expect(sql).not.toContain('set "document" = $1, "updated_at"');
+    expect(sql.slice(0, sql.indexOf(' where '))).not.toContain('updated_at');
+  });
+
+  it('updateDocumentForUser с touchUpdatedAt: true двигает updated_at — настоящее сохранение дату меняет', async () => {
+    const { db, compiledSql } = createCapturingDb();
+
+    await expect(
+      new ProjectsRepository(db).updateDocumentForUser(
+        PROJECT_ID,
+        USER_ID,
+        { format: 'uyutno.planner' },
+        {
+          touchUpdatedAt: true,
+        },
+      ),
+    ).rejects.toThrow();
+
+    const sql = singleCompiledSql(compiledSql);
+    expect(sql.slice(0, sql.indexOf(' where '))).toContain('updated_at');
+  });
+});

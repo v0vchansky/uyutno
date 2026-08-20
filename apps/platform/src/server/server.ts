@@ -6,12 +6,15 @@ import { fileURLToPath } from 'node:url';
 import { createAuthRouter, createLogoutRouter, createOAuthCallbackRouter, createSessionMiddleware } from '@server/auth';
 import {
   createClientAssetsResolver,
+  createGlobalJsonParser,
   createServerRegistry,
   errorMiddleware,
   pageMiddleware,
   registerPageRoutes,
 } from '@server/application';
 import { createProjectsRouter } from '@server/projects';
+
+import { PROJECTS_API_BASE, PROJECT_DOCUMENT_API_PATTERN } from '../shared/projects';
 
 const PORT = 4000;
 const STATIC_URL = '/static';
@@ -24,7 +27,7 @@ const app = express();
 const registry = createServerRegistry();
 
 app.disable('etag');
-app.use(express.json({ limit: '10mb' }));
+app.use(createGlobalJsonParser({ except: [PROJECT_DOCUMENT_API_PATTERN] }));
 app.use(cookieParser());
 app.use(createSessionMiddleware(registry.authManager));
 
@@ -49,7 +52,7 @@ app.use(
 );
 app.use('/auth', createLogoutRouter({ sessionManager: registry.sessionManager }));
 
-app.use('/api/v1/projects', createProjectsRouter({ projectsManager: registry.projectsManager }));
+app.use(PROJECTS_API_BASE, createProjectsRouter({ projectsManager: registry.projectsManager }));
 
 app.use(STATIC_URL, express.static(staticPath));
 app.use(express.static(publicPath));
