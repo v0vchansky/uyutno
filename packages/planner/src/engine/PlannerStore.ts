@@ -11,7 +11,7 @@ import {
   type HistoryZone,
 } from './history/HistoryLog';
 import type { PlannerBus } from './PlannerBus';
-import { normalize, rebuild, type DerivedState, type WarningSink } from './rebuild';
+import { normalize, rebuild, type DerivedState, type NormalizeOptions, type WarningSink } from './rebuild';
 import { err, ok, type Result } from '../document/Result';
 
 /**
@@ -58,14 +58,26 @@ export class PlannerStore {
   /** Куда уходят предупреждения ядра (soft-fail обхода контуров, нарушенные инварианты нормализации). */
   private readonly warn: WarningSink;
   private readonly hooks: StoreHooks;
+  /**
+   * Генератор id для новых записей нормализации. В проде не передаётся — по умолчанию это `document/id.ts`
+   * (`uuidv7`). Инжектируется тестами, которым нужен воспроизводимый снимок: golden-фикстуры детерминируются
+   * тем же способом (ADR 0021, «Смежное» → «Golden-фикстуры»), а путь открытия проекта идёт через стор,
+   * поэтому без этой опции детерминизм обрывался бы на границе раннера.
+   */
+  private readonly createId: NormalizeOptions['createId'];
 
   constructor(
     private readonly bus: PlannerBus,
     initial: PlannerDocument,
-    { warn = () => {}, hooks = { beforeReplace: () => {} } }: { warn?: WarningSink; hooks?: StoreHooks } = {},
+    {
+      warn = () => {},
+      hooks = { beforeReplace: () => {} },
+      createId,
+    }: { warn?: WarningSink; hooks?: StoreHooks; createId?: NormalizeOptions['createId'] } = {},
   ) {
     this.warn = warn;
     this.hooks = hooks;
+    this.createId = createId;
     const built = this.runRebuild(freeze(initial, true));
     this.document = built.document;
     this.derived = built.derived;
@@ -188,7 +200,7 @@ export class PlannerStore {
 
   /** Две фазы rebuild: нормализация хранимого через черновик, производное — от готового снимка. */
   private runRebuild(base: PlannerDocument): { document: PlannerDocument; derived: DerivedState } {
-    const document = immer.produce(base, draft => normalize(draft, { warn: this.warn }));
+    const document = immer.produce(base, draft => normalize(draft, { warn: this.warn, createId: this.createId }));
     return { document, derived: freeze(rebuild(document, { warn: this.warn }), true) };
   }
 
