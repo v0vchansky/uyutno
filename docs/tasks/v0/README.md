@@ -203,4 +203,5 @@
 | 0073 | TASK | [`normalize` фазы (1) не идемпотентен: T-стык появляется только на втором прогоне](0073-TASK-planner-normalize-phase1-idempotency.md) | [x]    | 0054                     | —                              |
 | 0074 | TASK | [Дореверс банка из 16 профилей плинтуса](0074-TASK-plinth-profiles-reverse.md)                                                        | [x]    | —                        | —                              |
 | 0075 | TASK | [Отбраковка зон до резки: фаза (3) `normalize` перед фазой (1)](0075-TASK-planner-normalize-area-validation-before-cut.md)            | [ ]    | 0069                     | —                              |
+| 0076 | TASK | [`errorMiddleware` не знает ошибок Express: 413 приходит клиенту как 500](0076-TASK-error-middleware-express-errors.md)               | [ ]    | 0008                     | —                              |
 | 0065 | TASK | [Демо: Save → модалка авторизации → копия проекта в аккаунт](0065-TASK-planner-demo-save-gate-and-project-copy.md)                    | [ ]    | 0064; шаг 3 (сохранение) | —                              |
