@@ -153,7 +153,7 @@
 | 0048 | TASK | [Ядро планера без Three: документ, `PlannerManager`, шина, история-заглушка, мост React](0048-TASK-planner-core-document-manager-bus.md)                              | [x]    | 0047       | — (прямой коммит в main)  |
 | 0049 | TASK | [Проекция в Three: канвас, ортокамера top, пустая сцена, render-on-demand, resize/dispose, perf/leak-гвард](0049-TASK-planner-three-projection-canvas-render-loop.md) | [x]    | 0048       | — (прямой коммит в main)  |
 
-### 0050 · Планер — шаг 2: контуры → стены → комнаты в 2D · [ ]
+### 0050 · Планер — шаг 2: контуры → стены → комнаты в 2D · [x]
 
 Спека и общее описание: [0050-EPIC-planner-step2-contours-walls-rooms-2d.md](0050-EPIC-planner-step2-contours-walls-rooms-2d.md). Порядок шагов планера — [planner-build-order.md](../../product/architecture/planner-build-order.md) (шаг 2, ADR C/D/E). Кодовые задачи 0053–0062 заведены заранее с пометкой «скоуп уточняется после принятия ADR»; весь движок (0053–0055, 0057–0059, 0062) от макета не зависит. Макет для 0056/0060/0061 приехал и принят — [`docs/ui/handoffs/planner/`](../../ui/handoffs/planner/), приёмка в [`README-audit.md`](../../ui/handoffs/planner/README-audit.md); 0061 до старта нужно закрыть пункты 1–2 раздела «Что осталось» этого аудита.
 
