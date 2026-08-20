@@ -189,6 +189,39 @@ const place = (state: MakingWallsState, raw: PlanPosition, ctx: ToolContext): Pl
 };
 
 /**
+ * Сдвиг уже поставленной точки из инпута длины (спека 07 «Правка размера по клику»: второй инпут двигает первую
+ * точку и «отращивает» контур с обратной стороны): координата ставится ровно как передали, без снапа — как в
+ * `place`. Гарды те же, что у входа новой точки (спека 01 «Ограничения»): совпадение с другой зафиксированной
+ * точкой — `duplicate-point`, ребро до соседа по контуру (для открытой ленты у крайних точек он один) короче
+ * `MIN_WALL_LENGTH` — `too-short`. Замыкания здесь нет: команда двигает точку, а не ставит новую. Один вызов —
+ * один шаг локального стека (ADR 0018 D8); сдвиг в ту же координату — no-op без события.
+ */
+const moveDraftPoint = (state: MakingWallsState, index: number, raw: PlanPosition, ctx: ToolContext): PlaceStep => {
+  const { points } = state;
+  const current = points[index];
+  // Индекс вне контура автомат отсекает до обработчика (`unknown-draft-point`) — здесь это просто no-op.
+  if (current === undefined) return { state };
+  const point = { x: quantize(raw.x), y: quantize(raw.y) };
+  if (pointsMatch(current, point)) return { state };
+  if (points.some((fixed, i) => i !== index && pointsMatch(fixed, point))) {
+    return ignore(state, 'duplicate-point', point, ctx);
+  }
+  const neighbours = [points[index - 1], points[index + 1]];
+  if (neighbours.some(neighbour => neighbour && euclDist(neighbour, point) < MIN_WALL_LENGTH)) {
+    return ignore(state, 'too-short', point, ctx);
+  }
+  // `startNeighbours` при `index === 0` не пересчитываются: соседи старта фиксируются постановкой первой точки,
+  // правка длины T-стык не переигрывает.
+  const core: WallsCore = {
+    ...coreOf(state),
+    points: points.map((fixed, i) => (i === index ? point : fixed)),
+    undo: [...state.undo, points],
+    redo: [],
+  };
+  return { state: frame(core, ctx.pointer, ctx) };
+};
+
+/**
  * Ctrl+Z: снять последнюю поставленную точку (снимок из локального стека); дошли до пустого холста → `editing`
  * (спека 09 «Undo до пустого холста»). Пустой стек (точек ещё нет) — no-op: кнопка панели по нему disabled (ADR 0019 E3).
  */
@@ -252,6 +285,7 @@ export const makingWallsHandler: ToolHandler<MakingWallsState> = {
     }
   },
   commitPoint: (state, point, ctx) => place(state, point, ctx),
+  setDraftPoint: (state, index, point, ctx) => moveDraftPoint(state, index, point, ctx),
   refresh: (state, ctx) => {
     // Документ мог измениться под первой точкой (команда извне) — соседи старта пересчитываются по свежему индексу.
     const first = state.points[0];

@@ -82,6 +82,12 @@ export interface ToolHandler<S extends ToolVariant> {
   key(state: S, action: HandlerKeyAction, ctx: ToolContext): KeyStep;
   /** Постановка точки из инпута длины (Q27) без снапа; вне рисования — не определено (`not-drawing`). */
   commitPoint?(state: S, point: PlanPosition, ctx: ToolContext): PlaceStep;
+  /**
+   * Сдвиг уже поставленной точки рисуемого контура из инпута длины (спека 07: второй инпут двигает первую точку
+   * и «отращивает» контур с обратной стороны). Как и `commitPoint`, точка приходит без снапа. Вне рисования не
+   * определён.
+   */
+  setDraftPoint?(state: S, index: number, point: PlanPosition, ctx: ToolContext): PlaceStep;
   /** Окружение изменилось (viewport, флаги снапа, документ): пересчёт производного от последнего ввода. */
   refresh?(state: S, ctx: ToolContext): Step;
   /**

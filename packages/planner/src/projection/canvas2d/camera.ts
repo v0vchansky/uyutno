@@ -75,6 +75,63 @@ export interface CanvasSize {
   height: number;
 }
 
+/**
+ * Сколько CSS px кадра с каждой стороны закрыто **непрозрачными оверлеями скина** (рейл, панель инструментов,
+ * полоса подсказок с группой контролов). Канвас лежит `inset: 0` во всю ширину контейнера, панели — оверлеи
+ * поверх него (решение 13 брифа: каталог и панели холст не отодвигают), поэтому камера обязана знать про
+ * закрытую часть: иначе `fitToContent` центрует план по всему кадру и часть геометрии уезжает под глухую
+ * панель, откуда её не достать ни кликом, ни взглядом.
+ *
+ * Значения приходят **снаружи** — их сообщает сам скин (`ui/ConstructorSkin`, `setViewportInsets`): проекция
+ * размеров панелей не знает и знать не должна (ADR 0015: `projection/` про React-скин ничего не знает).
+ */
+export interface ViewportInsets {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+/** Кадр без оверлеев — состояние до того, как скин сообщит свои размеры (и весь headless-режим). */
+export const NO_INSETS: Readonly<ViewportInsets> = Object.freeze({ left: 0, right: 0, top: 0, bottom: 0 });
+
+/** Видимая часть кадра: её размер и смещение её центра относительно центра кадра, CSS px. */
+export interface SafeFrame {
+  width: number;
+  height: number;
+  offsetX: number;
+  offsetY: number;
+}
+
+/**
+ * Видимая часть кадра по insets. Если оверлеи «съели» кадр целиком (узкое окно, кривые значения снаружи) —
+ * вырождаемся в полный кадр: лучше вписать план под панель, чем считать fit по отрицательному размеру.
+ */
+export const safeFrameOf = (size: CanvasSize, insets: ViewportInsets = NO_INSETS): SafeFrame => {
+  const width = size.width - insets.left - insets.right;
+  const height = size.height - insets.top - insets.bottom;
+  if (width <= 0 || height <= 0) return { width: size.width, height: size.height, offsetX: 0, offsetY: 0 };
+  return {
+    width,
+    height,
+    offsetX: insets.left + width / 2 - size.width / 2,
+    offsetY: insets.top + height / 2 - size.height / 2,
+  };
+};
+
+/**
+ * Камера, у которой точка плана `plan` попадает в центр **видимой** части кадра. При нулевых insets — ровно
+ * `center = plan`, то есть поведение до введения insets.
+ */
+export const centeredCamera = (plan: PlanPosition, scaleIndex: number, safe: SafeFrame): ConstructorCameraState => {
+  const scale = scaleAt(scaleIndex);
+  return {
+    scaleIndex,
+    // Знаки — из `planToView`: экранный `x` растёт с планом, экранный `y` — против.
+    center: { x: plan.x - safe.offsetX / scale, y: plan.y + safe.offsetY / scale },
+  };
+};
+
 /** Viewport из состояния камеры и размера кадра — единственный способ его собрать. */
 export const viewportOf = (camera: ConstructorCameraState, size: CanvasSize): Viewport =>
   Object.freeze({
@@ -124,20 +181,30 @@ export const panBy = (camera: ConstructorCameraState, dx: number, dy: number): C
 /**
  * «В центр» (ADR 0020 P3): габариты всех точек этажа с полями → ближайший шаг шкалы, **не превышающий** fit;
  * пустой этаж или вырожденный кадр — дефолт.
+ *
+ * Считается по **видимой** части кадра (`insets`), а не по всему канвасу: и масштаб, и центр. Иначе план
+ * вписывается в кадр целиком, но его левая часть оказывается под рейлом и панелью инструментов.
  */
-export const fitCamera = (bounds: Bounds | null, size: CanvasSize): ConstructorCameraState => {
-  if (!bounds || size.width <= 0 || size.height <= 0) return { ...DEFAULT_CAMERA };
+export const fitCamera = (
+  bounds: Bounds | null,
+  size: CanvasSize,
+  insets: ViewportInsets = NO_INSETS,
+): ConstructorCameraState => {
+  if (size.width <= 0 || size.height <= 0) return { ...DEFAULT_CAMERA };
+  const safe = safeFrameOf(size, insets);
+  // Пустой этаж — вписывать нечего: базовый шаг и начало координат в центре видимой части.
+  if (!bounds) return centeredCamera(DEFAULT_CAMERA.center, ZOOM_SCALE_BASE_INDEX, safe);
   const center = { x: (bounds.minX + bounds.maxX) / 2, y: (bounds.minY + bounds.maxY) / 2 };
-  const padding = Math.min(size.width, size.height) * FIT_PADDING_RATIO;
-  const frameWidth = Math.max(1, size.width - padding * 2);
-  const frameHeight = Math.max(1, size.height - padding * 2);
+  const padding = Math.min(safe.width, safe.height) * FIT_PADDING_RATIO;
+  const frameWidth = Math.max(1, safe.width - padding * 2);
+  const frameHeight = Math.max(1, safe.height - padding * 2);
   const planWidth = bounds.maxX - bounds.minX;
   const planHeight = bounds.maxY - bounds.minY;
   // Единственная точка (или вырожденный по обеим осям план) — масштабировать нечего, берём базовый шаг.
-  if (planWidth <= 0 && planHeight <= 0) return { scaleIndex: ZOOM_SCALE_BASE_INDEX, center };
+  if (planWidth <= 0 && planHeight <= 0) return centeredCamera(center, ZOOM_SCALE_BASE_INDEX, safe);
   const fit = Math.min(
     planWidth > 0 ? frameWidth / planWidth : Number.POSITIVE_INFINITY,
     planHeight > 0 ? frameHeight / planHeight : Number.POSITIVE_INFINITY,
   );
-  return { scaleIndex: scaleIndexNotAbove(fit), center };
+  return centeredCamera(center, scaleIndexNotAbove(fit), safe);
 };

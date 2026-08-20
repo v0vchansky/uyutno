@@ -11,8 +11,29 @@ export type {
 } from './projection/createPlanner';
 export type { ThreeProjection, ProjectionStats } from './projection/three/ThreeProjection';
 export type { Canvas2dProjection, Canvas2dStats, ZoomState } from './projection/canvas2d/Canvas2dProjection';
+/**
+ * Полосы кадра под непрозрачными панелями скина: их сообщает камере конструктора сам скин
+ * (`Canvas2dProjection.setViewportInsets`), чтобы «в центр» и сброс камеры вписывали план в видимую часть холста.
+ */
+export type { ViewportInsets } from './projection/canvas2d/camera';
 export { Planner } from './ui/Planner/Planner';
 export type { PlannerProps } from './ui/Planner/Planner';
+export { ConstructorSkin } from './ui/ConstructorSkin/ConstructorSkin';
+export type { ConstructorSkinProps } from './ui/ConstructorSkin/ConstructorSkin';
+/**
+ * DOM-оверлей размеров (задача 0060): подписи длин, поля ввода длины/ширины и подписи комнат. Монтируется
+ * **ребёнком `ConstructorSkin`** — так он попадает и в контейнер с канвасами (ADR 0020 P6), и внутрь
+ * `PlannerOverlayProvider`, через который он сообщает панелям фокус в поле длины (решение автора 3).
+ */
+export { LengthInputsOverlay } from './ui/LengthInputs/LengthInputsOverlay';
+export {
+  PlannerOverlayProvider,
+  usePlannerLabelVisibility,
+  useSetPlannerLabelVisibility,
+  usePlannerLengthFocus,
+  DEFAULT_LABEL_VISIBILITY,
+} from './ui/PlannerOverlayContext';
+export type { LabelVisibility, LengthInputFocus } from './ui/PlannerOverlayContext';
 export { usePlannerManager, usePlannerProjections } from './ui/PlannerContext';
 export { usePlannerSelector } from './ui/usePlannerSelector';
 export type { PlannerLogger, PlannerManager } from './engine/PlannerManager';
@@ -26,7 +47,12 @@ export type { EdgeRef, SetEdgeLengthError, SetEdgeLengthOptions } from './engine
 export type { SetWallWidthError } from './engine/commands/setWallWidth';
 export type { SetActiveViewError, SetCameraError } from './engine/ViewNamespace';
 export type { HistoryError, HistoryState } from './engine/HistoryNamespace';
-export type { StartToolError, CommitPointError, SetViewportError } from './engine/tools/ToolsNamespace';
+export type {
+  StartToolError,
+  CommitPointError,
+  SetDraftPointError,
+  SetViewportError,
+} from './engine/tools/ToolsNamespace';
 export type {
   ToolState,
   ToolKind,

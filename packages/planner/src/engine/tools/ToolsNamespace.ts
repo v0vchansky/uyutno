@@ -48,6 +48,18 @@ export type CommitPointError =
   /** Точка совпала с уже поставленной (углом `origin`); не поставлена. */
   | { kind: 'duplicate-point' };
 
+export type SetDraftPointError =
+  /** Не конечная координата. */
+  | { kind: 'invalid-point'; point: unknown }
+  /** Автомат не в состоянии рисования с зафиксированными точками — двигать нечего. */
+  | { kind: 'not-drawing'; state: ToolVariant['kind'] }
+  /** Такой зафиксированной точки в рисуемом контуре нет (индекс вне `[0, points.length − 1]`). */
+  | { kind: 'unknown-draft-point'; index: number }
+  /** Ребро до соседа по контуру стало бы короче `MIN_WALL_LENGTH` (спека 01 «Ограничения»); точка не сдвинута. */
+  | { kind: 'too-short' }
+  /** Новая координата совпала с другой зафиксированной точкой контура; точка не сдвинута. */
+  | { kind: 'duplicate-point' };
+
 export type SetViewportError = { kind: 'invalid-viewport'; field: string; value: unknown };
 
 /** Таблица обработчиков по `kind` — единственное место, где новое состояние регистрируется в автомате. */
@@ -205,6 +217,31 @@ export class ToolsNamespace {
     const handler = handlerOf(variant);
     if (!handler.commitPoint) return err({ kind: 'not-drawing', state: variant.kind });
     const step = handler.commitPoint(variant, { x: point.x, y: point.y }, this.context());
+    this.transition(step);
+    return step.rejected ? err({ kind: step.rejected }) : ok(undefined);
+  }
+
+  /**
+   * Сдвиг зафиксированной точки рисуемого контура (спека 07, второй инпут длины при рисовании): точка ставится
+   * ровно в переданную координату, без снапа — как `commitPoint`. Один вызов = один шаг локального стека
+   * undo/redo рисования (ADR 0018 D8): оверлей зовёт команду на подтверждении (Enter / blur / Tab), а не на
+   * каждый символ. `making-rect` точек не хранит (оба его поля правят живой угол и коммитятся `commitPoint`),
+   * поэтому там команда не определена.
+   */
+  setDraftPoint(index: number, point: PlanPosition): Result<void, SetDraftPointError> {
+    if (typeof point !== 'object' || point === null || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+      return err({ kind: 'invalid-point', point });
+    }
+    const variant = this.current;
+    const handler = handlerOf(variant);
+    if (!handler.setDraftPoint) return err({ kind: 'not-drawing', state: variant.kind });
+    // Границы индекса — здесь: `points` есть ровно у состояний с этой командой, а шаг обработчика ничего бы не
+    // менял, и `PlaceStep.rejected` не пришлось бы расширять вариантом «нет такой точки».
+    const points = variant.kind === 'making-walls' || variant.kind === 'making-room' ? variant.points : [];
+    if (!Number.isInteger(index) || index < 0 || index >= points.length) {
+      return err({ kind: 'unknown-draft-point', index });
+    }
+    const step = handler.setDraftPoint(variant, index, { x: point.x, y: point.y }, this.context());
     this.transition(step);
     return step.rejected ? err({ kind: step.rejected }) : ok(undefined);
   }

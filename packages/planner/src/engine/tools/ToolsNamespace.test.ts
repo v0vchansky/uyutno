@@ -1489,6 +1489,205 @@ describe('tools — автомат инструментов (ADR 0019 E1)', () =
     });
   });
 
+  describe('setDraftPoint — правка уже поставленной точки (спека 07 «Правка размера по клику», ADR 0019 E3)', () => {
+    /** Ломаная «Стен» из трёх точек без снапа (Ctrl); курсор уведён в сторону — превью по всем сегментам. */
+    const drawWallsL = (s: Setup): void => {
+      s.tools.start('walls');
+      s.click(0, 0, { ctrl: true });
+      s.click(300, 0, { ctrl: true });
+      s.click(300, 300, { ctrl: true });
+      s.move(0, 300, { ctrl: true });
+    };
+
+    it('вне рисования → not-drawing; «Прямоугольник» зафиксированных точек не хранит → тоже not-drawing', () => {
+      const s = setup();
+      expect(s.tools.setDraftPoint(0, { x: 100, y: 100 })).toEqual({
+        ok: false,
+        error: { kind: 'not-drawing', state: 'editing' },
+      });
+      s.tools.start('rect');
+      s.click(0, 0);
+      expect(s.tools.setDraftPoint(0, { x: 100, y: 100 })).toEqual({
+        ok: false,
+        error: { kind: 'not-drawing', state: 'making-rect' },
+      });
+    });
+
+    it('индекс вне [0, points.length − 1] → unknown-draft-point, состояние не изменилось', () => {
+      const s = setup();
+      drawWallsL(s);
+      const before = s.tools.get();
+      expect(s.tools.setDraftPoint(-1, { x: 100, y: 100 })).toEqual({
+        ok: false,
+        error: { kind: 'unknown-draft-point', index: -1 },
+      });
+      expect(s.tools.setDraftPoint(3, { x: 100, y: 100 })).toEqual({
+        ok: false,
+        error: { kind: 'unknown-draft-point', index: 3 },
+      });
+      expect(s.tools.get()).toBe(before);
+      // Пустой контур: двигать нечего даже с индексом 0.
+      s.tools.start('walls');
+      expect(s.tools.setDraftPoint(0, { x: 100, y: 100 })).toEqual({
+        ok: false,
+        error: { kind: 'unknown-draft-point', index: 0 },
+      });
+    });
+
+    it('нефинитная координата и не-объект → invalid-point, состояние не изменилось', () => {
+      const s = setup();
+      drawWallsL(s);
+      const before = s.tools.get();
+      expect(s.tools.setDraftPoint(0, { x: Number.NaN, y: 0 })).toEqual({
+        ok: false,
+        error: { kind: 'invalid-point', point: { x: Number.NaN, y: 0 } },
+      });
+      expect(s.tools.setDraftPoint(0, { x: 0, y: Number.POSITIVE_INFINITY }).ok).toBe(false);
+      expect(s.tools.setDraftPoint(0, null as never)).toEqual({
+        ok: false,
+        error: { kind: 'invalid-point', point: null },
+      });
+      expect(s.tools.get()).toBe(before);
+    });
+
+    it('«Стены»: сдвиг первой точки «отращивает» контур с обратной стороны — остальные точки не тронуты, превью пересчитано, локальный undo вырос на снимок, документ и история не тронуты', () => {
+      const s = setup();
+      drawWallsL(s);
+      const doc = s.manager.document.get();
+      const history = s.manager.history.get();
+      const previewBefore = s.walls().preview;
+      const undoBefore = s.walls().undo;
+      s.toolStates.length = 0;
+      expect(s.tools.setDraftPoint(0, { x: -100, y: 0 })).toEqual({ ok: true, value: undefined });
+      expect(s.walls().points).toEqual([
+        { x: -100, y: 0 },
+        { x: 300, y: 0 },
+        { x: 300, y: 300 },
+      ]);
+      // Превью — лента по новым точкам + живому курсору: начало первого квада уехало вместе с точкой.
+      expect(s.walls().preview).not.toBe(previewBefore);
+      expect(s.walls().preview).toHaveLength(3);
+      expect(s.walls().preview[0]).toContainEqual({ x: -100, y: 0 });
+      // Один вызов — один шаг локального стека (ADR 0018 D8) и ровно одно событие.
+      expect(s.walls().undo).toHaveLength(undoBefore.length + 1);
+      expect(s.walls().undo[undoBefore.length]).toEqual([
+        { x: 0, y: 0 },
+        { x: 300, y: 0 },
+        { x: 300, y: 300 },
+      ]);
+      expect(s.walls().redo).toEqual([]);
+      expect(s.toolStates).toHaveLength(1);
+      expect(s.manager.document.get()).toBe(doc);
+      expect(s.manager.history.get()).toBe(history);
+      expect(s.events).not.toContain('document:changed');
+    });
+
+    it('«Стены»: Ctrl+Z после правки возвращает прежнюю позицию (Ctrl+Y — новую), следующая правка чистит redo', () => {
+      const s = setup();
+      drawWallsL(s);
+      expect(s.tools.setDraftPoint(0, { x: -100, y: 0 }).ok).toBe(true);
+      expect(s.tools.key({ kind: 'undo' })).toEqual({ handled: true });
+      expect(s.walls().points).toEqual([
+        { x: 0, y: 0 },
+        { x: 300, y: 0 },
+        { x: 300, y: 300 },
+      ]);
+      expect(s.walls().redo).toHaveLength(1);
+      expect(s.tools.key({ kind: 'redo' })).toEqual({ handled: true });
+      expect(s.walls().points[0]).toEqual({ x: -100, y: 0 });
+      s.tools.key({ kind: 'undo' });
+      expect(s.tools.setDraftPoint(0, { x: -200, y: 0 }).ok).toBe(true);
+      expect(s.walls().points[0]).toEqual({ x: -200, y: 0 });
+      expect(s.walls().redo).toEqual([]);
+    });
+
+    it('«Стены»: ребро до соседа короче MIN_WALL_LENGTH → too-short (у средней точки смотрятся оба соседа), состояние не изменилось; ровно на пороге — принимается', () => {
+      const s = setup();
+      drawWallsL(s);
+      const before = s.tools.get();
+      expect(s.tools.setDraftPoint(0, { x: 300 - MIN_WALL_LENGTH + 0.001, y: 0 })).toEqual({
+        ok: false,
+        error: { kind: 'too-short' },
+      });
+      expect(s.tools.setDraftPoint(1, { x: 300, y: 300 - MIN_WALL_LENGTH + 0.001 })).toEqual({
+        ok: false,
+        error: { kind: 'too-short' },
+      });
+      expect(s.tools.get()).toBe(before);
+      expect(s.debug).toHaveBeenCalledWith(
+        expect.stringContaining('walls point ignored: too-short'),
+        expect.anything(),
+      );
+      expect(s.tools.setDraftPoint(0, { x: 300 - MIN_WALL_LENGTH, y: 0 })).toEqual({ ok: true, value: undefined });
+    });
+
+    it('«Стены»: совпадение с другой зафиксированной точкой → duplicate-point (сама двигаемая не в счёт)', () => {
+      const s = setup();
+      drawWallsL(s);
+      const before = s.tools.get();
+      expect(s.tools.setDraftPoint(0, { x: 300, y: 300 })).toEqual({ ok: false, error: { kind: 'duplicate-point' } });
+      expect(s.tools.get()).toBe(before);
+      expect(s.debug).toHaveBeenCalledWith(
+        expect.stringContaining('walls point ignored: duplicate-point'),
+        expect.anything(),
+      );
+    });
+
+    it('«Стены»: сдвиг точки в её же координату — no-op: та же ссылка состояния, события нет', () => {
+      const s = setup();
+      drawWallsL(s);
+      const before = s.tools.get();
+      s.toolStates.length = 0;
+      expect(s.tools.setDraftPoint(1, { x: 300, y: 0 })).toEqual({ ok: true, value: undefined });
+      expect(s.tools.get()).toBe(before);
+      expect(s.toolStates).toEqual([]);
+    });
+
+    it('«Комната по точкам»: сдвиг первой вершины на четырёх точках — остальные не тронуты, шаг локального стека, документ не тронут; гарды и no-op те же', () => {
+      const s = setup();
+      s.tools.start('room');
+      for (const [x, y] of [
+        [0, 0],
+        [300, 0],
+        [300, 300],
+        [0, 300],
+      ] as const) {
+        s.click(x, y, { ctrl: true });
+      }
+      const doc = s.manager.document.get();
+      s.toolStates.length = 0;
+      expect(s.tools.setDraftPoint(0, { x: -100, y: 0 })).toEqual({ ok: true, value: undefined });
+      expect(s.room().points).toEqual([
+        { x: -100, y: 0 },
+        { x: 300, y: 0 },
+        { x: 300, y: 300 },
+        { x: 0, y: 300 },
+      ]);
+      expect(s.room().undo).toHaveLength(5);
+      expect(s.room().redo).toEqual([]);
+      expect(s.toolStates).toHaveLength(1);
+      expect(s.manager.document.get()).toBe(doc);
+      expect(s.tools.key({ kind: 'undo' })).toEqual({ handled: true });
+      expect(s.room().points[0]).toEqual({ x: 0, y: 0 });
+      s.tools.key({ kind: 'redo' });
+      // Дубль другой вершины и короткое ребро до соседа — отказы; правка в ту же координату — no-op без события.
+      expect(s.tools.setDraftPoint(0, { x: 300, y: 300 })).toEqual({ ok: false, error: { kind: 'duplicate-point' } });
+      expect(s.tools.setDraftPoint(3, { x: 300 - MIN_WALL_LENGTH + 0.001, y: 300 })).toEqual({
+        ok: false,
+        error: { kind: 'too-short' },
+      });
+      const before = s.tools.get();
+      s.toolStates.length = 0;
+      expect(s.tools.setDraftPoint(1, { x: 300, y: 0 })).toEqual({ ok: true, value: undefined });
+      expect(s.tools.get()).toBe(before);
+      expect(s.toolStates).toEqual([]);
+      expect(s.debug).toHaveBeenCalledWith(
+        expect.stringContaining('room point ignored: duplicate-point'),
+        expect.anything(),
+      );
+    });
+  });
+
   describe('флаги снапа и viewport', () => {
     it('setSnapFlags меняет флаги (событие), no-op без изменений; в рисовании снап пересчитывается', () => {
       const s = setup(ringDocument());

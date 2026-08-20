@@ -119,6 +119,37 @@ const place = (state: MakingRoomState, raw: PlanPosition, ctx: ToolContext): Pla
 };
 
 /**
+ * Сдвиг уже поставленной вершины из инпута длины (спека 07 «Правка размера по клику»: второй инпут двигает первую
+ * вершину и «отращивает» контур с обратной стороны): координата ставится ровно как передали, без снапа — как в
+ * `place`. Гарды те же, что у входа новой вершины (спека 01 «Ограничения»): совпадение с другой зафиксированной
+ * вершиной — `duplicate-point`, ребро до соседа по контуру короче `MIN_WALL_LENGTH` (евклид, как в `place`) —
+ * `too-short`. Соседи — предыдущая и следующая вершины: пока идёт рисование, контур открыт (замыкающее ребро
+ * появляется на замыкании, там его и проверяет `validateContour` — как при постановке вершины). Один вызов — один
+ * шаг локального стека (ADR 0018 D8); сдвиг в ту же координату — no-op без события.
+ */
+const moveDraftPoint = (state: MakingRoomState, index: number, raw: PlanPosition, ctx: ToolContext): PlaceStep => {
+  const { points } = state;
+  const current = points[index];
+  // Индекс вне контура автомат отсекает до обработчика (`unknown-draft-point`) — здесь это просто no-op.
+  if (current === undefined) return { state };
+  const point = { x: quantize(raw.x), y: quantize(raw.y) };
+  if (pointsMatch(current, point)) return { state };
+  if (points.some((fixed, i) => i !== index && pointsMatch(fixed, point))) {
+    return ignore(state, 'duplicate-point', point, ctx);
+  }
+  const neighbours = [points[index - 1], points[index + 1]];
+  if (neighbours.some(neighbour => neighbour && euclDist(neighbour, point) < MIN_WALL_LENGTH)) {
+    return ignore(state, 'too-short', point, ctx);
+  }
+  const core: RoomCore = {
+    points: points.map((fixed, i) => (i === index ? point : fixed)),
+    undo: [...state.undo, points],
+    redo: [],
+  };
+  return { state: frame(core, ctx.pointer, ctx) };
+};
+
+/**
  * Ctrl+Z: снять последнюю поставленную вершину (снимок из локального стека); дошли до пустого холста → `editing`
  * (спека 09). Пустой стек — no-op (кнопка панели по нему disabled, ADR 0019 E3).
  */
@@ -170,5 +201,6 @@ export const makingRoomHandler: ToolHandler<MakingRoomState> = {
     }
   },
   commitPoint: (state, point, ctx) => place(state, point, ctx),
+  setDraftPoint: (state, index, point, ctx) => moveDraftPoint(state, index, point, ctx),
   refresh: (state, ctx) => reframe(state, ctx.pointer, ctx),
 };

@@ -17,6 +17,7 @@
     "cdt2d": "1.0.0",
     "clean-pslg": "1.1.2",
     "immer": "^11.1.17",
+    "lucide-react": "^1.31.0",
     "mitt": "^3.0.1",
     "robust-predicates": "^3.0.3",
     "three": "~0.185.1",

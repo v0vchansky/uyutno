@@ -496,6 +496,113 @@ describe('Canvas2dProjection — зум и пан (ADR 0020 P3)', () => {
   });
 });
 
+/**
+ * Панели скина (0061) — непрозрачные оверлеи поверх канваса, а канвас лежит во всю ширину контейнера. Размеры
+ * панелей знает только скин, поэтому insets приходят снаружи, а проекция считает по ним видимую часть кадра.
+ */
+describe('Canvas2dProjection — insets видимой части кадра', () => {
+  /** Раскладка скина: рейл 60 + 12 + панель 224 + 12 слева, подсказки и контролы снизу. */
+  const SKIN_INSETS = { left: 308, right: 0, top: 0, bottom: 92 };
+  /** Габариты кольца `ringDocument` — то, что должно оказаться в видимой части. */
+  const RING = { minX: 0, minY: 0, maxX: 400, maxY: 300 };
+
+  /** Экранный прямоугольник кольца при текущем viewport проекции. */
+  const ringOnScreen = (projection: Canvas2dProjection) => {
+    const viewport = projection.getViewport();
+    const topLeft = planToView(viewport, { x: RING.minX, y: RING.maxY });
+    const bottomRight = planToView(viewport, { x: RING.maxX, y: RING.minY });
+    return { left: topLeft.x, top: topLeft.y, right: bottomRight.x, bottom: bottomRight.y };
+  };
+
+  it('по умолчанию insets нулевые: их сообщает скин, проекция размеров панелей не знает', () => {
+    const { projection } = setupReady(ringDocument());
+    expect(projection.getViewportInsets()).toEqual({ left: 0, right: 0, top: 0, bottom: 0 });
+
+    projection.fitToContent();
+    // Кольцо вписано по всему кадру — левый край заезжает туда, где лежит панель инструментов.
+    expect(ringOnScreen(projection).left).toBeLessThan(SKIN_INSETS.left);
+  });
+
+  it('после setViewportInsets fitToContent вписывает план в видимую часть, а не под оверлеи', () => {
+    const { projection } = setupReady(ringDocument());
+    projection.setViewportInsets(SKIN_INSETS);
+    projection.fitToContent();
+
+    const ring = ringOnScreen(projection);
+    expect(ring.left).toBeGreaterThanOrEqual(SKIN_INSETS.left);
+    expect(ring.top).toBeGreaterThanOrEqual(SKIN_INSETS.top);
+    expect(ring.right).toBeLessThanOrEqual(CANVAS_WIDTH - SKIN_INSETS.right);
+    expect(ring.bottom).toBeLessThanOrEqual(CANVAS_HEIGHT - SKIN_INSETS.bottom);
+  });
+
+  it('resetCamera кладёт начало координат в центр видимой части, а не кадра', () => {
+    const { projection, manager } = setupReady(ringDocument());
+    projection.setViewportInsets(SKIN_INSETS);
+    projection.resetCamera();
+
+    expect(projection.getZoom().index).toBe(ZOOM_SCALE_BASE_INDEX);
+    const origin = planToView(projection.getViewport(), { x: 0, y: 0 });
+    expect(origin.x).toBeCloseTo((SKIN_INSETS.left + CANVAS_WIDTH - SKIN_INSETS.right) / 2, 9);
+    expect(origin.y).toBeCloseTo((SKIN_INSETS.top + CANVAS_HEIGHT - SKIN_INSETS.bottom) / 2, 9);
+    // Автомат получил тот же viewport — insets не заводят второй источник правды.
+    expect(manager.tools.get().viewport).toEqual(projection.getViewport());
+  });
+
+  it('шаг зума кнопками держит центр видимой части, а не центр кадра', () => {
+    const { projection } = setupReady(ringDocument());
+    projection.setViewportInsets(SKIN_INSETS);
+    const safeCentre = {
+      x: (SKIN_INSETS.left + CANVAS_WIDTH - SKIN_INSETS.right) / 2,
+      y: (SKIN_INSETS.top + CANVAS_HEIGHT - SKIN_INSETS.bottom) / 2,
+    };
+    const anchor = viewToPlan(projection.getViewport(), safeCentre);
+
+    projection.zoomBy(3);
+
+    const after = planToView(projection.getViewport(), anchor);
+    expect(after.x).toBeCloseTo(safeCentre.x, 6);
+    expect(after.y).toBeCloseTo(safeCentre.y, 6);
+  });
+
+  it('смена insets сама по себе камеру не двигает: это факт раскладки, а не жест пользователя', () => {
+    const { projection, manager } = setupReady(ringDocument());
+    projection.fitToContent();
+    const before = projection.getViewport();
+
+    projection.setViewportInsets(SKIN_INSETS);
+
+    expect(projection.getViewport()).toBe(before);
+    expect(manager.tools.get().viewport).toEqual(before);
+  });
+
+  it('обновление частичное, мусор снаружи гасится в 0', () => {
+    const { projection } = setupReady();
+    projection.setViewportInsets(SKIN_INSETS);
+
+    projection.setViewportInsets({ bottom: 40 });
+    expect(projection.getViewportInsets()).toEqual({ ...SKIN_INSETS, bottom: 40 });
+
+    projection.setViewportInsets({ left: -10, right: Number.NaN, top: Number.POSITIVE_INFINITY });
+    expect(projection.getViewportInsets()).toEqual({ left: 0, right: 0, top: 0, bottom: 40 });
+  });
+
+  it('снимок insets — копия: правка снаружи проекцию не трогает', () => {
+    const { projection } = setupReady();
+    projection.setViewportInsets(SKIN_INSETS);
+
+    const snapshot = projection.getViewportInsets();
+    snapshot.left = 0;
+    expect(projection.getViewportInsets().left).toBe(SKIN_INSETS.left);
+  });
+
+  it('после dispose insets не принимаются', () => {
+    const { projection } = setupReady();
+    projection.dispose();
+    projection.setViewportInsets(SKIN_INSETS);
+    expect(projection.getViewportInsets()).toEqual({ left: 0, right: 0, top: 0, bottom: 0 });
+  });
+});
+
 describe('Canvas2dProjection — пан и жест автомата взаимно исключают друг друга', () => {
   /** Драг вершины кольца: точка плана (0, 0) лежит в центре кадра при дефолтной камере. */
   const startPointDrag = (harness: ReturnType<typeof setupReady>): void => {

@@ -1,5 +1,5 @@
 import { expect, test as base, type Page } from '@playwright/test';
-import type { HitTarget, Id, PlanPosition, PlannerInstance, Viewport } from '@uyutno/planner';
+import type { HitTarget, Id, PlanPosition, PlannerInstance, Viewport, ViewportInsets } from '@uyutno/planner';
 
 import { PLANNER_READY_EVENT } from '../src/client/project/lib/plannerReadyEvent';
 
@@ -70,6 +70,9 @@ const planner = (page: Page) => ({
   canUndo: () => page.evaluate(() => window.__uyutnoE2E!.planners[0]!.manager.history.get().canUndo),
   viewport: (): Promise<Viewport> =>
     page.evaluate(() => window.__uyutnoE2E!.planners[0]!.projections.canvas2d.getViewport()),
+  /** Полосы холста под непрозрачными панелями скина (0061) — их сообщает скин, тест их не выдумывает. */
+  insets: (): Promise<ViewportInsets> =>
+    page.evaluate(() => window.__uyutnoE2E!.planners[0]!.projections.canvas2d.getViewportInsets()),
   zoomIndex: () => page.evaluate(() => window.__uyutnoE2E!.planners[0]!.projections.canvas2d.getZoom().index),
   frames: () => page.evaluate(() => window.__uyutnoE2E!.planners[0]!.projections.canvas2d.getStats().frame),
   isRendering: () => page.evaluate(() => window.__uyutnoE2E!.planners[0]!.projections.canvas2d.isRendering),
@@ -106,7 +109,25 @@ test.describe('планер: конструктор реальной мышью 
     expect(box, 'холст конструктора виден и измерим').not.toBeNull();
     /** Локальные координаты холста → координаты страницы для `page.mouse`. */
     const at = (local: PlanPosition) => ({ x: box.x + local.x, y: box.y + local.y });
-    const center = { x: box.width / 2, y: box.height / 2 };
+
+    /*
+     * Мышью тест работает только по **свободной** части холста: панели скина (0061) — непрозрачные оверлеи
+     * поверх канваса во всю его ширину, и в закрытых полосах `pointermove`/`click` уходят в кнопку панели,
+     * а не в канвас. Границы берутся у самого скина (`getViewportInsets`), а не подбираются на глаз.
+     */
+    const insets = await app.insets();
+    expect(insets.left, 'скин сообщил проекции свою левую полосу').toBeGreaterThan(0);
+    const free = {
+      left: insets.left,
+      top: insets.top,
+      right: box.width - insets.right,
+      bottom: box.height - insets.bottom,
+    };
+    const center = { x: (free.left + free.right) / 2, y: (free.top + free.bottom) / 2 };
+    expect(
+      Math.min(free.right - free.left, free.bottom - free.top),
+      'свободной части хватает на контур с запасом',
+    ).toBeGreaterThan(2 * Math.max(HALF_WIDTH, HALF_HEIGHT));
     // Обход против часовой в осях плана (`y` вверх): снизу-слева → вправо → вверх → влево.
     const corners: PlanPosition[] = [
       { x: center.x - HALF_WIDTH, y: center.y + HALF_HEIGHT },
@@ -138,8 +159,11 @@ test.describe('планер: конструктор реальной мышью 
     });
 
     await test.step('навести мышь на угловую точку — hover и курсор grab', async () => {
-      // Сначала увести курсор в пустоту: после замыкания он стоит ровно на первой точке.
-      await page.mouse.move(box.x + 40, box.y + 40);
+      // Сначала увести курсор в пустоту: после замыкания он стоит ровно на первой точке. Пустота берётся в
+      // свободной части холста — в левом верхнем углу канваса лежат рейл и панель инструментов, и указатель
+      // до канваса там не доходит вовсе.
+      const empty = at({ x: free.right - 40, y: free.top + 40 });
+      await page.mouse.move(empty.x, empty.y);
       await expect.poll(() => app.hover(), { message: 'над пустым холстом наведения нет' }).toBeNull();
       await expect.poll(() => canvas.evaluate(element => element.style.cursor)).toBe('default');
 

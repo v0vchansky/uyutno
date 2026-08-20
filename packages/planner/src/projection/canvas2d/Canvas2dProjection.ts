@@ -8,12 +8,17 @@ import { CANVAS2D_VIEWS, ProjectionGate } from '../ProjectionGate';
 import { RenderLoop } from '../RenderLoop';
 import {
   type CanvasSize,
+  centeredCamera,
   type ConstructorCameraState,
   DEFAULT_CAMERA,
   fitCamera,
+  NO_INSETS,
   panBy,
+  safeFrameOf,
   scaleAt,
   viewportOf,
+  type ViewportInsets,
+  ZOOM_SCALE_BASE_INDEX,
   ZOOM_SCALE_STEPS,
   zoomStep,
 } from './camera';
@@ -27,6 +32,9 @@ export const KEYBOARD_PAN_STEP = 40;
 /** Основная кнопка указателя и кнопка, которой панорамируют (`PointerEvent.button`). */
 const PRIMARY_BUTTON = 0;
 const SECONDARY_BUTTON = 2;
+
+/** Inset приходит из чужого слоя: `NaN`/`Infinity`/отрицательное превращаем в `0`, а не в поехавшую камеру. */
+const sanitizeInset = (value: number): number => (Number.isFinite(value) && value > 0 ? value : 0);
 
 export interface Canvas2dProjectionOptions {
   /** Бюджет кадров render-on-demand; дефолт — `FRAME_BUDGET` (`RenderLoop`). */
@@ -62,6 +70,11 @@ export interface ZoomState {
  * держит локальную камеру конструктора (дискретная шкала, пан, зум вокруг курсора) и — единственная — пишет
  * `tools.setViewport`.
  *
+ * Канвас лежит во всю ширину контейнера, а панели скина — непрозрачные оверлеи поверх него, поэтому «весь кадр»
+ * и «видимая часть кадра» — разные прямоугольники. Второй задаётся снаружи через `setViewportInsets()` (числа
+ * знает только скин) и учитывается там, где камера сама выбирает, куда положить план: `fitToContent()`,
+ * `resetCamera()`, шаг зума кнопками. Пересчёт экран ↔ план от insets не зависит — канвас-то полноразмерный.
+ *
  * Активна при `view.activeView === 'constructor'`; на чужом виде кадров не планирует (`ProjectionGate`).
  * Порядок инициализации — как у `ThreeProjection` (0049): `RenderLoop` → 2D-контекст → подписки → `ResizeObserver`.
  */
@@ -80,6 +93,8 @@ export class Canvas2dProjection {
   private devicePixelRatio = 1;
   private camera: ConstructorCameraState = { ...DEFAULT_CAMERA };
   private viewport: Viewport;
+  /** Части кадра под непрозрачными оверлеями скина; до `setViewportInsets` — весь кадр видимый. */
+  private insets: ViewportInsets = { ...NO_INSETS };
 
   private panPointerId: number | null = null;
   private panButton: number | null = null;
@@ -207,19 +222,63 @@ export class Canvas2dProjection {
     return () => this.zoomListeners.delete(listener);
   }
 
-  /** Шаг зума вокруг центра кадра — кнопки «−»/«+» (0061); `delta` в шагах шкалы. */
+  /**
+   * Сообщить, какие полосы кадра закрыты непрозрачными оверлеями скина (рейл, панель инструментов, полоса
+   * подсказок с группой контролов). Зовёт **скин** — он один знает свои размеры; проекция про React ничего не
+   * знает и чисел панелей не хардкодит. Учитывается в `fitToContent()`, `resetCamera()` и шаге зума кнопками.
+   *
+   * Уже настроенную камеру не двигает: смена insets — не жест пользователя, а факт раскладки; иначе монтирование
+   * панели или уход на чужой вид уводили бы план из-под курсора. Отрицательные и нечисловые значения
+   * отбрасываются в `0` — контракт публичный, а кривой inset ломал бы всю арифметику камеры.
+   */
+  setViewportInsets(insets: Partial<ViewportInsets>): void {
+    if (this.disposed) return;
+    const next: ViewportInsets = {
+      left: sanitizeInset(insets.left ?? this.insets.left),
+      right: sanitizeInset(insets.right ?? this.insets.right),
+      top: sanitizeInset(insets.top ?? this.insets.top),
+      bottom: sanitizeInset(insets.bottom ?? this.insets.bottom),
+    };
+    if (
+      next.left === this.insets.left &&
+      next.right === this.insets.right &&
+      next.top === this.insets.top &&
+      next.bottom === this.insets.bottom
+    ) {
+      return;
+    }
+    this.insets = next;
+  }
+
+  /** Текущие insets кадра — копия. Нужны тому, кто считает свободную область холста (e2e, оверлеи). */
+  getViewportInsets(): ViewportInsets {
+    return { ...this.insets };
+  }
+
+  /**
+   * Шаг зума вокруг центра **видимой** части кадра — кнопки «−»/«+» (0061); `delta` в шагах шкалы.
+   * При нулевых insets это ровно центр кадра, то есть поведение до введения insets.
+   */
   zoomBy(delta: number): void {
-    this.setCamera(zoomStep(this.camera, this.size, delta, null));
+    const safe = safeFrameOf(this.size, this.insets);
+    const anchor = { x: this.size.width / 2 + safe.offsetX, y: this.size.height / 2 + safe.offsetY };
+    this.setCamera(zoomStep(this.camera, this.size, delta, anchor));
   }
 
-  /** «В центр»: габариты точек этажа с полями → ближайший шаг шкалы, не превышающий fit (ADR 0020 P3). */
+  /**
+   * «В центр»: габариты точек этажа с полями → ближайший шаг шкалы, не превышающий fit (ADR 0020 P3).
+   * Вписывается в видимую часть кадра, а не под панели скина (`setViewportInsets`).
+   */
   fitToContent(): void {
-    this.setCamera(fitCamera(this.contentBounds(), this.size));
+    this.setCamera(fitCamera(this.contentBounds(), this.size, this.insets));
   }
 
-  /** Сброс камеры к дефолту — клик по активной кнопке вида «конструктор» (спека 08). */
+  /**
+   * Сброс камеры к дефолту — клик по активной кнопке вида «конструктор» (спека 08): базовый шаг шкалы и начало
+   * координат в центре **видимой** части кадра.
+   */
   resetCamera(): void {
-    this.setCamera({ ...DEFAULT_CAMERA });
+    this.setCamera(centeredCamera(DEFAULT_CAMERA.center, ZOOM_SCALE_BASE_INDEX, safeFrameOf(this.size, this.insets)));
   }
 
   /**

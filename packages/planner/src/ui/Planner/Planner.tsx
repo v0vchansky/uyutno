@@ -5,6 +5,7 @@ import type { ViewKind } from '../../document/PlannerDocument';
 import type { PlannerLogger } from '../../engine/PlannerManager';
 import { createPlanner, type PlannerInstance } from '../../projection/createPlanner';
 import { PlannerContext } from '../PlannerContext';
+import { PlannerOverlayProvider } from '../PlannerOverlayContext';
 import { planDescription } from './planDescription';
 
 /** Пропсы = DI-контракт с платформой (ADR 0015 A8): `projectId`, `logger`; канвасы создаёт сам компонент. */
@@ -41,7 +42,9 @@ const canvasStyle = (visible: boolean): React.CSSProperties => ({
 /**
  * Тонкая обёртка над фабрикой (ADR 0015 A7, ADR 0020 P6): **контейнер** (`position: relative`, размер задаёт
  * страница через `className`) с двумя канвасами абсолютом на весь контейнер — Three снизу, Canvas2D конструктора
- * сверху, неактивный скрыт атрибутом `hidden`. Над ними — `children` (панели скина, 0061). В `useEffect`
+ * сверху, неактивный скрыт атрибутом `hidden`. Над ними — `children` (панели скина 0061 и DOM-оверлей размеров
+ * 0060), обёрнутые в `PlannerOverlayProvider`: два факта скина — фокус в поле длины и тумблеры подписей — не
+ * живут ни в документе, ни в `ToolState`, но нужны и оверлею, и панелям. В `useEffect`
  * поднимает планер через `createPlanner`, кладёт `PlannerInstance` в `PlannerContext`, на unmount зовёт
  * `dispose()`. Единственный слой пакета с React; владелец канвасов один — React создаёт элементы и передаёт их
  * фабрике.
@@ -127,7 +130,11 @@ export const Planner: React.FC<PlannerProps> = ({ projectId, logger, frameBudget
         role='img'
         aria-label={description}
       />
-      {instance && <PlannerContext value={instance}>{children}</PlannerContext>}
+      {instance && (
+        <PlannerContext value={instance}>
+          <PlannerOverlayProvider>{children}</PlannerOverlayProvider>
+        </PlannerContext>
+      )}
     </div>
   );
 };

@@ -2,6 +2,14 @@
 @import '@heroui/styles';
 @import './theme-uyutno.css';
 
+/*
+ * React-скин планера живёт в воркспейс-пакете `@uyutno/planner` (ADR 0015: `ui/` — сменный скин).
+ * Автодетект источников Tailwind стартует от cwd сборки (`apps/platform`) и `packages/` не видит,
+ * поэтому слой скина подключается явно. Ниже `ui/` не спускаемся: `document/`/`engine/`/`projection/`
+ * классов не содержат, а строковые литералы геометрии дали бы мусорные утилиты.
+ */
+@source '../../../../packages/planner/src/ui';
+
 :root {
   --font-inter: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-nunito: 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif;

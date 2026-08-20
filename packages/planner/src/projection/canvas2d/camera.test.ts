@@ -5,15 +5,19 @@ import {
   CONSTRUCTOR_ZOOM_SCALES,
   DEFAULT_CAMERA,
   FIT_PADDING_RATIO,
+  NO_INSETS,
   ZOOM_SCALE_BASE_INDEX,
   ZOOM_SCALE_MAX,
   ZOOM_SCALE_MIN,
   ZOOM_SCALE_STEPS,
   type CanvasSize,
   type ConstructorCameraState,
+  type ViewportInsets,
+  centeredCamera,
   clampScaleIndex,
   fitCamera,
   panBy,
+  safeFrameOf,
   scaleAt,
   scaleIndexNotAbove,
   viewportOf,
@@ -353,6 +357,140 @@ describe('camera — состояние проекции конструктор�
 
     it('гигантский план не отдаляется ниже минимума шкалы', () => {
       expect(fitCamera(bounds(-1e7, -1e7, 1e7, 1e7), frame).scaleIndex).toBe(0);
+    });
+  });
+
+  /**
+   * Панели скина (0061) — непрозрачные оверлеи поверх канваса: канвас во всю ширину контейнера, а видно из него
+   * не всё. Камера обязана считать по видимой части, иначе «в центр» кладёт геометрию под глухую панель.
+   */
+  describe('insets — видимая часть кадра', () => {
+    const frame = size(800, 600);
+    /** Фактическая раскладка скина: рейл 60 + 12 + панель 224 + 12 слева; снизу подсказки и контролы. */
+    const skin: ViewportInsets = { left: 308, right: 0, top: 0, bottom: 92 };
+    /** Экранный прямоугольник видимой части при этих insets. */
+    const safeRect = {
+      left: skin.left,
+      right: frame.width - skin.right,
+      top: skin.top,
+      bottom: frame.height - skin.bottom,
+    };
+
+    describe('safeFrameOf', () => {
+      it('без insets — весь кадр, центр не смещён', () => {
+        expect(safeFrameOf(frame, NO_INSETS)).toEqual({ width: 800, height: 600, offsetX: 0, offsetY: 0 });
+        expect(safeFrameOf(frame)).toEqual(safeFrameOf(frame, NO_INSETS));
+      });
+
+      it('вычитает полосы и смещает центр в сторону свободного края', () => {
+        expect(safeFrameOf(frame, skin)).toEqual({ width: 492, height: 508, offsetX: 154, offsetY: -46 });
+      });
+
+      it('симметричные insets уменьшают кадр, но центр не двигают', () => {
+        expect(safeFrameOf(frame, { left: 100, right: 100, top: 50, bottom: 50 })).toEqual({
+          width: 600,
+          height: 500,
+          offsetX: 0,
+          offsetY: 0,
+        });
+      });
+
+      it.each<[string, ViewportInsets]>([
+        ['по ширине', { left: 500, right: 400, top: 0, bottom: 0 }],
+        ['по высоте', { left: 0, right: 0, top: 300, bottom: 300 }],
+      ])('оверлеи съели кадр %s — вырождается в полный кадр, а не в отрицательный', (_name, insets) => {
+        expect(safeFrameOf(frame, insets)).toEqual({ width: 800, height: 600, offsetX: 0, offsetY: 0 });
+      });
+    });
+
+    describe('centeredCamera', () => {
+      it('точка плана оказывается ровно в центре видимой части', () => {
+        const state = centeredCamera({ x: 0, y: 0 }, ZOOM_SCALE_BASE_INDEX, safeFrameOf(frame, skin));
+        const screen = planToView(viewportOf(state, frame), { x: 0, y: 0 });
+        expect(screen.x).toBeCloseTo((safeRect.left + safeRect.right) / 2, 9);
+        expect(screen.y).toBeCloseTo((safeRect.top + safeRect.bottom) / 2, 9);
+      });
+
+      it('без insets — центр камеры равен самой точке (поведение до insets)', () => {
+        expect(centeredCamera({ x: 12, y: -34 }, ZOOM_SCALE_BASE_INDEX, safeFrameOf(frame))).toEqual(
+          camera(ZOOM_SCALE_BASE_INDEX, { x: 12, y: -34 }),
+        );
+      });
+
+      it('смещение делится на масштаб: на крупном зуме камера едет меньше', () => {
+        const safe = safeFrameOf(frame, skin);
+        const base = centeredCamera({ x: 0, y: 0 }, ZOOM_SCALE_BASE_INDEX, safe);
+        const zoomed = centeredCamera({ x: 0, y: 0 }, ZOOM_SCALE_BASE_INDEX + 10, safe);
+        expect(Math.abs(zoomed.center.x)).toBeLessThan(Math.abs(base.center.x));
+        expect(zoomed.center.x).toBeCloseTo(-safe.offsetX / scaleAt(ZOOM_SCALE_BASE_INDEX + 10), 9);
+        // Экранная точка при этом одна и та же — центр видимой части.
+        expect(planToView(viewportOf(zoomed, frame), { x: 0, y: 0 }).x).toBeCloseTo(
+          (safeRect.left + safeRect.right) / 2,
+          9,
+        );
+      });
+    });
+
+    describe('fitCamera с ненулевыми insets', () => {
+      const box = bounds(-500, -200, 500, 200);
+      /** Углы габаритов на экране: левый-верхний и правый-нижний (ось `y` плана смотрит вверх). */
+      const screenCorners = (state: ConstructorCameraState): { topLeft: PlanPosition; bottomRight: PlanPosition } => {
+        const viewport = viewportOf(state, frame);
+        return {
+          topLeft: planToView(viewport, { x: box.minX, y: box.maxY }),
+          bottomRight: planToView(viewport, { x: box.maxX, y: box.minY }),
+        };
+      };
+
+      it('без insets тот же план заезжает под панель — иначе проверка ниже ничего не стоит', () => {
+        expect(screenCorners(fitCamera(box, frame)).topLeft.x).toBeLessThan(safeRect.left);
+      });
+
+      it('с insets план целиком в видимой части: под оверлеи не заезжает', () => {
+        const { topLeft, bottomRight } = screenCorners(fitCamera(box, frame, skin));
+        expect(topLeft.x).toBeGreaterThanOrEqual(safeRect.left);
+        expect(topLeft.y).toBeGreaterThanOrEqual(safeRect.top);
+        expect(bottomRight.x).toBeLessThanOrEqual(safeRect.right);
+        expect(bottomRight.y).toBeLessThanOrEqual(safeRect.bottom);
+      });
+
+      it('поля FIT_PADDING_RATIO считаются от видимой части, а не от кадра', () => {
+        const padding = Math.min(safeRect.right - safeRect.left, safeRect.bottom - safeRect.top) * FIT_PADDING_RATIO;
+        const { topLeft, bottomRight } = screenCorners(fitCamera(box, frame, skin));
+        expect(topLeft.x).toBeGreaterThanOrEqual(safeRect.left + padding);
+        expect(topLeft.y).toBeGreaterThanOrEqual(safeRect.top + padding);
+        expect(bottomRight.x).toBeLessThanOrEqual(safeRect.right - padding);
+        expect(bottomRight.y).toBeLessThanOrEqual(safeRect.bottom - padding);
+      });
+
+      it('видимая часть меньше кадра — и масштаб не крупнее, чем без insets', () => {
+        expect(scaleAt(fitCamera(box, frame, skin).scaleIndex)).toBeLessThanOrEqual(
+          scaleAt(fitCamera(box, frame).scaleIndex),
+        );
+      });
+
+      it('пустой этаж: базовый шаг и начало координат в центре видимой части', () => {
+        const fitted = fitCamera(null, frame, skin);
+        expect(fitted.scaleIndex).toBe(ZOOM_SCALE_BASE_INDEX);
+        expect(planToView(viewportOf(fitted, frame), { x: 0, y: 0 })).toEqual({
+          x: (safeRect.left + safeRect.right) / 2,
+          y: (safeRect.top + safeRect.bottom) / 2,
+        });
+      });
+
+      it('единственная точка: базовый шаг и точка в центре видимой части', () => {
+        const fitted = fitCamera(bounds(370, -80, 370, -80), frame, skin);
+        expect(fitted).toEqual(camera(ZOOM_SCALE_BASE_INDEX, { x: 370 - 154, y: -80 - 46 }));
+      });
+
+      it('insets шире кадра — вписывание не ломается, план влезает в кадр целиком', () => {
+        const fitted = fitCamera(box, frame, { left: 900, right: 900, top: 0, bottom: 0 });
+        expect(fitted).toEqual(fitCamera(box, frame));
+      });
+
+      it('вырожденный кадр с insets — дефолтная камера', () => {
+        expect(fitCamera(box, size(0, 600), skin)).toEqual(DEFAULT_CAMERA);
+      });
     });
   });
 });

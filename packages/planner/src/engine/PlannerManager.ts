@@ -38,7 +38,12 @@ export class PlannerManager {
   readonly tools: ToolsNamespace;
 
   private readonly bus: PlannerBus;
-  private readonly logger: PlannerLogger;
+  /**
+   * DI-логгер платформы (ADR 0015 A8). Публичный, потому что отказ команды — это `Result`, а не исключение:
+   * скину нужно куда-то записать `!result.ok`, иначе нажатая кнопка молча ничего не делает. Инструменты движка
+   * пишут отказы тем же способом (`engine/tools/*.ts`, `ctx.logger.debug('… rejected', …)`).
+   */
+  readonly logger: PlannerLogger;
 
   constructor({ projectId, logger, document = createEmptyDocument() }: PlannerManagerParams) {
     this.projectId = projectId;
