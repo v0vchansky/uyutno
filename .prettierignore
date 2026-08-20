@@ -4,3 +4,9 @@ build
 coverage
 pnpm-lock.yaml
 .tsbuildinfo
+
+# Чужой код и сгенерированные артефакты — форматировать нечего и незачем.
+# Снапшот исходников конкурента: как скачано, так и лежит (README снапшота — наш, он форматируется).
+docs/product/reference/roomtodo-src/*.js
+# Экспорт макетов из Claude Design: перегенерируется целиком, правки руками не переживут следующий handoff.
+docs/ui/handoffs/**/*.dc.html

@@ -10,17 +10,17 @@
 
 ## 1. Константы и эпсилоны
 
-| Константа | Значение | Строка | Роль |
-|---|---|---|---|
-| `TR.L_EPS` | `1e-8` | 49482 | «identity»-эпсилон: совпадение точек, вырожденность знаменателя, bbox-слак |
-| `TR.B_EPS` | `1e-4` | 49483 | «boundary»-эпсилон: точка на отрезке/контуре, вырожденные (нулевые) рёбра |
-| локальный `EPS` | `1e-6` | 49633 | только внутри `pointInContour` — захват вершин на луче |
-| `TR.MIN_CONTOUR_AREA` | `50` | 49470 | минимальная площадь валидного контура (`contourValid`, 50525) |
-| `TR.MIN_SP_RATIO` | `1` | 49471 | минимальное отношение площадь/периметр (анти-сливер, 50525) |
-| `maxAngle` в `parallelLines` | `0.05` рад (~2.86°) | 50252 (дефолт), тот же дефолт в `parallelBox` @54835 | допуск «параллельности» стен |
-| `minLen` в `triangleIsNarrow` | `0.1` (манхэттен) | 49746 | отбраковка «узких» треугольников |
-| `eps` в `sortByArea` | `10` (ед. площади) | 59494 | tie-break при сортировке комнат по площади |
-| `setSize` в `compareContoursByArea` | `10` | 49965 | грид-семплинг 10×10 |
+| Константа                           | Значение            | Строка                                               | Роль                                                                       |
+| ----------------------------------- | ------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------- |
+| `TR.L_EPS`                          | `1e-8`              | 49482                                                | «identity»-эпсилон: совпадение точек, вырожденность знаменателя, bbox-слак |
+| `TR.B_EPS`                          | `1e-4`              | 49483                                                | «boundary»-эпсилон: точка на отрезке/контуре, вырожденные (нулевые) рёбра  |
+| локальный `EPS`                     | `1e-6`              | 49633                                                | только внутри `pointInContour` — захват вершин на луче                     |
+| `TR.MIN_CONTOUR_AREA`               | `50`                | 49470                                                | минимальная площадь валидного контура (`contourValid`, 50525)              |
+| `TR.MIN_SP_RATIO`                   | `1`                 | 49471                                                | минимальное отношение площадь/периметр (анти-сливер, 50525)                |
+| `maxAngle` в `parallelLines`        | `0.05` рад (~2.86°) | 50252 (дефолт), тот же дефолт в `parallelBox` @54835 | допуск «параллельности» стен                                               |
+| `minLen` в `triangleIsNarrow`       | `0.1` (манхэттен)   | 49746                                                | отбраковка «узких» треугольников                                           |
+| `eps` в `sortByArea`                | `10` (ед. площади)  | 59494                                                | tie-break при сортировке комнат по площади                                 |
+| `setSize` в `compareContoursByArea` | `10`                | 49965                                                | грид-семплинг 10×10                                                        |
 
 Исходы классификации пары контуров — 8 строковых констант @49473–49480:
 `BELONG` ('belong'), `CONTAIN` ('contain'), `OUTSIDE` ('outside'),
@@ -417,29 +417,29 @@ sites: раскладка дыр по перекрытиям @60435, вложе�
 
 ## 8. Сводная таблица
 
-| Предикат | Строка | Эпсилон (дефолт) | Семантика | Главные клиенты |
-|---|---|---|---|---|
-| `pointsMatch` / `Point.match` | 49560 / 49554 | L_EPS (чебышёв) | identity точек | дедуп вершин триангуляции @50939; снап в `lineIntersectLine` @49902 |
-| `distanceBetweenPointAndLine` | 49567 | — (знаковое) | расстояние до прямой | `pointOnLine`, `segmentsOverlay` |
-| `pointOnLine` | 49576 | B_EPS | boundary: точка на отрезке | `pointOnContour`; поиск стены под точкой @60360; снап @66136 |
-| `pointOnContour` | 49603 | B_EPS | boundary: точка на границе | фильтр перед `pointInContour` в `compareContours*` @50032/49815 |
-| `pointInContour` | 49629 | локальный 1e-6 (вершины на луче) | area: чётность луча влево | `pointInContours`; `compareContours*`; классификация триангуляции @51021 |
-| `pointInBounds` | 50167 | L_EPS | bbox отрезка | пост-фильтр проекций @53310 |
-| `projectionPointOnLine` | 50128 | L_EPS (обрезка), B_EPS (гориз. хак) | проекция | оси стен @53012–53014, parallelBox @54837 |
-| `perpendicularPoint` | 50196 | — | нормальный офсет | mitering @58029–58036; сдвиг стен @53100 |
-| `segmentsIntersected` | 49864 | 0 (строгие знаки) | трансверсальное пересечение | `contourSelfIntersected` @49845 |
-| `lineIntersectLine` | 49874 | L_EPS (denom, снап), accuracy=0 (обрезка, манхэттен) | пересечение прямых/отрезков | mitering @58039; `compareContours` @50015; повсюду |
-| `segmentsOverlay` | 49917 | dist=L_EPS (коллин.), −L_EPS (1D-нахлёст), B_EPS (выбор оси) | коллинеарный нахлёст | `checkContact` @49956 |
-| `checkContact` | 49942 | B_EPS (вырожд. рёбра) | shared boundary контуров | только `compareContours` @50062 |
-| `angleBetweenLines` | 49754 | — | ориентированный угол [0, 2π) от CD к AB | mitering @58044; трассировка @50892; `parallelLines`; снап @66154 |
-| `parallelLines` | 50252 | 0.05 рад | параллельность (обе ориентации) | `WC.boxFromWalls` @54826 |
-| `compareContours` | 50001 | композиция (L_EPS + B_EPS) | 8-исходная классификация пары | дерево комнат @52254; группировка @54960; areas @59593 |
-| `compareContoursOnePoint` | 49810 | B_EPS + ray casting | BELONG/CONTAIN/OUTSIDE (без пересечений) | дыры перекрытий @60435; зоны @65308 |
-| `compareContoursByArea` | 49963 | шаг сетки bbox/10 | INTERSECT/OUTSIDE по сэмплам | перенос материалов при rebuild @59695/59862 |
-| `contourArea` | 49515 | — | знаковая площадь (∮y dx) | `contourValid` @50527; `sortByArea` @59495 |
-| `contourValid` | 50525 | area ≥ 50, S/P ≥ 1 | анти-сливер | `clearContour` @50400 |
-| `triangleIsNarrow` | 49744 | 0.1 манхэттен | вырожденность треугольника | выбор центра группы @51001 |
-| `sortByArea` | 59492 | eps=10 (tie-break outer) | порядок обработки контуров | `sortRooms` @59523; дыры перекрытий @60424 |
+| Предикат                      | Строка        | Эпсилон (дефолт)                                             | Семантика                                | Главные клиенты                                                          |
+| ----------------------------- | ------------- | ------------------------------------------------------------ | ---------------------------------------- | ------------------------------------------------------------------------ |
+| `pointsMatch` / `Point.match` | 49560 / 49554 | L_EPS (чебышёв)                                              | identity точек                           | дедуп вершин триангуляции @50939; снап в `lineIntersectLine` @49902      |
+| `distanceBetweenPointAndLine` | 49567         | — (знаковое)                                                 | расстояние до прямой                     | `pointOnLine`, `segmentsOverlay`                                         |
+| `pointOnLine`                 | 49576         | B_EPS                                                        | boundary: точка на отрезке               | `pointOnContour`; поиск стены под точкой @60360; снап @66136             |
+| `pointOnContour`              | 49603         | B_EPS                                                        | boundary: точка на границе               | фильтр перед `pointInContour` в `compareContours*` @50032/49815          |
+| `pointInContour`              | 49629         | локальный 1e-6 (вершины на луче)                             | area: чётность луча влево                | `pointInContours`; `compareContours*`; классификация триангуляции @51021 |
+| `pointInBounds`               | 50167         | L_EPS                                                        | bbox отрезка                             | пост-фильтр проекций @53310                                              |
+| `projectionPointOnLine`       | 50128         | L_EPS (обрезка), B_EPS (гориз. хак)                          | проекция                                 | оси стен @53012–53014, parallelBox @54837                                |
+| `perpendicularPoint`          | 50196         | —                                                            | нормальный офсет                         | mitering @58029–58036; сдвиг стен @53100                                 |
+| `segmentsIntersected`         | 49864         | 0 (строгие знаки)                                            | трансверсальное пересечение              | `contourSelfIntersected` @49845                                          |
+| `lineIntersectLine`           | 49874         | L_EPS (denom, снап), accuracy=0 (обрезка, манхэттен)         | пересечение прямых/отрезков              | mitering @58039; `compareContours` @50015; повсюду                       |
+| `segmentsOverlay`             | 49917         | dist=L_EPS (коллин.), −L_EPS (1D-нахлёст), B_EPS (выбор оси) | коллинеарный нахлёст                     | `checkContact` @49956                                                    |
+| `checkContact`                | 49942         | B_EPS (вырожд. рёбра)                                        | shared boundary контуров                 | только `compareContours` @50062                                          |
+| `angleBetweenLines`           | 49754         | —                                                            | ориентированный угол [0, 2π) от CD к AB  | mitering @58044; трассировка @50892; `parallelLines`; снап @66154        |
+| `parallelLines`               | 50252         | 0.05 рад                                                     | параллельность (обе ориентации)          | `WC.boxFromWalls` @54826                                                 |
+| `compareContours`             | 50001         | композиция (L_EPS + B_EPS)                                   | 8-исходная классификация пары            | дерево комнат @52254; группировка @54960; areas @59593                   |
+| `compareContoursOnePoint`     | 49810         | B_EPS + ray casting                                          | BELONG/CONTAIN/OUTSIDE (без пересечений) | дыры перекрытий @60435; зоны @65308                                      |
+| `compareContoursByArea`       | 49963         | шаг сетки bbox/10                                            | INTERSECT/OUTSIDE по сэмплам             | перенос материалов при rebuild @59695/59862                              |
+| `contourArea`                 | 49515         | —                                                            | знаковая площадь (∮y dx)                 | `contourValid` @50527; `sortByArea` @59495                               |
+| `contourValid`                | 50525         | area ≥ 50, S/P ≥ 1                                           | анти-сливер                              | `clearContour` @50400                                                    |
+| `triangleIsNarrow`            | 49744         | 0.1 манхэттен                                                | вырожденность треугольника               | выбор центра группы @51001                                               |
+| `sortByArea`                  | 59492         | eps=10 (tie-break outer)                                     | порядок обработки контуров               | `sortRooms` @59523; дыры перекрытий @60424                               |
 
 ---
 

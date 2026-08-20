@@ -96,16 +96,16 @@ planner.mih = () => R2D.MouseInteractionHelper._instance;   // :610
 
 **Планировщик → хост (исходящие) нотификации:**
 
-| action                 | payload            | когда                                                                         |
-| ---------------------- | ------------------ | ----------------------------------------------------------------------------- |
-| `program_ready`        | —                  | после полного init (`Main.jsx:1190`)                                          |
+| action                 | payload            | когда                                                                          |
+| ---------------------- | ------------------ | ------------------------------------------------------------------------------ |
+| `program_ready`        | —                  | после полного init (`Main.jsx:1190`)                                           |
 | `merchant_login`       | —                  | любое действие с логином при `enable_merchant_login` (33 standalone-вхождения) |
-| `project_saved`        | `{id, name, hash}` | после сейва (`Main.jsx:436, 544, 623`)                                        |
-| `project_renamed`      | `{...}`            | после переименования (`SetProjectNamePopup.jsx:250`)                          |
-| `set_project`          | `{projectId}`      | при `enable_set_project` (`plannercore.js:15697, 16160`)                      |
-| `my_projects`          | —                  | при `my_projects_merchant_logic` (`StartPopup.jsx:256`, `UserButton.jsx:216`) |
-| `product_details_show` | `{id}`             | при `product_details_show_merchant_logic` (`selectedModel/main/Main.jsx:808`) |
-| `got_estimation`       | `{data}`           | ответ на `get_estimation` / на `ESTIMATION_SEND` (`Main.jsx:475, 732`)        |
+| `project_saved`        | `{id, name, hash}` | после сейва (`Main.jsx:436, 544, 623`)                                         |
+| `project_renamed`      | `{...}`            | после переименования (`SetProjectNamePopup.jsx:250`)                           |
+| `set_project`          | `{projectId}`      | при `enable_set_project` (`plannercore.js:15697, 16160`)                       |
+| `my_projects`          | —                  | при `my_projects_merchant_logic` (`StartPopup.jsx:256`, `UserButton.jsx:216`)  |
+| `product_details_show` | `{id}`             | при `product_details_show_merchant_logic` (`selectedModel/main/Main.jsx:808`)  |
+| `got_estimation`       | `{data}`           | ответ на `get_estimation` / на `ESTIMATION_SEND` (`Main.jsx:475, 732`)         |
 
 Поведение **управляется конфиг-флагами** (`R2D.config.data.enable_merchant_login`, `enable_set_project`, `enable_estimation`, `enable_pro`, `my_projects_merchant_logic`, `product_details_show_merchant_logic`, `custom_registration`, `start_popup.*`). Когда мерчант встраивает планировщик, эти флаги перенаправляют логин, «мои проекты» и клики по деталям продукта наверх, в хост, вместо собственных попапов планировщика.
 
