@@ -12,6 +12,14 @@ export interface ProjectRow {
   updatedAt: Date;
 }
 
+/**
+ * Явная проекция вместо `selectAll()`/`returningAll()` — обязательное условие ADR 0021:
+ * рядом лежат тяжёлые `document` и `preview`, и любая выборка со звёздочкой начала бы таскать
+ * документ (~118 КБ на строку) в список проектов и в ответ на переименование.
+ * Документ читается своим методом, превью — шагом 9; `ProjectRow` остаётся лёгким.
+ */
+const PROJECT_COLUMNS = ['id', 'user_id', 'name', 'created_at', 'updated_at'] as const;
+
 const mapRow = (row: {
   id: string;
   user_id: string;
@@ -32,7 +40,7 @@ export class ProjectsRepository {
   async listByUser(userId: string): Promise<ProjectRow[]> {
     const rows = await this.db
       .selectFrom('projects')
-      .selectAll()
+      .select(PROJECT_COLUMNS)
       .where('user_id', '=', userId)
       .orderBy('updated_at', 'desc')
       .execute();
@@ -43,7 +51,7 @@ export class ProjectsRepository {
   async findByIdForUser(id: string, userId: string): Promise<ProjectRow | null> {
     const row = await this.db
       .selectFrom('projects')
-      .selectAll()
+      .select(PROJECT_COLUMNS)
       .where('id', '=', id)
       .where('user_id', '=', userId)
       .executeTakeFirst();
@@ -59,7 +67,7 @@ export class ProjectsRepository {
         user_id: params.userId,
         name: params.name,
       })
-      .returningAll()
+      .returning(PROJECT_COLUMNS)
       .executeTakeFirstOrThrow();
 
     return mapRow(row);
@@ -71,7 +79,7 @@ export class ProjectsRepository {
       .set({ name, updated_at: new Date() })
       .where('id', '=', id)
       .where('user_id', '=', userId)
-      .returningAll()
+      .returning(PROJECT_COLUMNS)
       .executeTakeFirst();
 
     if (!row) {

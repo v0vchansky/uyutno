@@ -1,6 +1,6 @@
 # 0078 · TASK · Миграция `projects`: колонки `document JSONB` и `preview text NULL`, кодоген Kysely, явная проекция колонок
 
-- Статус: [ ]
+- Статус: [x]
 - Эпик: 0077
 - Зависит от: 0036 (таблица `projects`)
 - Спека: docs/adr/0021-hranenie-dokumenta-planera-i-format-sohraneniya.md («Хранилище и API», «Смежное» → «Превью проекта»); docs/adr/0006-shema-bd-v0.md (развилка хранения документа — закрыта в пользу колонки); docs/product/features/planner/10-save-load.md («Превью проекта»)
@@ -28,17 +28,24 @@
 
 ## Приёмка
 
-- [ ] `pnpm --filter platform db:up` применяет миграцию на чистой и на существующей базе; `db:status` чист; `-- migrate:down` откатывает обе колонки и прогоняется без ошибок.
-- [ ] Колонка `document` — `JSONB NULL`, колонка `preview` — `TEXT NULL`; ни одна не `NOT NULL` и ни одна не имеет дефолта.
-- [ ] `db.generated.ts` перегенерирован кодогеном (не правлен руками) и лежит в коммите; `pnpm typecheck` зелёный.
-- [ ] `listByUser` и `findByIdForUser` выбирают явный список колонок; `selectAll()` в `projectsRepository` не осталось.
-- [ ] `create` и `renameForUser` возвращают явный список колонок; `returningAll()` в `projectsRepository` не осталось.
-- [ ] Тест, который **падает при возврате к `selectAll()`**: скомпилированный Kysely-запрос (`.compile().sql`) обеих выборок не содержит `document` и не содержит `*`. Обещания в комментарии недостаточно — проекция обязана быть проверяемой.
-- [ ] `ProjectRow`/`ProjectDto` не содержат `document`/`preview`; существующие тесты `ProjectsManager` зелёные без правок ожиданий.
-- [ ] `pnpm typecheck`, `pnpm lint`, `pnpm test` зелёные.
-- [ ] Prettier чист; ровно один PR.
+- [x] `pnpm --filter platform db:up` применяет миграцию на чистой и на существующей базе; `db:status` чист; `-- migrate:down` откатывает обе колонки и прогоняется без ошибок.
+- [x] Колонка `document` — `JSONB NULL`, колонка `preview` — `TEXT NULL`; ни одна не `NOT NULL` и ни одна не имеет дефолта.
+- [x] `db.generated.ts` перегенерирован кодогеном (не правлен руками) и лежит в коммите; `pnpm typecheck` зелёный.
+- [x] `listByUser` и `findByIdForUser` выбирают явный список колонок; `selectAll()` в `projectsRepository` не осталось.
+- [x] `create` и `renameForUser` возвращают явный список колонок; `returningAll()` в `projectsRepository` не осталось.
+- [x] Тест, который **падает при возврате к `selectAll()`**: скомпилированный Kysely-запрос (`.compile().sql`) обеих выборок не содержит `document` и не содержит `*`. Обещания в комментарии недостаточно — проекция обязана быть проверяемой.
+- [x] `ProjectRow`/`ProjectDto` не содержат `document`/`preview`; существующие тесты `ProjectsManager` зелёные без правок ожиданий.
+- [x] `pnpm typecheck`, `pnpm lint`, `pnpm test` зелёные.
+- [x] Prettier чист; ровно один PR.
 
 ## Заметки
 
 - **Про bloat таблицы от частых `UPDATE` замера нет.** Поведение TOAST при документе ~118 КБ (порог вынесения — 2 КБ) — предположение, а не измерение (ADR 0021, «Что важно знать»). Ни в этой задаче, ни в `0080` не выдавать его за факт и не строить на нём решений; понадобится — меряем отдельно.
+- **Что сделано.** Миграция `db/migrations/20260820220004_projects_document_preview.sql` (две `ALTER TABLE ... ADD COLUMN` вверх, две `DROP COLUMN` вниз, индексов нет); перегенерирован `src/server/postgres/db.generated.ts`; в `projectsRepository` заведён `PROJECT_COLUMNS = ['id', 'user_id', 'name', 'created_at', 'updated_at']`, через него идут `select(...)` в `listByUser`/`findByIdForUser` и `returning(...)` в `create`/`renameForUser`; добавлен `projectsRepository.test.ts`.
+- **Проверка миграции.** На существующей dev-базе: `db:up` → `information_schema.columns` (`document jsonb YES`, `preview text YES`, оба `column_default` пустые) → `db:down` (колонок 0) → `db:up` → `db:status` «Applied: 8, Pending: 0». На чистой базе: прогон всех восьми миграций в отдельную БД `uyutno_clean_check`, проверка тех же двух колонок, БД удалена.
+- **Кодоген требует Node 22.** Под Node 20 `db:codegen` падает с `ERR_REQUIRE_ESM` (`kysely-codegen` делает `require()` ESM-only `kysely`). Прогнан под Node 22.23.2. Тип вышел как `document: Json | null` (JSON-значение, не `string`) и `preview: string | null`; кодоген заодно добавил в файл типы `Json*`. Руками файл не правлен — только прогнан через `prettier --write`, потому что кодоген пишет двойные кавычки и свою ширину строки, а репозиторный формат — прописанный prettier (та же процедура, что и при `0036`).
+- **Третьего места с `selectAll()` по `projects` нет.** Единственный код, который ходит в таблицу, — `projectsRepository`; `deleteForUser` ничего не возвращает. `selectAll()`/`returningAll()` остались только в репозиториях `users`/`sessions`/`oauth_accounts` — те таблицы лёгкие и под правило ADR 0021 не подпадают.
+- **Расхождение в способе снятия SQL.** Критерий приёмки говорит `.compile().sql`; билдеры запросов снаружи репозитория недоступны, поэтому тест поднимает Kysely на `DummyDriver` и снимает SQL через `log`-хук — `event.query` там ровно тот же объект `CompiledQuery`, что возвращает `.compile()`, и `.sql` берётся из него. Проверяемое условие («нет `*`, нет `document`/`preview`, есть все пять метаколонок») выполнено дословно. Красность доказана: с возвращённым `selectAll()`/`returningAll()` все четыре теста падают на `expect(sql).not.toContain('*')`.
+- **`jest.config.mjs` платформы получил `transformIgnorePatterns`** — `kysely` и `uuidv7` ESM-only, без этого тест репозитория не грузится (`SyntaxError: Unexpected token 'export'`). Тот же приём, что уже применён в `packages/planner` для `robust-predicates`.
+- **Коммит и PR** делает оркестратор — исполнитель git-операций не выполнял.
 - **Кто ставит `updated_at`.** Колонка живёт с `DEFAULT now()`, а обновляется только явным `set({ updated_at: new Date() })` — триггера в базе нет. Это важно для `0080`: служебная перезапись документа после миграции обязана `updated_at` **не трогать**, и по нынешней схеме для этого достаточно его не передавать. Если в этой задаче появится соблазн завести триггер `updated_at` на `UPDATE` — нельзя, он сломает требование ADR.
