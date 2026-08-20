@@ -1,8 +1,10 @@
 import * as fc from 'fast-check';
 import { Immer, freeze } from 'immer';
 
+import { blocksFromContour, DEFAULT_WALL_WIDTH } from '../document/geometry/band/blocksFromContour';
 import { contourArea, contourValid } from '../document/geometry/predicates/contourArea';
 import { contourSelfIntersected } from '../document/geometry/predicates/contourSelfIntersected';
+import type { OffsetSide } from '../document/geometry/predicates/offsetPoint';
 import { pointOnContour } from '../document/geometry/predicates/pointOnContour';
 import { arbConvexPolygon, fcParams } from '../document/geometry/testing/arbitraries';
 import type { Id } from '../document/id';
@@ -13,6 +15,7 @@ import {
   type PlanPosition,
   type PlannerDocument,
 } from '../document/PlannerDocument';
+import { quantize } from '../document/quantize';
 import { createPlanBuilder, createSequentialIds, type PlanBuilder } from '../document/testing/planBuilder';
 import { type DerivedFloor, normalize, rebuild } from './rebuild';
 
@@ -118,6 +121,35 @@ describe('normalize', () => {
 
     it('идемпотентность: повторный normalize нормализованного документа не трогает черновик (тот же объект)', () => {
       const once = normalized(ringDocument().doc);
+      expect(normalized(once, 'm')).toBe(once);
+    });
+
+    it('регресс 0073: T-стык соседнего контура попадает в обвод первым прогоном, а не вторым', () => {
+      // Две пересекающиеся «Комнаты по точкам». Обвод левой комнаты проходит в ~3e-5 см от вершины
+      // (18.153, 25.461), которую `clean-pslg` заводит на пересечении рёбер правой: в **той** триангуляции
+      // вершина рядом с гранью, но не на ней, и в обвод не попадала. Стоило записать обвод как хранимый
+      // контур — на следующем прогоне его грань уже разрезалась этой вершиной, и комната получала лишнюю
+      // вершину (ADR 0018 D3: снимок undo брался бы до разреза, а restore получал бы документ после).
+      const b = createPlanBuilder();
+      b.contour('inner', [b.point(190.3, 111.8), b.point(-101.9, 170.2), b.point(58.1, -22.7)]);
+      b.contour('inner', [b.point(21.8, 22.8), b.point(-67.7, 88.1), b.point(-0.5, -60.9)]);
+      const once = normalized(b.document());
+      const layout = layoutOf(once);
+      expect(layout.contours.map(c => coords(layout, c.points))).toEqual([
+        [
+          { x: -101.9, y: 170.2 },
+          { x: 18.153, y: 25.461 },
+          { x: 21.45, y: 21.486 },
+          { x: 58.1, y: -22.7 },
+          { x: 190.3, y: 111.8 },
+        ],
+        [
+          { x: -67.7, y: 88.1 },
+          { x: -0.5, y: -60.9 },
+          { x: 21.45, y: 21.486 },
+          { x: 18.153, y: 25.461 },
+        ],
+      ]);
       expect(normalized(once, 'm')).toBe(once);
     });
 
@@ -619,6 +651,60 @@ describe('property (fast-check, фиксированный seed)', () => {
       return b.document();
     });
 
+  /** Координата на «человеческой» сетке 0.1 см — так ложатся точки, которые ставит указатель. */
+  const arbTenth = fc.integer({ min: -2000, max: 2000 }).map(v => v / 10);
+  const round1 = (v: number): number => Math.round(v * 10) / 10;
+
+  /**
+   * Сессия конструктора: 1–3 штриха «Стены» лентой (квады с общими вершинами — то, что коммитит инструмент)
+   * плюс 0–2 «Комнаты по точкам» произвольной, в том числе невыпуклой формы, все на сетке 0.1 см.
+   *
+   * Отдельный арбитрарий, а не расширение `arbPlan`: тому нужны кольца и выпуклые полигоны на целой сетке,
+   * и конфигураций задачи 0073 он не порождает вовсе. Здесь же грани идут под произвольными углами, и
+   * `clean-pslg` заводит вершины в микронах от чужих граней, а между телами остаются сливеры — то есть
+   * ровно те входы, на которых фаза (1) `normalize` не была неподвижной точкой.
+   */
+  const arbBandPlan = fc
+    .record({
+      strokes: fc.array(
+        fc.record({
+          points: fc.array(fc.record({ x: arbTenth, y: arbTenth }), { minLength: 2, maxLength: 5 }),
+          side: fc.constantFrom<OffsetSide>('left', 'right'),
+          closed: fc.boolean(),
+        }),
+        { minLength: 1, maxLength: 3 },
+      ),
+      rooms: fc.array(
+        fc.record({
+          center: fc.record({ x: arbTenth, y: arbTenth }),
+          radii: fc.array(fc.integer({ min: 30, max: 180 }), { minLength: 3, maxLength: 6 }),
+          skew: fc.array(fc.integer({ min: 0, max: 60 }), { minLength: 6, maxLength: 6 }),
+        }),
+        { maxLength: 2 },
+      ),
+    })
+    .map(({ strokes, rooms }) => {
+      const b = createPlanBuilder();
+      for (const stroke of strokes) {
+        for (const block of blocksFromContour(stroke.points, DEFAULT_WALL_WIDTH, stroke.side, stroke.closed)) {
+          b.contour(
+            'outer',
+            block.map(p => b.point(quantize(p.x), quantize(p.y))),
+          );
+        }
+      }
+      for (const { center, radii, skew } of rooms) {
+        b.contour(
+          'inner',
+          radii.map((radius, i) => {
+            const angle = ((i + (skew[i] ?? 0) / 100) * 2 * Math.PI) / radii.length;
+            return b.point(round1(center.x + radius * Math.cos(angle)), round1(center.y + radius * Math.sin(angle)));
+          }),
+        );
+      }
+      return b.document();
+    });
+
   const params = { ...fcParams, numRuns: 120 };
 
   it('нет NaN/Infinity; комнаты — валидные полигоны без самопересечений, против часовой; treугольники по id', () => {
@@ -862,6 +948,20 @@ describe('property (fast-check, фиксированный seed)', () => {
       fc.property(arbPlan, doc => {
         const once = normalized(doc);
         expect(normalized(once, 'm')).toBe(once);
+      }),
+      params,
+    );
+  });
+
+  it('normalize(normalize(x)) == normalize(x) на лентах и комнатах по точкам (регресс 0073)', () => {
+    fc.assert(
+      fc.property(arbBandPlan, doc => {
+        const warnings: string[] = [];
+        const once = normalized(doc, 'n', warnings);
+        expect(normalized(once, 'm', warnings)).toBe(once);
+        // «Не сошлось» — отказ переписать хранимое, а не штатный исход: фаза (1) обязана брать неподвижную
+        // точку за отведённые проходы, иначе правка команды молча пропала бы.
+        expect(warnings.filter(w => w.includes('contour rebuild did not converge'))).toEqual([]);
       }),
       params,
     );

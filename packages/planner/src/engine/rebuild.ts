@@ -106,7 +106,8 @@ export interface RebuildOptions {
 /**
  * Нормализация хранимого — первая фаза rebuild, часть транзакции фасада (ADR 0015 A2, ADR 0017 C1/C6/C7):
  * получает черновик документа **после** мутации команды и по каждому этажу (1) прогоняет `rebuildContours`
- * по хранимым `outer`/`inner` и переписывает `layout.contours`/`layout.points` результатом слияния
+ * по хранимым `outer`/`inner` **до неподвижной точки** (`traceContourLoops`) и переписывает
+ * `layout.contours`/`layout.points` результатом слияния
  * (`outer` = обводы тел стен, `inner` = комнаты; рёбра хранимых зон идут туда же cut-парами; дисциплина id —
  * по квантованной координате, контур сохраняет id при той же циклической последовательности точек; порядок —
  * `sortByArea`), (2) пере-привязывает `rooms[]` (`compareContoursByArea`, сироты остаются, новым — высота
@@ -156,9 +157,97 @@ const resolvePoints = (ids: readonly Id[], points: Readonly<Record<Id, Point>>):
 /** Кандидат в хранимый контур после слияния: вид, id точек, координаты (для сортировки/якорей). */
 interface ContourCandidate {
   kind: ContourKind;
-  points: PlanPosition[];
+  points: readonly PlanPosition[];
   ids: Id[];
 }
+
+/** Петля фазы (1) ровно в том виде, в котором она станет хранимым контуром: вид и координаты вершин. */
+interface ContourLoop {
+  kind: ContourKind;
+  points: readonly PlanPosition[];
+}
+
+/**
+ * Потолок проходов фазы (1) — та же страховка, что `MAX_COVER_PASSES` у полов. В установившемся состоянии
+ * хватает одного прохода (выход совпал со входом), после правки команды — двух.
+ */
+const MAX_CONTOUR_PASSES = 4;
+
+/**
+ * Фаза (1) `normalize` до **неподвижной точки** (ADR 0017 C6/C10, ADR 0018 D3): `rebuildContours` по
+ * хранимым `outer`/`inner`, выход приводится к виду записи (порядок `sortByArea`, схлопывание совпавших
+ * вершин, петли короче трёх вершин отброшены) и подаётся на вход следующего прохода, пока выход не совпадёт
+ * со входом.
+ *
+ * **Почему одного прохода мало.** Хранимый контур — не та геометрия, которую триангулировал этот проход, а
+ * её упрощение: `clearContour` схлопывает цепочки вершин ближе 5 см в обводе **каждой** группы отдельно, а
+ * группы из одних сливеров отбрасываются целиком. Поэтому вершина может выжить в обводе одного контура и
+ * пропасть в обводе соседнего, а тонкая перемычка между двумя телами — исчезнуть вместе со своим сливером.
+ * На следующем прогоне уже упрощённый набор триангулируется заново: `resplitSegments`/`clean-pslg` возвращают
+ * пропавшую вершину T-стыком в грань соседа, а два тела, между которыми больше нет сливера, сливаются в одно.
+ * Ровно это и ломало `normalize(normalize(x)) == normalize(x)` (задача 0073). Проход, чей выход совпал со
+ * входом, такого хвоста не имеет по построению: следующий `normalize` получит тот же вход и на первом же
+ * проходе подтвердит совпадение.
+ *
+ * Не сошлось за `MAX_CONTOUR_PASSES` — `converged: false`, и вызывающий **не переписывает** хранимое
+ * (та же политика, что у `softFail`): записать несошедшееся состояние значило бы сломать идемпотентность,
+ * на которой держится restore undo/redo.
+ */
+const traceContourLoops = (
+  stored: readonly ContourLoop[],
+  cutPairs: readonly (readonly [PlanPosition, PlanPosition])[],
+): { loops: readonly ContourLoop[]; softFail: boolean; converged: boolean } => {
+  let input: readonly ContourLoop[] = stored;
+  let converged = false;
+  for (let pass = 0; pass < MAX_CONTOUR_PASSES && !converged; pass++) {
+    const result = rebuildContours({
+      outer: input.filter(loop => loop.kind === 'outer').map(loop => loop.points),
+      inner: input.filter(loop => loop.kind === 'inner').map(loop => loop.points),
+      cutPairs,
+    });
+    if (result.softFail) return { loops: [], softFail: true, converged: false };
+    const { vertices } = result.triangulation;
+    const traced: ContourLoop[] = [
+      ...result.walls.map(wall => ({ kind: 'outer' as const, points: wall.outline.map(i => vertices[i]!) })),
+      ...result.rooms.map(room => ({ kind: 'inner' as const, points: room.outline.map(i => vertices[i]!) })),
+    ];
+    // Вид записи: порядок — `sortByArea`, дубли вершин схлопнуты (две вершины квантовались в одну точку),
+    // петля короче трёх вершин контуром не становится — те же три правила, что ниже применяются к `candidates`.
+    const next = sortByArea(traced)
+      .map(loop => ({ kind: loop.kind, points: dedupePositions(loop.points) }))
+      .filter(loop => loop.points.length >= 3);
+    converged = sameLoops(input, next);
+    input = next;
+  }
+  return { loops: input, softFail: false, converged };
+};
+
+/** Схлопывание подряд идущих одинаковых координат (в том числе на замыкании) — координатный `dedupeCycle`. */
+const dedupePositions = (points: readonly PlanPosition[]): PlanPosition[] => {
+  const result: PlanPosition[] = [];
+  for (const point of points) {
+    const last = result[result.length - 1];
+    if (!last || last.x !== point.x || last.y !== point.y) result.push(point);
+  }
+  while (
+    result.length > 1 &&
+    result[0]!.x === result[result.length - 1]!.x &&
+    result[0]!.y === result[result.length - 1]!.y
+  ) {
+    result.pop();
+  }
+  return result;
+};
+
+/** Наборы петель совпали по виду, порядку и координатам (вершины квантованы — эпсилон не нужен). */
+const sameLoops = (a: readonly ContourLoop[], b: readonly ContourLoop[]): boolean =>
+  a.length === b.length &&
+  a.every(
+    (loop, index) =>
+      loop.kind === b[index]!.kind &&
+      loop.points.length === b[index]!.points.length &&
+      loop.points.every((point, i) => point.x === b[index]!.points[i]!.x && point.y === b[index]!.points[i]!.y),
+  );
 
 const normalizeFloor = (
   floor: WritableDraft<Floor>,
@@ -174,24 +263,21 @@ const normalizeFloor = (
   // Рёбра хранимых зон идут в триангуляцию как fixed-пары (ADR 0017 C6): треугольники ложатся по границе зоны,
   // а интерьерные cut-рёбра границей комнаты не считаются — правило живёт внутри `rebuildContours`.
   const cutPairs = layout.areas.flatMap(area => areaPairs(resolvePoints(area.points, layout.points)));
-  const result = rebuildContours({
-    outer: stored.filter(c => c.kind === 'outer').map(c => c.points),
-    inner: stored.filter(c => c.kind === 'inner').map(c => c.points),
-    cutPairs,
-  });
-  if (result.softFail) {
+  const traced = traceContourLoops(stored, cutPairs);
+  if (traced.softFail) {
     // Обход хотя бы одной группы оборвался: результат неполон, переписывать хранимое им — терять контуры
     // пользователя без следа. Хранимое остаётся как есть (снимок undo не портится), rebuild построит что сможет.
     warn(`normalize: contour tracing soft-fail on floor ${floor.id} — layout left as is`);
     return;
   }
-
-  const { vertices } = result.triangulation;
-  const loops: { kind: ContourKind; loop: readonly number[] }[] = [
-    ...result.walls.map(wall => ({ kind: 'outer' as const, loop: wall.outline })),
-    ...result.rooms.map(room => ({ kind: 'inner' as const, loop: room.outline })),
-  ];
-  const sortedLoops = sortByArea(loops.map(({ kind, loop }) => ({ kind, loop, points: loop.map(i => vertices[i]!) })));
+  if (!traced.converged) {
+    // Неподвижная точка фазы (1) не достигнута за отведённые проходы — политика та же, что у полов
+    // (`normalizeCovers`): записать несошедшееся состояние значит сломать `normalize(normalize(x)) ==
+    // normalize(x)`, на котором держится restore undo/redo (ADR 0018 D3).
+    warn(`normalize: contour rebuild did not converge on floor ${floor.id} — layout left as is`);
+    return;
+  }
+  const sortedLoops = traced.loops;
 
   // Дисциплина id точек: существующая по квантованной координате, иначе новая — в порядке отсортированных обводов.
   const idByKey = indexPointsByCoordinate(layout.points);
