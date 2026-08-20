@@ -1,6 +1,7 @@
 import type { Handler } from 'mitt';
 
-import { createEmptyDocument, type PlannerDocument } from '../document/PlannerDocument';
+import { createEmptyDocument } from '../document/createEmptyDocument';
+import { type PlannerDocument } from '../document/PlannerDocument';
 import { DocumentNamespace } from './DocumentNamespace';
 import { HistoryNamespace } from './HistoryNamespace';
 import { createPlannerBus, type PlannerBus, type PlannerEvents, type PlannerEventType } from './PlannerBus';

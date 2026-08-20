@@ -2,14 +2,13 @@ import * as fc from 'fast-check';
 
 import { arbQuantizedPoint, fcParams } from '../document/geometry/testing/arbitraries';
 import { createId, type Id } from '../document/id';
+import { createEmptyDocument, createEmptyFloor } from '../document/createEmptyDocument';
 import {
   type Contour,
   type Floor,
   type FloorLayout,
   type PlannerDocument,
   type Point,
-  createEmptyDocument,
-  createEmptyFloor,
 } from '../document/PlannerDocument';
 import { SnapCandidateIndex, buildSnapIndex } from './SnapCandidateIndex';
 

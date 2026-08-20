@@ -116,6 +116,14 @@ const plannerLayerConfigs = [
     patterns: [plannerNoPlatform, plannerNoThree, plannerNoReact, plannerNoUpperLayers(['engine', 'projection', 'ui'])],
   },
   {
+    // Узкий вход `@uyutno/planner/format` (ADR 0021): его импортирует серверный процесс, поэтому запреты те же,
+    // что у `document/`. `format` намеренно **не** попадает в список вышележащих слоёв для `document/`: они соседи,
+    // и `document/PlannerDocument.ts` берёт из `format/version` номер версии формата (задача 0079).
+    // Линтер видит только написанные импорты — транзитивную протечку ловит гвард `format/importGraph.test.ts`.
+    files: ['packages/planner/src/format/**/*.{ts,tsx}'],
+    patterns: [plannerNoPlatform, plannerNoThree, plannerNoReact, plannerNoUpperLayers(['engine', 'projection', 'ui'])],
+  },
+  {
     files: ['packages/planner/src/engine/**/*.{ts,tsx}'],
     patterns: [plannerNoPlatform, plannerNoThree, plannerNoReact, plannerNoUpperLayers(['projection', 'ui'])],
   },

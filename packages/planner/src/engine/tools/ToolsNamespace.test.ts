@@ -2,7 +2,8 @@ import { DEFAULT_WALL_WIDTH } from '../../document/geometry/band/blocksFromConto
 import { CLOSE_EPS } from '../../document/geometry/contours/contourClosure';
 import { MIN_WALL_LENGTH } from '../../document/geometry/contours/validateContour';
 import { DEFAULT_SNAP_FLAGS } from '../../document/geometry/snap/getSnapPoint';
-import { createEmptyDocument, type PlannerDocument } from '../../document/PlannerDocument';
+import { createEmptyDocument } from '../../document/createEmptyDocument';
+import { type PlannerDocument } from '../../document/PlannerDocument';
 import type { PlannerLogger } from '../PlannerManager';
 import { createTestManager, ringDocument, silentLogger } from '../testing/testManager';
 import {

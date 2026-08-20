@@ -8,13 +8,8 @@ import type { OffsetSide } from '../document/geometry/predicates/offsetPoint';
 import { pointOnContour } from '../document/geometry/predicates/pointOnContour';
 import { arbConvexPolygon, fcParams } from '../document/geometry/testing/arbitraries';
 import type { Id } from '../document/id';
-import {
-  createEmptyDocument,
-  createEmptyFloor,
-  type FloorLayout,
-  type PlanPosition,
-  type PlannerDocument,
-} from '../document/PlannerDocument';
+import { createEmptyDocument, createEmptyFloor } from '../document/createEmptyDocument';
+import { type FloorLayout, type PlanPosition, type PlannerDocument } from '../document/PlannerDocument';
 import { quantize } from '../document/quantize';
 import { createPlanBuilder, createSequentialIds, type PlanBuilder } from '../document/testing/planBuilder';
 import { type DerivedFloor, normalize, rebuild } from './rebuild';

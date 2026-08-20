@@ -3,7 +3,7 @@ import { createId, type Id } from '../../document/id';
 import type { ContourKind, PlanPosition, Point } from '../../document/PlannerDocument';
 import { quantize } from '../../document/quantize';
 import type { PlannerStore } from '../PlannerStore';
-import { err, ok, type Result } from '../Result';
+import { err, ok, type Result } from '../../document/Result';
 import { isFinitePosition, resolveFloor, type UnknownFloorError } from './layoutAccess';
 
 /** Сырой контур инструмента (ADR 0017 C1): квад ленты / прямоугольник — `outer`, комната по точкам — `inner`. */

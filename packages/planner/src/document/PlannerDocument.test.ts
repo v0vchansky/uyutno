@@ -1,8 +1,7 @@
+import { createEmptyDocument, createEmptyFloor } from './createEmptyDocument';
 import {
   createDefaultCamera,
   createDefaultView,
-  createEmptyDocument,
-  createEmptyFloor,
   DEFAULT_WALL_HEIGHT,
   DOCUMENT_FORMAT,
   DOCUMENT_VERSION,

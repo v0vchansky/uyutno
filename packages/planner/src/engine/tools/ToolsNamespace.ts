@@ -10,7 +10,7 @@ import { movePoints } from '../commands/movePoints';
 import type { PlannerBus } from '../PlannerBus';
 import type { PlannerLogger } from '../PlannerManager';
 import type { PlannerStore } from '../PlannerStore';
-import { err, ok, type Result } from '../Result';
+import { err, ok, type Result } from '../../document/Result';
 import { SnapCandidateIndex, type SnapIndex } from '../SnapCandidateIndex';
 import { draggingPointHandler } from './draggingPoint';
 import { draggingWallHandler } from './draggingWall';

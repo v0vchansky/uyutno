@@ -38,7 +38,7 @@ export { usePlannerManager, usePlannerProjections } from './ui/PlannerContext';
 export { usePlannerSelector } from './ui/usePlannerSelector';
 export type { PlannerLogger, PlannerManager } from './engine/PlannerManager';
 export type { PlannerEvents } from './engine/PlannerBus';
-export type { Result } from './engine/Result';
+export type { Result } from './document/Result';
 export type { LoadError, SetSettingsError } from './engine/DocumentNamespace';
 export type { AddContoursError, ContourInput } from './engine/commands/addContours';
 export type { MovePointsError, MovePointsOptions, PointMove } from './engine/commands/movePoints';

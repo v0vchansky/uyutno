@@ -1,4 +1,5 @@
-import { createId, type Id } from './id';
+import type { Id } from './id';
+import type { DocumentFormat } from '../format/version';
 
 /**
  * Модель документа планера — одно plain-JSON дерево, единственный источник правды для всех вьюверов
@@ -8,6 +9,11 @@ import { createId, type Id } from './id';
  *
  * Тип называется `PlannerDocument`, а не `Document`, как в скетче ADR 0016: пакет компилируется с `lib: dom`,
  * и забытый импорт `Document` молча подхватил бы DOM-глобал того же имени.
+ *
+ * **Модуль ничего исполняемого за собой не тянет**: типы стираются, а единственный runtime-реэкспорт
+ * (`format/version`) сам безимпортный. Так и должно оставаться — эти константы читает узкий вход
+ * `format/`, который уезжает в серверный процесс (ADR 0021), и любой тяжёлый импорт отсюда поехал бы
+ * туда же. Фабрики пустого проекта, которым нужен генератор id, — в соседнем `createEmptyDocument.ts`.
  */
 
 /** Точка плоскости плана без идентичности: см, `(x, y)`; в мир Three маппится проекцией `(x, h, −y)` (B1). */
@@ -156,7 +162,8 @@ export interface FloorLayout {
   rooms: Room[];
 }
 
-export type SceneItemKind = 'model' | 'door' | 'window' | 'opening' | 'poster' | 'carpet';
+export const SCENE_ITEM_KINDS = ['model', 'door', 'window', 'opening', 'poster', 'carpet'] as const;
+export type SceneItemKind = (typeof SCENE_ITEM_KINDS)[number];
 
 /** Предмет обстановки/проём: мировые координаты плана, поворот в градусах; поля по `kind` — ADR H. */
 export interface SceneItem extends PlanPosition {
@@ -191,12 +198,15 @@ export interface Floor {
   scene: FloorScene;
 }
 
-export const DOCUMENT_FORMAT = 'uyutno.planner';
-/** Целая монотонная версия формата (B6); миграции — ADR F. */
-export const DOCUMENT_VERSION = 1;
+/**
+ * Идентификатор и версия формата живут рядом с цепочкой миграций (`format/version.ts`, ADR 0021):
+ * версия **выводится** из длины цепочки, а не пишется руками. Здесь — реэкспорт, чтобы существующие
+ * импорты формы документа не разъезжались по двум модулям.
+ */
+export { DOCUMENT_FORMAT, DOCUMENT_VERSION } from '../format/version';
 
 export interface PlannerDocument {
-  format: typeof DOCUMENT_FORMAT;
+  format: DocumentFormat;
   version: number;
   settings: DocumentSettings;
   view: DocumentView;
@@ -226,19 +236,4 @@ export const createDefaultView = (): DocumentView => ({
     orbit: createDefaultCamera('orbit'),
     walk: createDefaultCamera('walk'),
   },
-});
-
-export const createEmptyFloor = (): Floor => ({
-  id: createId(),
-  layout: { points: {}, contours: [], covers: [], areas: [], cuts: [], rooms: [] },
-  scene: { items: [], rulers: [], hidden: [] },
-});
-
-/** Пустой документ нового проекта: один этаж, см, `wallHeight = 280`, дефолтные вид и камеры. */
-export const createEmptyDocument = (): PlannerDocument => ({
-  format: DOCUMENT_FORMAT,
-  version: DOCUMENT_VERSION,
-  settings: { units: 'cm', wallHeight: DEFAULT_WALL_HEIGHT },
-  view: createDefaultView(),
-  floors: [createEmptyFloor()],
 });

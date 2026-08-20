@@ -9,7 +9,7 @@ import {
 } from '../document/PlannerDocument';
 import { quantize } from '../document/quantize';
 import type { PlannerStore } from './PlannerStore';
-import { err, ok, type Result } from './Result';
+import { err, ok, type Result } from '../document/Result';
 
 export type SetActiveViewError = { kind: 'invalid-view'; view: unknown };
 

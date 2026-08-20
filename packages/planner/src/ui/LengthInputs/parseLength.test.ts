@@ -1,7 +1,7 @@
 import { MIN_WALL_LENGTH } from '../../document/geometry/contours/validateContour';
 import type { Units } from '../../document/PlannerDocument';
 import { MAX_EDGE_LENGTH } from '../../engine/commands/setEdgeLength';
-import type { Result } from '../../engine/Result';
+import type { Result } from '../../document/Result';
 import {
   type LengthError,
   type LengthErrorKind,

@@ -3,7 +3,7 @@ import type { WritableDraft } from 'immer';
 import type { Id } from '../../document/id';
 import type { Cut, FloorLayout } from '../../document/PlannerDocument';
 import type { PlannerStore } from '../PlannerStore';
-import { ok, type Result } from '../Result';
+import { ok, type Result } from '../../document/Result';
 import { resolveFloor, resolvePoint, type UnknownFloorError, type UnknownPointError } from './layoutAccess';
 
 /** Минимум точек, при котором петля-владелец (контур/пол/зона) остаётся жить после удаления вершины. */

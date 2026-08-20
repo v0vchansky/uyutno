@@ -8,7 +8,7 @@ import type { MovePointsError, MovePointsOptions, PointMove } from '../commands/
 import type { HistoryError } from '../history/HistoryLog';
 import type { PlannerLogger } from '../PlannerManager';
 import type { DerivedFloor } from '../rebuild';
-import type { Result } from '../Result';
+import type { Result } from '../../document/Result';
 import type { SnapIndex } from '../SnapCandidateIndex';
 import type { EditingState, HitTarget, KeyAction, PointerInput, ToolVariant } from './ToolState';
 

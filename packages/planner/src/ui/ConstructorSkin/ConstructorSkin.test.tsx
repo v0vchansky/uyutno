@@ -2,7 +2,7 @@
 import type React from 'react';
 import { act, render, screen } from '@testing-library/react';
 
-import { createEmptyDocument } from '../../document/PlannerDocument';
+import { createEmptyDocument } from '../../document/createEmptyDocument';
 import { PlannerManager, type PlannerLogger } from '../../engine/PlannerManager';
 import { createEditingState, DEFAULT_VIEWPORT, type ToolState } from '../../engine/tools/ToolState';
 import { DEFAULT_SNAP_FLAGS } from '../../document/geometry/snap/getSnapPoint';

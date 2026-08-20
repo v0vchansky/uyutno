@@ -12,7 +12,7 @@ import {
 } from './history/HistoryLog';
 import type { PlannerBus } from './PlannerBus';
 import { normalize, rebuild, type DerivedState, type WarningSink } from './rebuild';
-import { err, ok, type Result } from './Result';
+import { err, ok, type Result } from '../document/Result';
 
 /**
  * Свой экземпляр immer, а не глобальный `produce`: auto-freeze включён **всегда, и в проде** (ADR 0015 A6,

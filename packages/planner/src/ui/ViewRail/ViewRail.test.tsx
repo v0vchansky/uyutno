@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 
 import { createDefaultCamera } from '../../document/PlannerDocument';
 import { PlannerManager, type PlannerLogger } from '../../engine/PlannerManager';
-import { err } from '../../engine/Result';
+import { err } from '../../document/Result';
 import type { SetActiveViewError } from '../../engine/ViewNamespace';
 import type { PlannerInstance, PlannerProjections } from '../../projection/createPlanner';
 import { PlannerContext } from '../PlannerContext';

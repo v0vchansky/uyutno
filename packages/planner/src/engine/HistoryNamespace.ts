@@ -1,6 +1,6 @@
 import type { HistoryError, HistoryState } from './history/HistoryLog';
 import type { PlannerStore } from './PlannerStore';
-import type { Result } from './Result';
+import type { Result } from '../document/Result';
 
 export type { HistoryError, HistoryState, HistoryZone } from './history/HistoryLog';
 

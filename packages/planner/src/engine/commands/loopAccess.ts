@@ -4,7 +4,7 @@ import { createId, type Id } from '../../document/id';
 import type { Area, Cover, FloorLayout, PlanPosition, Point } from '../../document/PlannerDocument';
 import { quantize } from '../../document/quantize';
 import { coordinateKey } from '../normalizeIds';
-import { err, ok, type Result } from '../Result';
+import { err, ok, type Result } from '../../document/Result';
 
 /** Пол этажа больше не существует (удалён пользователем или снят пересборкой — id производного не стабилен). */
 export type UnknownCoverError = { kind: 'unknown-cover'; id: Id };

@@ -1,6 +1,7 @@
 import { freeze, produce } from 'immer';
 
-import { createEmptyDocument, type PlannerDocument } from '../../document/PlannerDocument';
+import { createEmptyDocument } from '../../document/createEmptyDocument';
+import { type PlannerDocument } from '../../document/PlannerDocument';
 import { applyRecord, captureRecord, HistoryLog, MAX_HISTORY, zoneOfView } from './HistoryLog';
 
 /** Новый замороженный документ с другим `layout` (по ссылке) — имитация транзакции содержимого. */

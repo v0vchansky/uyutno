@@ -4,7 +4,7 @@ import type { Id } from '../../document/id';
 import type { PlanPosition } from '../../document/PlannerDocument';
 import { quantize } from '../../document/quantize';
 import type { PlannerStore } from '../PlannerStore';
-import { err, ok, type Result } from '../Result';
+import { err, ok, type Result } from '../../document/Result';
 import {
   movesSelfIntersect,
   resolveFloor,

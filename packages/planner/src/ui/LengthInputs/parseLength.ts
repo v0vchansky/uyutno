@@ -2,7 +2,7 @@ import { MIN_WALL_LENGTH } from '../../document/geometry/contours/validateContou
 import type { Units } from '../../document/PlannerDocument';
 import { MAX_EDGE_LENGTH } from '../../engine/commands/setEdgeLength';
 import { MIN_WALL_WIDTH } from '../../engine/commands/setWallWidth';
-import { err, ok, type Result } from '../../engine/Result';
+import { err, ok, type Result } from '../../document/Result';
 import { unitsToCm } from './formatLength';
 
 /**

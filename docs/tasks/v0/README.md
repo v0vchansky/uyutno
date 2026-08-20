@@ -192,7 +192,7 @@
 | #    | Тип  | Название                                                                                                                                        | Статус | Зависит от | PR  |
 | ---- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ---------- | --- |
 | 0078 | TASK | [Миграция `projects`: `document JSONB`, `preview text NULL`, кодоген, явная проекция колонок](0078-TASK-projects-document-preview-migration.md) | [x]    | 0036       | —   |
-| 0079 | TASK | [Формат в ядре: вход `@uyutno/planner/format`, zod-схема, `serialize`/`parse`, `migrate`](0079-TASK-planner-format-serialize-parse-migrate.md)  | [ ]    | 0066       | —   |
+| 0079 | TASK | [Формат в ядре: вход `@uyutno/planner/format`, zod-схема, `serialize`/`parse`, `migrate`](0079-TASK-planner-format-serialize-parse-migrate.md)  | [x]    | 0066       | —   |
 | 0080 | TASK | [Бэкенд документа: `GET`/`PUT …/document`, миграция на чтении, лимит, рейт-лимит](0080-TASK-project-document-api.md)                            | [ ]    | 0078, 0079 | —   |
 | 0081 | TASK | [Неймспейс `persistence` фасада и DI-проп `storage`](0081-TASK-planner-persistence-namespace-and-storage-prop.md)                               | [ ]    | 0080       | —   |
 | 0082 | TASK | [Ручной Save и серверный автосейв раз в 60 с](0082-TASK-planner-manual-save-and-server-autosave.md)                                             | [ ]    | 0081       | —   |

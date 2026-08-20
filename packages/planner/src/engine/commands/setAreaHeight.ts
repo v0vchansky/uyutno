@@ -1,6 +1,6 @@
 import type { Id } from '../../document/id';
 import type { PlannerStore } from '../PlannerStore';
-import { err, ok, type Result } from '../Result';
+import { err, ok, type Result } from '../../document/Result';
 import type { InvalidHeightError } from './addArea';
 import { resolveArea, type UnknownAreaError } from './loopAccess';
 import { resolveFloor, type UnknownFloorError } from './layoutAccess';

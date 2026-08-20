@@ -2,7 +2,7 @@ import { validateContour } from '../../document/geometry/contours/validateContou
 import { createId, type Id } from '../../document/id';
 import type { ContourKind, PlanPosition } from '../../document/PlannerDocument';
 import type { PlannerStore } from '../PlannerStore';
-import { err, ok, type Result } from '../Result';
+import { err, ok, type Result } from '../../document/Result';
 import { indexPointIds, quantizeLoop, resolveLoopIds } from './loopAccess';
 import { isFinitePosition, resolveFloor, type UnknownFloorError } from './layoutAccess';
 

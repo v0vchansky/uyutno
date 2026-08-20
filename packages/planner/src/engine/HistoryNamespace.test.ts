@@ -1,4 +1,4 @@
-import { createEmptyDocument } from '../document/PlannerDocument';
+import { createEmptyDocument } from '../document/createEmptyDocument';
 import { MAX_HISTORY } from './history/HistoryLog';
 import { createTestManager, rectContour, ringContours, ringDocument } from './testing/testManager';
 

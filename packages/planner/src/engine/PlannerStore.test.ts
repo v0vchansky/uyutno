@@ -1,4 +1,5 @@
-import { createEmptyDocument, type PlannerDocument } from '../document/PlannerDocument';
+import { createEmptyDocument } from '../document/createEmptyDocument';
+import { type PlannerDocument } from '../document/PlannerDocument';
 import { createPlanBuilder } from '../document/testing/planBuilder';
 import { createPlannerBus, type PlannerBus, type PlannerEventType } from './PlannerBus';
 import { DocumentNamespace } from './DocumentNamespace';

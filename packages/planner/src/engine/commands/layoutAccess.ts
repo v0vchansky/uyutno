@@ -1,7 +1,7 @@
 import type { Id } from '../../document/id';
 import type { Floor, FloorLayout, PlanPosition, PlannerDocument, Point } from '../../document/PlannerDocument';
 import { contourSelfIntersected } from '../../document/geometry/predicates/contourSelfIntersected';
-import { err, ok, type Result } from '../Result';
+import { err, ok, type Result } from '../../document/Result';
 
 /** Общая ошибка всех команд планировки (ADR 0018 D1). */
 export type UnknownFloorError = { kind: 'unknown-floor'; floorId: Id };

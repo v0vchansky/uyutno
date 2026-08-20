@@ -24,7 +24,7 @@ import {
 import { setAreaHeight, type SetAreaHeightError } from './commands/setAreaHeight';
 import { setWallWidth, type SetWallWidthError } from './commands/setWallWidth';
 import type { PlannerStore } from './PlannerStore';
-import { err, ok, type Result } from './Result';
+import { err, ok, type Result } from '../document/Result';
 import type { DerivedState } from './rebuild';
 
 export type LoadError =
