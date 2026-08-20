@@ -81,6 +81,7 @@ export const createGetProjectController =
 Error-middleware в `application`:
 
 - Знает про типы `AppError` из `common`, маппит в статусы (`NotFoundError` → 404, `ValidationError` → 400, и т.п.).
+- Знает и про ошибки самого Express (`http-errors`: `entity.too.large` от `express.json` → 413, `entity.parse.failed` → 400) — отдаёт их своим статусом в том же формате тела; сообщение выносится наружу только при `expose === true`.
 - Всё остальное (в том числе pg/Kysely-ошибки) — `500 Internal server error`, полный стек — в логгер.
 - Не логгирует юзер-фейсинг ошибки (`4xx`) как ошибки — только `5xx`.
 
