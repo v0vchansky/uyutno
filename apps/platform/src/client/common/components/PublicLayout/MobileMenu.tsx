@@ -1,3 +1,4 @@
+import { Separator } from '@heroui/react';
 import { LogOut, Menu, Settings, X } from 'lucide-react';
 import type React from 'react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
@@ -149,7 +150,8 @@ export const MobileMenu: React.FC<Props> = ({ mode, user }) => {
 
             {showAuthLoginLink ? (
               <>
-                <div className='mx-3 my-1 h-px bg-[var(--separator)]' aria-hidden='true' />
+                {/* Разделитель — библиотечный, как в `ProfileMenu` (задача 0093); свои только отступы. */}
+                <Separator className='mx-3 my-1 w-auto' />
                 <Link
                   to='/login'
                   onClick={handleNavClick}
@@ -162,7 +164,7 @@ export const MobileMenu: React.FC<Props> = ({ mode, user }) => {
 
             {showUserBlock && user ? (
               <>
-                {showLandingNav ? <div className='mx-3 my-1 h-px bg-[var(--separator)]' aria-hidden='true' /> : null}
+                {showLandingNav ? <Separator className='mx-3 my-1 w-auto' /> : null}
                 <div className='flex h-11 items-center gap-3 px-3'>
                   <span
                     aria-hidden='true'

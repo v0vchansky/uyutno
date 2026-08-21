@@ -1,3 +1,4 @@
+import { Separator } from '@heroui/react';
 import { ChevronDown, LogOut, Settings } from 'lucide-react';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -109,7 +110,17 @@ export const ProfileMenu: React.FC<Props> = ({ user, variant }) => {
             <span className='truncate text-[14px] font-medium text-[color:var(--foreground)]'>{name}</span>
             <span className='truncate text-[13px] text-[color:var(--muted)]'>{user.email}</span>
           </div>
-          <div className='mx-2 my-1 h-px bg-[var(--separator)]' aria-hidden='true' />
+          {/*
+           * Разделитель — библиотечный (задача 0093): `.separator` HeroUI это и есть `h-px w-full bg-separator`,
+           * а `--color-separator` в теме библиотеки указывает на тот же `--separator`, который мы переопределяем
+           * в `theme-uyutno.css`. Заодно уходит `aria-hidden`: внутри `role="menu"` `role="separator"` — законный
+           * ребёнок, и группировку пунктов теперь слышно, а не только видно.
+           *
+           * `w-auto` обязателен: у `.separator` ширина `100%`, а она в отличие от `auto` считается от контейнера
+           * **до** вычета собственных полей — с одним лишь `mx-2` линия вылезла бы за пункты меню на 8px с каждой
+           * стороны (замерено). Возвращаем `auto`, и поля снова сужают линию, как у прежнего `div`.
+           */}
+          <Separator className='mx-2 my-1 w-auto' />
           <button
             type='button'
             role='menuitem'

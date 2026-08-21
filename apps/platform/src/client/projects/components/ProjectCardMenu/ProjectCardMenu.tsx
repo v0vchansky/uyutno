@@ -1,3 +1,4 @@
+import { Separator } from '@heroui/react';
 import { Copy, Pencil, Trash2 } from 'lucide-react';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -199,7 +200,8 @@ export const ProjectCardMenu: React.FC<Props> = ({
       if (item.key === 'delete') {
         return (
           <div key='delete-group'>
-            <div className='mx-2 my-1 h-px bg-[var(--separator)]' aria-hidden='true' />
+            {/* Разделитель перед «Удалить» — библиотечный, как в `ProfileMenu` (задача 0093). */}
+            <Separator className='mx-2 my-1 w-auto' />
             {button}
           </div>
         );
