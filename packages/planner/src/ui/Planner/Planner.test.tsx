@@ -85,6 +85,70 @@ beforeEach(() => {
 });
 
 describe('<Planner />', () => {
+  /**
+   * Строка макета под шапкой (handoff `docs/ui/handoffs/planner/planner-editor-ui.md`, «Каркас»): рейл 60px,
+   * затем холст с внешним отступом 8px, радиусом 12px и рамкой 1px. Числа проверяются буквальные: рамку рисует
+   * пакет, и молчаливый разъезд её геометрии с нормативом — ровно тот дефект, ради которого задача 0089 заведена.
+   */
+  describe('рамка холста и рейл (задача 0089)', () => {
+    const rail = (root: HTMLElement): Element | null => root.querySelector('[role="group"][aria-label="Виды и снап"]');
+
+    it('рейл 60px — слева снаружи рамки; канвасы и оверлеи — внутри неё', () => {
+      const { container } = render(
+        <Planner projectId='p-1' logger={silentLogger} className='h-full w-full'>
+          <ActiveView />
+        </Planner>,
+      );
+      const root = container.firstElementChild as HTMLElement;
+      expect(root.style.display).toBe('flex');
+
+      const [railColumn, frame] = Array.from(root.children) as HTMLElement[];
+      expect(railColumn!.style.width).toBe('60px');
+      expect(rail(railColumn!)).not.toBeNull();
+
+      expect(frame!.style.margin).toBe('8px');
+      expect(frame!.style.borderRadius).toBe('12px');
+      expect(frame!.style.borderWidth).toBe('1px');
+      expect(frame!.style.overflow).toBe('hidden');
+      expect(frame!.style.position).toBe('relative');
+
+      // Внутри рамки — оба канваса и слой оверлеев; рейла внутри нет ни одного пикселя.
+      expect(frame!.querySelectorAll('canvas')).toHaveLength(2);
+      expect(frame!.contains(screen.getByTestId('active-view'))).toBe(true);
+      expect(rail(frame!)).toBeNull();
+    });
+
+    it('рейл рисует контейнер, а не скин конструктора: он остаётся на чужом виде', () => {
+      const { captured, onReady } = captureInstance();
+      const { container } = render(<Planner projectId='p-1' logger={silentLogger} onReady={onReady} />);
+      const root = container.firstElementChild as HTMLElement;
+      expect(rail(root)).not.toBeNull();
+
+      act(() => {
+        captured.current!.manager.view.setActive('plan');
+      });
+
+      expect(rail(root)).not.toBeNull();
+    });
+
+    /*
+     * Ширина рейла занята с первого кадра — ещё до того, как поднялся движок. Иначе рамка сжималась бы на 60px
+     * уже после того, как проекция измерила холст, и авто-fit (0085) считал бы план по устаревшему кадру.
+     */
+    it('колонка рейла держит 60px, даже если движок не поднялся', () => {
+      mockThreeCtor.mockImplementation(() => {
+        throw new Error('Error creating WebGL context.');
+      });
+      const { container } = render(<Planner projectId='p-1' logger={{ ...silentLogger, error() {} }} />);
+      const root = container.firstElementChild as HTMLElement;
+      const [railColumn, frame] = Array.from(root.children) as HTMLElement[];
+
+      expect(railColumn!.style.width).toBe('60px');
+      expect(rail(railColumn!)).toBeNull();
+      expect(frame!.querySelectorAll('canvas')).toHaveLength(2);
+    });
+  });
+
   it('рендерит контейнер с className и два канваса внутри; каждая проекция получает свой канвас', () => {
     const { container } = render(
       <Planner projectId='p-1' logger={silentLogger} className='block h-full w-full'>

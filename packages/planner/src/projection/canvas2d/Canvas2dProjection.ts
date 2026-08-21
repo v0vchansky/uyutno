@@ -152,8 +152,9 @@ export class Canvas2dProjection {
     // приходит не всегда (спека 09 «Blur во время drag»).
     view.addEventListener('blur', this.onWindowBlur);
 
-    // `ResizeObserver` смотрит на контейнер, а не на канвас: неактивный канвас скрыт `hidden` и его rect нулевой
-    // (ADR 0020 «Что важно знать»).
+    // `ResizeObserver` смотрит на родителя канвасов — рамку холста, — а не на сам канвас: неактивный канвас
+    // скрыт `hidden` и его rect нулевой (ADR 0020 «Что важно знать»). Содержимое рамки и есть холст: рейл и
+    // внешний отступ лежат снаружи неё (задача 0089), в `contentRect` не попадают и кадр не завышают.
     const container = canvas.parentElement ?? canvas;
     this.resizeObserver = new view.ResizeObserver(entries => {
       const entry = entries.at(-1);

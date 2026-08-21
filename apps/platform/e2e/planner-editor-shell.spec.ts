@@ -28,11 +28,18 @@ const HEADER_HEIGHT = 48;
 /** Внешний отступ рамки холста и её радиус (handoff, «Каркас»). */
 const CANVAS_FRAME_GAP = 8;
 const CANVAS_FRAME_RADIUS = 12;
+/** Ширина рейла (handoff, «Рейл»): он стоит слева **снаружи** рамки холста. */
+const RAIL_WIDTH = 60;
+/** Отступ оверлеев от краёв холста (handoff, «Каркас»). */
+const OVERLAY_GAP = 12;
 /** Комфортная ширина редактора (handoff, «Адаптив»): с неё шапка перестаёт быть плотной. */
 const COMFORT_WIDTH = 1280;
 
 const gapOf = (page: import('@playwright/test').Page) =>
   page.locator('header > div').evaluate(el => getComputedStyle(el).columnGap);
+
+/** Рамка холста — прямой родитель канвасов: её рисует пакет, а не платформа (задача 0089). */
+const frameOf = (page: import('@playwright/test').Page) => page.locator('main div:has(> canvas[role="img"])');
 
 test.describe('оболочка редактора', () => {
   test('выше порога: шапка 48px, рамка холста 8/12px, планер смонтирован', async ({ page }) => {
@@ -46,20 +53,55 @@ test.describe('оболочка редактора', () => {
     const canvas = page.locator('canvas[role="img"]');
     await expect(canvas).toBeVisible();
 
-    const frame = page.locator('main > div');
+    const frame = frameOf(page);
     const box = (await frame.boundingBox())!;
-    expect(box.x).toBe(CANVAS_FRAME_GAP);
+    expect(box.x).toBe(RAIL_WIDTH + CANVAS_FRAME_GAP);
     expect(box.y).toBe(HEADER_HEIGHT + CANVAS_FRAME_GAP);
-    expect(box.width).toBe(1440 - 2 * CANVAS_FRAME_GAP);
+    expect(box.width).toBe(1440 - RAIL_WIDTH - 2 * CANVAS_FRAME_GAP);
     await expect(frame).toHaveCSS('border-radius', `${CANVAS_FRAME_RADIUS}px`);
     await expect(frame).toHaveCSS('border-top-width', '1px');
 
-    // Возврат — ссылка с текстом; кнопка сохранения подключена к планеру, как только он поднят (0082).
+    // Возврат — ссылка с текстом; кнопка сохранения на месте, но в покое неактивна: сохранять нечего (0090).
     const back = page.getByRole('link', { name: 'Проекты' });
     await expect(back).toHaveAttribute('href', '/projects');
     await expect(back.getByText('Проекты')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Сохранить' })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Сохранить' })).toBeDisabled();
     expect(await gapOf(page)).toBe('16px');
+  });
+
+  /*
+   * Задача 0089: рамку рисует пакет, а не платформа, поэтому рейл — флекс-сосед холста слева, а не оверлей
+   * внутри рамки. Проверяется взаимное положение (ни один пиксель рейла не внутри рамки) и то, ради чего вся
+   * правка затевалась не была сломана: оверлеи скина по-прежнему отбивают 12px от краёв **холста**.
+   */
+  test('рейл 60px стоит слева снаружи рамки; оверлеи скина держат 12px от краёв холста', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(PROJECT_URL);
+    await expect(page.locator('canvas[role="img"]')).toBeVisible();
+
+    const rail = page.getByRole('group', { name: 'Виды и снап' });
+    const railBox = (await rail.boundingBox())!;
+    const frameBox = (await frameOf(page).boundingBox())!;
+    expect(railBox.x).toBe(0);
+    expect(railBox.width).toBe(RAIL_WIDTH);
+    expect(railBox.y).toBe(HEADER_HEIGHT);
+    expect(railBox.height).toBe(900 - HEADER_HEIGHT);
+    // Правый край рейла — левый край внешнего отступа рамки: между ними ровно 8px фона страницы.
+    expect(frameBox.x - (railBox.x + railBox.width)).toBe(CANVAS_FRAME_GAP);
+
+    const canvasBox = (await page.locator('canvas[role="img"]').boundingBox())!;
+    const toolPanel = (await page.getByRole('group', { name: 'Инструменты конструктора' }).boundingBox())!;
+    const controls = (await page.getByRole('group', { name: 'Контролы холста' }).boundingBox())!;
+
+    // Панель инструментов — 12px от левого верхнего угла холста.
+    expect(toolPanel.x - canvasBox.x).toBe(OVERLAY_GAP);
+    expect(toolPanel.y - canvasBox.y).toBe(OVERLAY_GAP);
+    // Полоска контролов холста — 12px от правого нижнего угла холста.
+    expect(canvasBox.x + canvasBox.width - (controls.x + controls.width)).toBe(OVERLAY_GAP);
+    expect(canvasBox.y + canvasBox.height - (controls.y + controls.height)).toBe(OVERLAY_GAP);
+    // Холст целиком внутри рамки: рейл его больше не накрывает.
+    expect(canvasBox.x).toBe(frameBox.x + 1);
+    expect(canvasBox.width).toBe(frameBox.width - 2);
   });
 
   test(`на пороге ${EDITOR_MIN_WIDTH}px: слово «Проекты» схлопнуто, имя ссылки осталось`, async ({ page }) => {

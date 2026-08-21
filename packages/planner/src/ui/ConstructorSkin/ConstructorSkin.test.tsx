@@ -9,7 +9,7 @@ import { DEFAULT_SNAP_FLAGS } from '../../document/geometry/snap/getSnapPoint';
 import type { PlannerInstance, PlannerProjections } from '../../projection/createPlanner';
 import type { ViewportInsets } from '../../projection/canvas2d/camera';
 import { PlannerContext } from '../PlannerContext';
-import { CONSTRUCTOR_SKIN_INSETS, ConstructorSkin, RAIL_ONLY_INSETS } from './ConstructorSkin';
+import { CONSTRUCTOR_SKIN_INSETS, ConstructorSkin } from './ConstructorSkin';
 import { isCanvasEmpty } from './FirstStepHint';
 
 const silentLogger: PlannerLogger = { debug() {}, info() {}, warn() {}, error() {} };
@@ -130,9 +130,14 @@ describe('<ConstructorSkin />', () => {
     expect(screen.queryByText(FIRST_STEP)).toBeNull();
   });
 
-  it('рейл виден во всех видах, оверлеи конструктора — только в конструкторе', () => {
+  /*
+   * Рейл стоит слева **снаружи** рамки холста, поэтому его рисует контейнер `<Planner />`, а не скин (задача
+   * 0089): оверлеем внутри рамки он оказался бы её частью, а флекс-соседом холста скин быть не может — он
+   * монтируется детьми контейнера. Скин после этого — ровно оверлеи конструктора, снимаемые вместе с видом.
+   */
+  it('оверлеи конструктора живут только в конструкторе; рейл скину не принадлежит', () => {
     renderSkin();
-    expect(screen.getByRole('button', { name: 'Конструктор стен' })).toBeTruthy();
+    expect(screen.queryByRole('group', { name: 'Виды и снап' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Прямоугольная комната' })).toBeTruthy();
     expect(screen.getByRole('group', { name: 'Контролы холста' })).toBeTruthy();
 
@@ -140,7 +145,6 @@ describe('<ConstructorSkin />', () => {
       live().view.setActive('plan');
     });
 
-    expect(screen.getByRole('button', { name: 'Конструктор стен' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Прямоугольная комната' })).toBeNull();
     expect(screen.queryByRole('group', { name: 'Контролы холста' })).toBeNull();
     expect(screen.queryByText(FIRST_STEP)).toBeNull();
@@ -156,11 +160,12 @@ describe('<ConstructorSkin />', () => {
       renderSkin();
 
       expect(setViewportInsets).toHaveBeenCalledWith(CONSTRUCTOR_SKIN_INSETS);
-      // Рейл 60 + отступ 12 + панель 224 + отступ 12; снизу 12 + сводка 36 + зазор 8 + контролы 36.
-      expect(CONSTRUCTOR_SKIN_INSETS).toEqual({ left: 308, right: 0, top: 0, bottom: 92 });
+      // Отступ 12 + панель 224 + отступ 12; снизу 12 + сводка 36 + зазор 8 + контролы 36. Рейла в полосе нет:
+      // он стоит снаружи рамки холста и не закрывает ни пикселя канваса (задача 0089).
+      expect(CONSTRUCTOR_SKIN_INSETS).toEqual({ left: 248, right: 0, top: 0, bottom: 92 });
     });
 
-    it('на чужом виде оверлеи конструктора сняты — остаётся полоса рейла', () => {
+    it('на чужом виде оверлеи конструктора сняты — холст виден целиком', () => {
       renderSkin();
       setViewportInsets.mockClear();
 
@@ -168,8 +173,7 @@ describe('<ConstructorSkin />', () => {
         live().view.setActive('plan');
       });
 
-      expect(setViewportInsets).toHaveBeenLastCalledWith(RAIL_ONLY_INSETS);
-      expect(RAIL_ONLY_INSETS).toEqual({ left: 60, right: 0, top: 0, bottom: 0 });
+      expect(setViewportInsets).toHaveBeenLastCalledWith({ left: 0, right: 0, top: 0, bottom: 0 });
     });
 
     it('скин размонтирован — холст снова виден целиком', () => {

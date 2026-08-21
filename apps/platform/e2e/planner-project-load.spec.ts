@@ -174,7 +174,7 @@ test.describe('открытие проекта: фазы, восстановле
     await expect(page.locator('canvas[role="img"]')).toBeVisible();
     await expect(page.getByText('Шаг 2 из 2')).toHaveCount(0);
     // Рамка холста появляется вместе с планером: во время загрузки её нет (handoff).
-    await expect(page.locator('main > div')).toHaveCSS('border-top-width', '1px');
+    await expect(page.locator('main div:has(> canvas[role="img"])')).toHaveCSS('border-top-width', '1px');
   });
 
   test('сохранённый план восстанавливается и получает авто-fit «в центр»', async ({ editorPage: page, request }) => {

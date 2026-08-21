@@ -102,9 +102,10 @@ export class ThreeProjection {
         manager.subscribe(() => this.gate.invalidate()),
       ];
 
-      // Контейнер канваса — родитель: канвас растянут CSS-ом страницы на весь контейнер, буфер подстраивается
-      // под его размер. `device-pixel-content-box` дополнительно будит observer при смене DPR (перенос окна
-      // между мониторами); где box не поддерживается — обычное наблюдение CSS-размера.
+      // Контейнер канваса — родитель, то есть рамка холста (`<Planner />`): канвас растянут на всё её
+      // содержимое, буфер подстраивается под его размер. `device-pixel-content-box` дополнительно будит
+      // observer при смене DPR (перенос окна между мониторами); где box не поддерживается — обычное
+      // наблюдение CSS-размера.
       const container = canvas.parentElement ?? canvas;
       this.resizeObserver = new win.ResizeObserver(entries => {
         const entry = entries.at(-1);

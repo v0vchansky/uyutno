@@ -38,7 +38,7 @@ const IDLE_MS = 1000;
 const FRAME_BUDGET = 5;
 const GL_DRIVER_PERFORMANCE_HINT = /GL Driver Message \(OpenGL, Performance,/;
 
-/** Метрики канваса: CSS-размер, размер контейнера, буфер отрисовки и DPR. */
+/** Метрики канваса: CSS-размер, содержимое контейнера (рамки холста), буфер отрисовки и DPR. */
 interface CanvasMetrics {
   cssWidth: number;
   cssHeight: number;
@@ -77,12 +77,15 @@ const registry = (page: Page) => ({
       ({ index: i, which: key }) => {
         const { canvas } = window.__uyutnoE2E!.planners[i]!.projections[key];
         const rect = canvas.getBoundingClientRect();
-        const parent = canvas.parentElement!.getBoundingClientRect();
+        // Контейнер меряется по **содержимому**, а не по внешнему габариту: родитель канвасов — рамка холста
+        // с границей 1px (задача 0089), и её `getBoundingClientRect()` шире канваса ровно на эту границу.
+        // `contentRect`, который видит `ResizeObserver` проекции, — это как раз `clientWidth`/`clientHeight`.
+        const parent = canvas.parentElement!;
         return {
           cssWidth: rect.width,
           cssHeight: rect.height,
-          parentWidth: parent.width,
-          parentHeight: parent.height,
+          parentWidth: parent.clientWidth,
+          parentHeight: parent.clientHeight,
           bufferWidth: canvas.width,
           bufferHeight: canvas.height,
           dpr: window.devicePixelRatio,
@@ -129,10 +132,11 @@ const FIRST_RESIZE_WIDTH = 1200;
 const SECOND_RESIZE_WIDTH = 1100;
 
 /**
- * Ширина холста при ширине окна `viewportWidth`: рамка холста (задача 0088) забирает по 8px внешнего отступа и
- * по 1px рамки с каждой стороны. Канвасы занимают эту рамку целиком (ADR 0020 P6).
+ * Ширина холста при ширине окна `viewportWidth`: слева стоит рейл 60px снаружи рамки (задача 0089), а сама
+ * рамка холста (задача 0088) забирает по 8px внешнего отступа и по 1px границы с каждой стороны. Канвасы
+ * занимают содержимое рамки целиком (ADR 0020 P6).
  */
-const CANVAS_FRAME_INSET = 2 * (8 + 1);
+const CANVAS_FRAME_INSET = 60 + 2 * (8 + 1);
 const canvasWidthAt = (viewportWidth: number): number => viewportWidth - CANVAS_FRAME_INSET;
 
 /** Активный (видимый) канвас: CSS-размер равен контейнеру, буфер — под DPR. */
