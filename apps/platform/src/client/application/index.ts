@@ -1,5 +1,6 @@
 export { Application } from './Application';
-export { Document } from './components/Document/Document';
 export { createRegistry } from './createRegistry';
 export type { InitialState } from './createRegistry';
-export { INITIAL_STATE_GLOBAL, serializeInitialState } from './initialState';
+export type { ClientAssets } from './initialState';
+export { BOOTSTRAP_SCRIPT_ID, CLIENT_ASSETS_GLOBAL, INITIAL_STATE_GLOBAL, serializeBootstrap } from './initialState';
+export { ClientRoot, ServerRoot } from './roots';
