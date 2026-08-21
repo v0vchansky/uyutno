@@ -1,5 +1,5 @@
 import type { PlannerManager } from '../../engine/PlannerManager';
-import { isEditableTarget, isPanModifierKey, keyToAction } from './keymap';
+import { isEditableTarget, isPanModifierKey, isSaveShortcut, keyToAction } from './keymap';
 
 export interface KeyboardInputOptions {
   /**
@@ -18,6 +18,9 @@ export interface KeyboardInputOptions {
  *
  * Маршрут: `tools.key(action)`; если автомат вернул `{ handled: false }` на `nudge` — панорамирует вьювер.
  * `keyup` нужен только для состояния «Space зажат», которое отдаётся Canvas2D-проекции.
+ *
+ * Ctrl+S / Cmd+S — исключение из маршрута: сохранение не действие автомата, оно уходит прямо в `persistence`
+ * (задача `0082`). Владелец клавиатуры один, поэтому и этот перехват живёт здесь, а не в шапке платформы.
  */
 export class KeyboardInput {
   private readonly view: Window;
@@ -51,6 +54,18 @@ export class KeyboardInput {
     if (this.disposed || event.defaultPrevented) return;
     // Пока фокус в поле ввода длины, глобальные горячие клавиши не срабатывают вообще (спека 07, решение 20).
     if (isEditableTarget(event.target)) return;
+
+    if (isSaveShortcut(event)) {
+      /**
+       * Браузерное «сохранить страницу» гасится **всегда**, а не только когда есть что сохранять: диалог
+       * сохранения HTML вместо проекта — худший из возможных ответов на Ctrl+S. Дальше решает `persistence`:
+       * dirty снят — тихо ничего, идёт жест — Save откладывается до ближайшего сохранения после отпускания
+       * (спека 10). Результат здесь не читается: ошибка ложится в состояние, а показывает её шапка (`0084`).
+       */
+      event.preventDefault();
+      void this.manager.persistence.save('manual');
+      return;
+    }
 
     if (isPanModifierKey(event)) {
       this.options.onPanModifier(true);

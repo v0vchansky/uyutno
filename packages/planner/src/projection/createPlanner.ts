@@ -1,4 +1,4 @@
-import type { PlannerStorage } from '../engine/PersistenceNamespace';
+import type { PlannerStorage, SaveTarget } from '../engine/PersistenceNamespace';
 import { PlannerManager, type PlannerLogger } from '../engine/PlannerManager';
 import { Canvas2dProjection } from './canvas2d/Canvas2dProjection';
 import { KeyboardInput } from './input/keyboard';
@@ -20,6 +20,8 @@ export interface CreatePlannerParams {
    * Необязателен — без него планер поднимается как прежде, а сохранение отвечает `no-storage`.
    */
   storage?: PlannerStorage;
+  /** Куда сохраняет автосейв: сервер раз в 60 с (по умолчанию) или локальный черновик демо-роута (`0083`). */
+  saveTarget?: SaveTarget;
   /** Бюджет кадров render-on-demand; дефолт `FRAME_BUDGET = 5` — в `RenderLoop` (ADR 0015 A7). */
   frameBudget?: number;
 }
@@ -47,9 +49,10 @@ export const createPlanner = ({
   projectId,
   logger,
   storage,
+  saveTarget,
   frameBudget,
 }: CreatePlannerParams): PlannerInstance => {
-  const manager = new PlannerManager({ projectId, logger, storage });
+  const manager = new PlannerManager({ projectId, logger, storage, saveTarget });
   const started: (() => void)[] = [() => manager.dispose()];
 
   const start = <T>(create: () => T): T => {

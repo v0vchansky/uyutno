@@ -105,7 +105,7 @@ export class PlannerStore {
     return this.dirty;
   }
 
-  /** Успешное сохранение (заглушка до ADR F): снимает флаг, `document:dirty-changed` при смене. */
+  /** Успешное сохранение: снимает флаг, `document:dirty-changed` при смене. Зовёт только `persistence`. */
   markSaved(): void {
     this.setDirty(false);
   }

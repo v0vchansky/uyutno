@@ -195,7 +195,7 @@
 | 0079 | TASK | [Формат в ядре: вход `@uyutno/planner/format`, zod-схема, `serialize`/`parse`, `migrate`](0079-TASK-planner-format-serialize-parse-migrate.md)  | [x]    | 0066             | —   |
 | 0080 | TASK | [Бэкенд документа: `GET`/`PUT …/document`, миграция на чтении, лимит, рейт-лимит](0080-TASK-project-document-api.md)                            | [x]    | 0078, 0079       | —   |
 | 0081 | TASK | [Неймспейс `persistence` фасада и DI-проп `storage`](0081-TASK-planner-persistence-namespace-and-storage-prop.md)                               | [x]    | 0080             | —   |
-| 0082 | TASK | [Ручной Save и серверный автосейв раз в 60 с](0082-TASK-planner-manual-save-and-server-autosave.md)                                             | [ ]    | 0081             | —   |
+| 0082 | TASK | [Ручной Save и серверный автосейв раз в 60 с](0082-TASK-planner-manual-save-and-server-autosave.md)                                             | [x]    | 0081             | —   |
 | 0083 | TASK | [Локальный черновик демо-роута: `planner_demo_draft`, 30 с, diff-guard, квота](0083-TASK-planner-demo-local-draft.md)                           | [ ]    | 0081             | —   |
 | 0084 | TASK | [UI сохранения в шапке: индикатор, тихая иконка, модалка ошибки ручного Save](0084-TASK-planner-save-indicator-and-error-modals.md)             | [ ]    | 0082, 0088       | —   |
 | 0085 | TASK | [Загрузка проекта: фазы прогресса, восстановление вида и камер, авто-fit, модалка ошибки](0085-TASK-planner-project-load.md)                    | [x]    | 0081             | —   |

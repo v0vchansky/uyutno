@@ -126,6 +126,48 @@ describe('KeyboardInput — единственный владелец клави
   });
 });
 
+describe('KeyboardInput — ручной Save (спека 10, задача 0082)', () => {
+  it('Ctrl+S и Cmd+S зовут ручное сохранение и гасят браузерное «сохранить страницу»', () => {
+    const { manager, press } = setup();
+    const save = jest.spyOn(manager.persistence, 'save');
+
+    expect(press('keydown', { key: 's', ctrlKey: true }).defaultPrevented).toBe(true);
+    expect(press('keydown', { key: 'S', metaKey: true }).defaultPrevented).toBe(true);
+
+    expect(save.mock.calls).toEqual([['manual'], ['manual']]);
+  });
+
+  it('Ctrl+S в автомат инструментов не уходит: сохранение — не действие конструктора', () => {
+    const { manager, press } = setup();
+    const key = jest.spyOn(manager.tools, 'key');
+
+    press('keydown', { key: 's', ctrlKey: true });
+
+    expect(key).not.toHaveBeenCalled();
+  });
+
+  it('во время жеста уходит та же точка входа — откладывание делает persistence, а не клавиатура', () => {
+    const { manager, press } = setup();
+    const save = jest.spyOn(manager.persistence, 'save');
+    expect(manager.tools.start('walls').ok).toBe(true);
+
+    press('keydown', { key: 's', ctrlKey: true });
+
+    expect(save).toHaveBeenCalledWith('manual');
+  });
+
+  it('фокус в поле ввода длины — Ctrl+S не перехватывается, как и остальные горячие клавиши', () => {
+    const { manager, press } = setup();
+    const save = jest.spyOn(manager.persistence, 'save');
+    const field = document.createElement('input');
+    document.body.append(field);
+
+    expect(press('keydown', { key: 's', ctrlKey: true }, field).defaultPrevented).toBe(false);
+
+    expect(save).not.toHaveBeenCalled();
+  });
+});
+
 describe('KeyboardInput — нудж и пан', () => {
   it('нудж, который автомат не взял, уходит в onPan и только тогда гасит событие', () => {
     const { press, onPan } = setup();

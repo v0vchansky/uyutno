@@ -1,6 +1,7 @@
 import type { PlannerDocument } from '../document/PlannerDocument';
-import type { PersistenceState, PlannerStorage, SaveAck } from './PersistenceNamespace';
+import type { PersistenceState, PlannerStorage } from './PersistenceNamespace';
 import { PlannerManager } from './PlannerManager';
+import { createFakeStorage, FakeSaveError } from './testing/fakeStorage';
 import { ringDocument, silentLogger } from './testing/testManager';
 import { DRAG_THRESHOLD } from './tools/editHit';
 import type { PointerInput } from './tools/ToolState';
@@ -13,73 +14,18 @@ const input = (x: number, y: number, mods: Partial<PointerInput['mods']> = {}): 
   button: 0,
 });
 
-interface Deferred<T> {
-  promise: Promise<T>;
-  resolve(value: T): void;
-  reject(error: unknown): void;
-}
-
-const deferred = <T>(): Deferred<T> => {
-  let resolve!: (value: T) => void;
-  let reject!: (error: unknown) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  return { promise, resolve, reject };
-};
-
 /** Ожидание микротасков: очередь `persistence` дренится через `await`, шага таймеров здесь нет. */
 const flush = (): Promise<void> => new Promise(resolve => setTimeout(resolve, 0));
 
-interface SaveCall {
-  projectId: string;
-  document: PlannerDocument;
-  autosave: boolean;
-}
-
-/**
- * Фейковый транспорт с управляемым промисом: каждый `save` кладёт свой `Deferred` в `pending`, поэтому тест
- * решает, когда запрос «долетел», и видит, сколько запросов было в полёте одновременно.
- */
-const createFakeStorage = (options: { withDraft?: boolean } = {}) => {
-  const calls: SaveCall[] = [];
-  const draftCalls: PlannerDocument[] = [];
-  const pending: Deferred<SaveAck>[] = [];
-  let inFlight = 0;
-  let peak = 0;
-
-  const track = <T>(promise: Promise<T>): Promise<T> => {
-    inFlight += 1;
-    peak = Math.max(peak, inFlight);
-    return promise.finally(() => {
-      inFlight -= 1;
-    });
-  };
-
-  const storage: PlannerStorage = {
-    load: () => Promise.resolve(null),
-    save: (projectId, document, { autosave }) => {
-      calls.push({ projectId, document, autosave });
-      const slot = deferred<SaveAck>();
-      pending.push(slot);
-      return track(slot.promise);
-    },
-  };
-  if (options.withDraft) {
-    storage.loadDraft = () => Promise.resolve(null);
-    storage.saveDraft = document => {
-      draftCalls.push(document);
-      return track(Promise.resolve());
-    };
-    storage.clearDraft = () => Promise.resolve();
-  }
-
-  return { storage, calls, draftCalls, pending, peak: () => peak };
-};
+/** Поднятые в тесте планеры: `dispose` снимает подписки и таймер автосейва (`0082`), чтобы он не пережил тест. */
+const managers: PlannerManager[] = [];
+afterEach(() => {
+  for (const manager of managers.splice(0)) manager.dispose();
+});
 
 const setup = (storage?: PlannerStorage, document: PlannerDocument = ringDocument()) => {
   const manager = new PlannerManager({ projectId: 'p-1', logger: silentLogger, document, storage });
+  managers.push(manager);
   const states: PersistenceState[] = [];
   manager.on('persistence:changed', ({ state }) => states.push(state));
   /** Правка содержимого: `settings` вне истории, но dirty ставит (ADR 0018 D7). */
@@ -103,8 +49,11 @@ describe('persistence', () => {
       expect(manager.persistence.getState()).toEqual({
         status: 'idle',
         savedAt: null,
+        savedReason: null,
         updatedAt: null,
         lastError: null,
+        failedAt: null,
+        alert: null,
         dirty: false,
       });
       expect(manager.persistence.getState()).toBe(manager.persistence.getState());
@@ -385,10 +334,11 @@ describe('persistence', () => {
       fake.pending[0]!.reject(cause);
       const resolved = await result;
 
-      expect(resolved).toEqual({ ok: false, error: { kind: 'save-failed', reason: 'manual', cause } });
+      const error = { kind: 'save-failed', reason: 'manual', failure: 'unknown', detail: null, cause };
+      expect(resolved).toEqual({ ok: false, error });
       const state = manager.persistence.getState();
       expect(state.status).toBe('error');
-      expect(state.lastError).toEqual({ kind: 'save-failed', reason: 'manual', cause });
+      expect(state.lastError).toEqual(error);
       expect(state.dirty).toBe(true);
       expect(manager.document.isDirty()).toBe(true);
       expect(state.updatedAt).toBeNull();
@@ -423,6 +373,139 @@ describe('persistence', () => {
       await ok;
       expect(manager.persistence.getState().lastError).toBeNull();
       expect(manager.persistence.getState().status).toBe('saved');
+    });
+  });
+
+  describe('ветки отказа: офлайн, удалённый проект, прочее (спека 10, задача 0082)', () => {
+    /** Отказ транспорта нужной ветки: реализация `storage` объявляет причину, планер её только читает. */
+    const failing = (error: unknown): PlannerStorage => ({
+      load: () => Promise.resolve(null),
+      save: () => Promise.reject(error),
+    });
+
+    it('офлайн даёт постоянный статус offline, а не обычную ошибку', async () => {
+      const { manager, edit } = setup(failing(new FakeSaveError('offline')));
+      edit();
+
+      const result = await manager.persistence.save('autosave');
+      expect(result).toEqual({
+        ok: false,
+        error: { kind: 'save-failed', reason: 'autosave', failure: 'offline', detail: null, cause: expect.anything() },
+      });
+      const state = manager.persistence.getState();
+      expect(state.status).toBe('offline');
+      expect(state.dirty).toBe(true);
+      expect(typeof state.failedAt).toBe('number');
+    });
+
+    it('ручной Save в офлайне дополнительно поднимает модалку с той же причиной', async () => {
+      const { manager, edit } = setup(failing(new FakeSaveError('offline')));
+      edit();
+
+      await manager.persistence.save('manual');
+      const state = manager.persistence.getState();
+      expect(state.status).toBe('offline');
+      expect(state.alert).toMatchObject({ kind: 'offline', detail: null });
+    });
+
+    it('404 на ручном Save — частный случай «проект удалён»', async () => {
+      const { manager, edit } = setup(failing(new FakeSaveError('not-found', 'Проект не найден')));
+      edit();
+
+      await manager.persistence.save('manual');
+      const state = manager.persistence.getState();
+      expect(state.status).toBe('error');
+      expect(state.alert).toMatchObject({ kind: 'not-found', detail: 'Проект не найден' });
+      expect(state.lastError).toMatchObject({ failure: 'not-found', detail: 'Проект не найден' });
+    });
+
+    it('прочий отказ ручного Save даёт модалку с текстом ошибки от транспорта', async () => {
+      const { manager, edit } = setup(failing(new FakeSaveError('unknown', 'Документ устарел')));
+      edit();
+
+      await manager.persistence.save('manual');
+      expect(manager.persistence.getState().alert).toMatchObject({ kind: 'unknown', detail: 'Документ устарел' });
+    });
+
+    it('ошибка автосейва — тихое состояние: модалки не появляется ни в одной ветке', async () => {
+      for (const failure of ['offline', 'not-found', 'unknown'] as const) {
+        const { manager, edit } = setup(failing(new FakeSaveError(failure, 'что-то пошло не так')));
+        edit();
+
+        await manager.persistence.save('autosave');
+        const state = manager.persistence.getState();
+        expect(state.alert).toBeNull();
+        expect(state.lastError).toMatchObject({ reason: 'autosave', failure });
+      }
+    });
+
+    it('исключение без объявленной причины считается прочим отказом, а не офлайном', async () => {
+      const { manager, edit } = setup(failing(new Error('boom')));
+      edit();
+
+      await manager.persistence.save('manual');
+      expect(manager.persistence.getState().status).toBe('error');
+      expect(manager.persistence.getState().alert).toMatchObject({ kind: 'unknown', detail: null });
+    });
+
+    it('модалку снимает только dismissAlert: успех соседнего сохранения её не закрывает', async () => {
+      const fake = createFakeStorage();
+      let fail = true;
+      const storage: PlannerStorage = {
+        load: () => Promise.resolve(null),
+        save: (projectId, document, options) =>
+          fail ? Promise.reject(new FakeSaveError('unknown', 'нет')) : fake.storage.save(projectId, document, options),
+      };
+      const { manager, edit } = setup(storage);
+      edit();
+      await manager.persistence.save('manual');
+      expect(manager.persistence.getState().alert).not.toBeNull();
+
+      fail = false;
+      const ok = manager.persistence.save('autosave');
+      fake.pending[0]!.resolve({ updatedAt: 'u1' });
+      await ok;
+      expect(manager.persistence.getState().status).toBe('saved');
+      expect(manager.persistence.getState().alert).not.toBeNull();
+
+      manager.persistence.dismissAlert();
+      expect(manager.persistence.getState().alert).toBeNull();
+    });
+  });
+
+  describe('что читает шапка (задача 0084)', () => {
+    it('успех помнит, чем он был вызван: «Сохранено» и «Автосохранено» — разные тексты', async () => {
+      const fake = createFakeStorage();
+      const { manager, edit } = setup(fake.storage);
+      edit();
+
+      const manual = manager.persistence.save('manual');
+      fake.pending[0]!.resolve({ updatedAt: 'u1' });
+      await manual;
+      expect(manager.persistence.getState().savedReason).toBe('manual');
+
+      edit(320);
+      const auto = manager.persistence.save('autosave');
+      fake.pending[1]!.resolve({ updatedAt: 'u2' });
+      await auto;
+      expect(manager.persistence.getState().savedReason).toBe('autosave');
+    });
+
+    it('метка времени отказа отдаётся наружу и снимается первым успехом', async () => {
+      const fake = createFakeStorage();
+      const { manager, edit } = setup(fake.storage);
+      edit();
+
+      const failed = manager.persistence.save('autosave');
+      fake.pending[0]!.reject(new FakeSaveError('unknown'));
+      await failed;
+      expect(typeof manager.persistence.getState().failedAt).toBe('number');
+
+      const ok = manager.persistence.save('autosave');
+      fake.pending[1]!.resolve({ updatedAt: 'u1' });
+      await ok;
+      expect(manager.persistence.getState().failedAt).toBeNull();
+      expect(manager.persistence.getState().lastError).toBeNull();
     });
   });
 

@@ -67,6 +67,16 @@ export const ProjectEditor: React.FC<Props> = ({ projectId }) => {
     [document],
   );
 
+  /**
+   * Ручной Save кнопкой (спека 10; вторая точка входа — Ctrl+S, её держит владелец клавиатуры планера).
+   * Кнопка зовёт ту же `persistence.save('manual')`: очередь, dirty-гейт и откладывание на жесте — внутри
+   * движка, странице решать нечего. Результат не читается — отказ ложится в состояние, показывает его `0084`.
+   * Пока планер не поднят, обработчика нет вовсе, и кнопка остаётся `disabled`.
+   */
+  const handleSave = useCallback((): void => {
+    void planner?.manager.persistence.save('manual');
+  }, [planner]);
+
   useEffect(() => {
     if (!planner) return;
     // Пустому плану вписывать нечего — он остаётся на дефолтном зуме (ADR 0021, «Камера при открытии»).
@@ -92,7 +102,7 @@ export const ProjectEditor: React.FC<Props> = ({ projectId }) => {
       <title>{`Проект ${projectId} — уютно`}</title>
       <meta name='description' content='Планировка квартиры: чертёж, расстановка мебели и просмотр в 3D.' />
       {/* Шапка, рамка холста, порог 1024px и экран открытия — у оболочки; страница только собирает планер. */}
-      <EditorShell projectId={projectId} openStatus={openStatus}>
+      <EditorShell projectId={projectId} openStatus={openStatus} onSave={planner ? handleSave : undefined}>
         {state.kind === 'open' && (
           /* Скин — дети `<Planner />`: панели живут внутри `PlannerContext` и абсолютом поверх канвасов (ADR 0020 P6). */
           <Planner

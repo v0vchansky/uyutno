@@ -3,6 +3,7 @@ import {
   NUDGE_FACTOR_FINE,
   isEditableTarget,
   isPanModifierKey,
+  isSaveShortcut,
   keyToAction,
   type KeyEventLike,
 } from './keymap';
@@ -179,6 +180,34 @@ describe('keymap — раскладка клавиш конструктора (A
       expect(isPanModifierKey(ev('w'))).toBe(false);
       expect(isPanModifierKey(ev('Space'))).toBe(false);
       expect(isPanModifierKey(ev(''))).toBe(false);
+    });
+  });
+
+  describe('isSaveShortcut — ручной Save (спека 10)', () => {
+    it('Ctrl+S и Cmd+S → true, регистр не важен', () => {
+      expect(isSaveShortcut(ev('s', { ctrlKey: true }))).toBe(true);
+      expect(isSaveShortcut(ev('s', { metaKey: true }))).toBe(true);
+      expect(isSaveShortcut(ev('S', { metaKey: true }))).toBe(true);
+    });
+
+    it('без модификатора — не наша: «s» это нудж вниз', () => {
+      expect(isSaveShortcut(ev('s'))).toBe(false);
+      expect(keyToAction(ev('s'))).toEqual({ kind: 'nudge', dx: 0, dy: -1, factor: 1 });
+    });
+
+    it('Ctrl+Shift+S и Alt+Ctrl+S не наши: «Save As» в v0 нет, Alt в конструкторе не назначен', () => {
+      expect(isSaveShortcut(ev('s', { ctrlKey: true, shiftKey: true }))).toBe(false);
+      expect(isSaveShortcut(ev('s', { ctrlKey: true, altKey: true }))).toBe(false);
+    });
+
+    it('прочие клавиши с модификатором не наши', () => {
+      expect(isSaveShortcut(ev('z', { ctrlKey: true }))).toBe(false);
+      expect(isSaveShortcut(ev('a', { metaKey: true }))).toBe(false);
+    });
+
+    it('Ctrl+S в автомат инструментов не уходит вовсе', () => {
+      expect(keyToAction(ev('s', { ctrlKey: true }))).toBeNull();
+      expect(keyToAction(ev('s', { metaKey: true }))).toBeNull();
     });
   });
 

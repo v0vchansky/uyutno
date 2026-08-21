@@ -40,19 +40,57 @@ export interface SaveAck {
  */
 export type SaveReason = 'manual' | 'autosave' | 'draft';
 
-/**
- * Статус для шапки (`0084`). `offline` в этой задаче не выставляется — ветку офлайна заводит `0082`, которая
- * умеет отличить «нет сети» от прочих отказов транспорта; литерал зафиксирован здесь, чтобы UI писался один раз.
- */
+/** Статус для шапки (`0084`); `offline` держится, пока сети нет, и снимается первым успешным сохранением. */
 export type PersistenceStatus = 'idle' | 'saving' | 'saved' | 'error' | 'offline';
+
+/**
+ * Чем именно отказал транспорт. Различить «нет сети» и «проект удалён» может только реализация `storage`:
+ * планер про HTTP и axios не знает (ADR 0015 A8), поэтому причину она **объявляет** — бросает ошибку формы
+ * `StorageSaveFailure`. Всё остальное, что прилетело из `storage`, — `unknown`: выдавать чужое исключение за
+ * офлайн нельзя, иначе шапка обещает «сеть вернётся» там, где сеть ни при чём.
+ */
+export type SaveFailureKind =
+  /** Запроса не случилось: сети нет (спека 10, «Оффлайн»). */
+  | 'offline'
+  /** Сервер ответил «нет такого проекта» — его удалили во второй вкладке (спека 10, «Крайние случаи»). */
+  | 'not-found'
+  /** Прочий отказ: статус ответа, откат версии (`0080`), исключение реализации. */
+  | 'unknown';
+
+/**
+ * Форма отказа с объявленной причиной — то, чем реализация `storage` отвечает планеру вместо голого `Error`.
+ * `detail` — **текст сервера** для модалки ручного Save (`0084`); своих формулировок движок не сочиняет, а
+ * пустое значение означает «сервер ничего внятного не сказал», и текст подбирает шапка.
+ *
+ * Это **интерфейс, а не класс**, и читается он структурно: реализация транспорта просто дописывает два поля
+ * своему классу ошибки (`class ProjectSaveError extends Error implements StorageSaveFailure`). Так связь
+ * остаётся проверяемой компилятором, а value-импорт из пакета транспорту не нужен — иначе адаптер на
+ * полтора десятка строк тянул бы за собой весь движок вместе с Three.
+ */
+export interface StorageSaveFailure {
+  readonly failure: SaveFailureKind;
+  readonly detail?: string | null;
+}
 
 export type SaveError =
   /** Пропа `storage` нет — сохранять некуда. */
   | { kind: 'no-storage' }
   /** Причина `'draft'`, но `storage` не дал draft-методов: черновик существует только на демо-роуте. */
   | { kind: 'no-draft-storage' }
-  /** Транспорт отказал: сеть, статус ответа, исключение реализации. Разбор причины — `0082`. */
-  | { kind: 'save-failed'; reason: SaveReason; cause: unknown };
+  /** Транспорт отказал: сеть, статус ответа, исключение реализации. */
+  | { kind: 'save-failed'; reason: SaveReason; failure: SaveFailureKind; detail: string | null; cause: unknown };
+
+/**
+ * Отказ, который обязан увидеть человек: модалку поднимает **только ручной Save** (спека 10), у автосейва
+ * ошибка тихая. Снимается явным `dismissAlert()` — фоновый успех модалку из-под пальца не убирает.
+ */
+export interface SaveAlert {
+  kind: SaveFailureKind;
+  /** Текст сервера, если он был; `null` — формулировку подбирает шапка (`0084`). */
+  detail: string | null;
+  /** Часы клиента на момент отказа, мс epoch. */
+  at: number;
+}
 
 export type SaveOutcome =
   /** Запрос ушёл и вернулся успешно; `updatedAt` — метка сервера (`null` для черновика: сервера там нет). */
@@ -67,15 +105,30 @@ export interface PersistenceState {
   status: PersistenceStatus;
   /** Часы клиента на момент последнего успешного сохранения, мс epoch — из них шапка делает «Сохранено, HH:MM». */
   savedAt: number | null;
+  /** Чем был вызван последний успех: «Сохранено, HH:MM» и «Автосохранено, HH:MM» — разные строки (спека 10). */
+  savedReason: SaveReason | null;
   /** `updatedAt` последнего успешного серверного сохранения (ADR 0021); черновик его не приносит. */
   updatedAt: string | null;
   lastError: SaveError | null;
+  /** Часы клиента на момент последнего отказа — из них тултип «Не удалось сохранить на сервер, HH:MM». */
+  failedAt: number | null;
+  /** Ждущая модалка ручного Save; у автосейва всегда `null` — его ошибка тихая (спека 10). */
+  alert: SaveAlert | null;
   /** Есть несохранённые изменения — зеркало `document.isDirty()` (ADR 0018 D7), чтобы UI читал одно место. */
   dirty: boolean;
 }
 
 /** Куда уходит запись: сервер или локальный черновик демо. Схлопывать между собой их нельзя — это разные хранилища. */
-type SaveTarget = 'server' | 'draft';
+export type SaveTarget = 'server' | 'draft';
+
+/**
+ * Задержка перед стартом таймеров автосохранения (спека 10: «чтобы не молотить сохранения сразу на
+ * инициализации»). Отсчитывается от подъёма планера — он и есть «старт редактора».
+ */
+export const AUTOSAVE_START_DELAY_MS = 5_000;
+
+/** Период серверного автосейва (спека 10). Первый запрос уходит через `DELAY + INTERVAL` после старта. */
+export const AUTOSAVE_INTERVAL_MS = 60_000;
 
 /** Слот очереди: одна ожидающая запись на хранилище и все, кто ждёт её результата. */
 interface PendingSlot {
@@ -84,13 +137,53 @@ interface PendingSlot {
 }
 
 const INITIAL_STATE: PersistenceState = freeze(
-  { status: 'idle', savedAt: null, updatedAt: null, lastError: null, dirty: false },
+  {
+    status: 'idle',
+    savedAt: null,
+    savedReason: null,
+    updatedAt: null,
+    lastError: null,
+    failedAt: null,
+    alert: null,
+    dirty: false,
+  },
   true,
 );
 
 const targetOf = (reason: SaveReason): SaveTarget => (reason === 'draft' ? 'draft' : 'server');
 
-const STATE_KEYS = ['status', 'savedAt', 'updatedAt', 'lastError', 'dirty'] as const;
+const STATE_KEYS = [
+  'status',
+  'savedAt',
+  'savedReason',
+  'updatedAt',
+  'lastError',
+  'failedAt',
+  'alert',
+  'dirty',
+] as const;
+
+const FAILURE_KINDS: readonly SaveFailureKind[] = ['offline', 'not-found', 'unknown'];
+
+/**
+ * Причина отказа — только та, что транспорт объявил сам (`StorageSaveFailure`). Проверка структурная, а не
+ * `instanceof`: реализация `storage` живёт в платформе, и связывать ветку офлайна с идентичностью класса
+ * через границу бандла незачем — достаточно, что причина названа одним из известных литералов.
+ */
+const failureOf = (cause: unknown): { failure: SaveFailureKind; detail: string | null } => {
+  if (typeof cause === 'object' && cause !== null) {
+    const { failure, detail } = cause as { failure?: unknown; detail?: unknown };
+    if (FAILURE_KINDS.includes(failure as SaveFailureKind)) {
+      return {
+        failure: failure as SaveFailureKind,
+        detail: typeof detail === 'string' && detail !== '' ? detail : null,
+      };
+    }
+  }
+  // Голое исключение реализации: текст у него технический (`Request failed with status code 500`) — в модалку
+  // такое не выносят, поэтому `detail` остаётся пустым и формулировку подбирает шапка.
+  return { failure: 'unknown', detail: null };
+};
 
 /**
  * Идёт ли жест, во время которого сохранение откладывается (спека 10 «Крайние случаи (продолжение)»: drag и
@@ -101,9 +194,16 @@ const STATE_KEYS = ['status', 'savedAt', 'updatedAt', 'lastError', 'dirty'] as c
 const isGestureActive = (state: ToolState): boolean => state.kind !== 'editing';
 
 /**
- * Неймспейс `persistence` фасада (ADR 0015 A2, ADR 0021): **механика** сохранения — состояние и его событие,
- * одна точка входа с явной причиной, dirty-гейт, очередь запросов и откладывание на drag. Политику поверх неё
- * (таймер 60 с, гейты автосейва, ветки ошибок и офлайна) наливает `0082`, черновик демо — `0083`, шапку — `0084`.
+ * Неймспейс `persistence` фасада (ADR 0015 A2, ADR 0021): **вся политика сохранения** — состояние и его
+ * событие, одна точка входа с явной причиной, dirty-гейт, очередь запросов, откладывание на drag (`0081`),
+ * таймер серверного автосейва, гейты, ветки отказа и офлайна (`0082`). Черновик демо — `0083`, шапка — `0084`.
+ *
+ * **Серверный автосейв** (спека 10, ADR 0021): раз в 60 с, таймер стартует через 5 с после подъёма планера.
+ * Гейтов ровно два — есть `projectId` и поднят dirty («текущий пользователь — владелец» спека выносит как
+ * защитный инвариант на будущее, а не как третье условие). Гасителей тика тоже два — режим черновика
+ * (демо-роут, `saveTarget: 'draft'`) и активный жест. Ретрая после ошибки нет: следующий тик через 60 с
+ * попробует сам, и только если изменения ещё есть. Подписки на `online` и `beforeunload` нет намеренно —
+ * «синхронизация возобновляется автоматически» это и есть ближайший тик (решение ADR 0021).
  *
  * Что здесь **не** живёт: знание об эндпоинтах, `localStorage`, сессии и `window` — всё это приходит пропом
  * `storage` (ADR 0015 A8). Исключений наружу нет: `save` возвращает `Result` даже на упавшей реализации транспорта.
@@ -127,6 +227,10 @@ export class PersistenceNamespace {
 
   private readonly unsubscribe: () => void;
 
+  /** Таймеры автосейва: задержка старта и сам период. `null` — в этом режиме автосейва нет вовсе. */
+  private startTimer: ReturnType<typeof setTimeout> | null = null;
+  private tickTimer: ReturnType<typeof setInterval> | null = null;
+
   constructor(
     private readonly store: PlannerStore,
     private readonly bus: PlannerBus,
@@ -137,6 +241,12 @@ export class PersistenceNamespace {
        * актуальный проп, поэтому смена `storage` планер не пересоздаёт (то же правило, что у `logger`).
        */
       storage?: PlannerStorage;
+      /**
+       * Куда сохраняет по таймеру **этот** планер: обычный проект — на сервер (60 с, `0082`), демо-роут —
+       * только в локальный черновик (30 с, `0083`). Серверного автосейва в режиме `'draft'` нет вовсе —
+       * это гаситель спеки 10, а не «гейт, который всегда не проходит»: таймер там не заводится.
+       */
+      saveTarget?: SaveTarget;
       /** Состояние автомата инструментов — источник факта «идёт жест»; читается на каждый запрос, не кешируется. */
       getToolState: () => ToolState;
     },
@@ -145,6 +255,13 @@ export class PersistenceNamespace {
     const onDirty = ({ dirty }: { dirty: boolean }): void => this.patch({ dirty });
     bus.on('document:dirty-changed', onDirty);
     this.unsubscribe = () => bus.off('document:dirty-changed', onDirty);
+
+    // Без транспорта таймеров нет: сохранять некуда, а headless-тесты движка не должны ловить чужие тики.
+    if (options.storage && (options.saveTarget ?? 'server') === 'server') {
+      this.startTimer = setTimeout(() => {
+        this.tickTimer = setInterval(() => this.tick(), AUTOSAVE_INTERVAL_MS);
+      }, AUTOSAVE_START_DELAY_MS);
+    }
   }
 
   /** Замороженный снимок состояния сохранения; ссылка стабильна, пока состояние не изменилось. */
@@ -178,9 +295,32 @@ export class PersistenceNamespace {
     return this.enqueue(this.absorbDeferred(reason));
   }
 
-  /** Снимает подписку на dirty; команды после `dispose()` состояния уже не меняют. */
+  /**
+   * Снимает модалку отказа ручного Save — единственный способ её закрыть (`0084`). Успешное соседнее
+   * сохранение статус ошибки снимает, а модалку оставляет: диалог, исчезающий сам, пользователь не прочтёт.
+   */
+  dismissAlert(): void {
+    this.patch({ alert: null });
+  }
+
+  /** Снимает подписку на dirty и таймер автосейва; команды после `dispose()` состояния уже не меняют. */
   dispose(): void {
     this.unsubscribe();
+    if (this.startTimer !== null) clearTimeout(this.startTimer);
+    if (this.tickTimer !== null) clearInterval(this.tickTimer);
+    this.startTimer = null;
+    this.tickTimer = null;
+  }
+
+  /**
+   * Тик серверного автосейва. Гейт `projectId` — здесь, гейт dirty и гаситель «идёт жест» — в `save`, общие
+   * с ручным сохранением. Результат сознательно не читается: ошибка уже легла в состояние, а повторять
+   * попытку вне таймера спека запрещает — следующий тик через 60 с сделает это сам.
+   */
+  private tick(): void {
+    // «Проект уже сохранён на сервере хотя бы раз» (спека 10) — на демо-роуте и до первого сохранения id нет.
+    if (this.options.projectId === '') return;
+    void this.save('autosave');
   }
 
   /**
@@ -254,17 +394,29 @@ export class PersistenceNamespace {
         this.patch({
           status: 'saved',
           savedAt: Date.now(),
+          savedReason: reason,
           // Черновик серверной метки не приносит — прежняя остаётся как есть, а не затирается в `null`.
           updatedAt: updatedAt ?? this.state.updatedAt,
+          // Первый успех снимает и ошибку, и её метку: тихая иконка гаснет (спека 10).
           lastError: null,
+          failedAt: null,
           dirty: false,
         });
         this.store.markSaved();
       });
       return ok({ kind: 'saved', updatedAt });
     } catch (cause) {
-      const error: SaveError = { kind: 'save-failed', reason, cause };
-      this.patch({ status: 'error', lastError: error });
+      const { failure, detail } = failureOf(cause);
+      const error: SaveError = { kind: 'save-failed', reason, failure, detail, cause };
+      const at = Date.now();
+      this.patch({
+        // Офлайн — не «ошибка сохранения», а постоянный статус «нет сети»: он держится до первого успеха.
+        status: failure === 'offline' ? 'offline' : 'error',
+        lastError: error,
+        failedAt: at,
+        // Модалка — только у ручного Save; у автосейва прежняя не затирается и новая не заводится (спека 10).
+        alert: reason === 'manual' ? { kind: failure, detail, at } : this.state.alert,
+      });
       return err(error);
     }
   }

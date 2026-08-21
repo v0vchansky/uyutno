@@ -4,7 +4,7 @@ import { createEmptyDocument } from '../document/createEmptyDocument';
 import { type PlannerDocument } from '../document/PlannerDocument';
 import { DocumentNamespace } from './DocumentNamespace';
 import { HistoryNamespace } from './HistoryNamespace';
-import { PersistenceNamespace, type PlannerStorage } from './PersistenceNamespace';
+import { PersistenceNamespace, type PlannerStorage, type SaveTarget } from './PersistenceNamespace';
 import { createPlannerBus, type PlannerBus, type PlannerEvents, type PlannerEventType } from './PlannerBus';
 import { PlannerStore } from './PlannerStore';
 import { ToolsNamespace } from './tools/ToolsNamespace';
@@ -28,6 +28,12 @@ export interface PlannerManagerParams {
    * и таймеров не заводит — планер поднимается и работает как прежде.
    */
   storage?: PlannerStorage;
+  /**
+   * Куда сохраняет автосейв: `'server'` (по умолчанию) — обычный проект, раз в 60 с; `'draft'` — демо-роут,
+   * где сервера нет вовсе и пишется только локальный черновик (`0083`). Читается при подъёме планера: режим
+   * редактора по ходу его жизни не меняется.
+   */
+  saveTarget?: SaveTarget;
 }
 
 /**
@@ -54,7 +60,7 @@ export class PlannerManager {
    */
   readonly logger: PlannerLogger;
 
-  constructor({ projectId, logger, document = createEmptyDocument(), storage }: PlannerManagerParams) {
+  constructor({ projectId, logger, document = createEmptyDocument(), storage, saveTarget }: PlannerManagerParams) {
     this.projectId = projectId;
     this.logger = logger;
     this.bus = createPlannerBus();
@@ -74,6 +80,7 @@ export class PlannerManager {
     this.persistence = new PersistenceNamespace(store, this.bus, {
       projectId,
       storage,
+      saveTarget,
       getToolState: () => this.tools.get(),
     });
 

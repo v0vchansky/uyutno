@@ -43,7 +43,8 @@ const nudgeFactor = ({ shiftKey, ctrlKey, metaKey }: KeyEventLike): number => {
  *
  * Ctrl/Cmd у **стрелок** — не запрет, а часть множителя: точный шаг — это Shift + Ctrl/Cmd + стрелка
  * (ADR 0019 E4). У **WASD** тот же модификатор, наоборот, запрещает перехват — иначе съедались бы браузерные
- * Ctrl+A / Ctrl+S / Ctrl+W. Delete/Backspace с Ctrl/Cmd тоже не наши (удаление слова в тексте).
+ * Ctrl+A / Ctrl+W, а Ctrl+S уходил бы нуджем вниз вместо ручного Save (его берёт `isSaveShortcut`).
+ * Delete/Backspace с Ctrl/Cmd тоже не наши (удаление слова в тексте).
  * Alt не назначен ни на что в конструкторе.
  */
 export const keyToAction = (event: KeyEventLike): KeyAction | null => {
@@ -61,6 +62,14 @@ export const keyToAction = (event: KeyEventLike): KeyAction | null => {
   if (command && !key.startsWith('arrow')) return null;
   return { kind: 'nudge', dx: direction.dx, dy: direction.dy, factor: nudgeFactor(event) };
 };
+
+/**
+ * Ctrl+S / Cmd+S — ручной Save (спека 10, задача `0082`). Отдельно от `keyToAction`: сохранение не действие
+ * автомата инструментов, оно уходит в `persistence`. Shift и Alt не наши: «Save As» в v0 нет, Alt в
+ * конструкторе не назначен, и перехватывать чужие сочетания незачем.
+ */
+export const isSaveShortcut = (event: KeyEventLike): boolean =>
+  (event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 's';
 
 /** Space (зажат — пан ЛКМ, ADR 0020 P3). Отдельно от `keyToAction`: в автомат Space не уходит. */
 export const isPanModifierKey = (event: KeyEventLike): boolean => event.key === ' ' || event.key === 'Spacebar';

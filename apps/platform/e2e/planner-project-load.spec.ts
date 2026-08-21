@@ -255,9 +255,16 @@ test.describe('открытие проекта: фазы, восстановле
     await page.mouse.click(centre.x + 100, centre.y + 70);
     expect(await planner(page).rooms()).toBe(1);
 
-    // Кнопка «Сохранить» подключается задачей 0082 — здесь дёргается сама точка входа `persistence`.
-    const saved = await planner(page).save();
-    expect(saved).toMatchObject({ ok: true, value: { kind: 'saved' } });
+    /**
+     * Ручной Save — кнопкой шапки (задача 0082): нажатие обязано дать один `PUT …/document` с
+     * `autosave: false` и снять dirty. Ту же точку входа держит Ctrl+S — она проверена ниже.
+     */
+    const put = page.waitForRequest(
+      request => request.method() === 'PUT' && request.url().includes(projectDocumentApiPath(projectId)),
+    );
+    await page.getByRole('button', { name: 'Сохранить' }).click();
+    expect((await put).postDataJSON()).toMatchObject({ autosave: false });
+    await expect.poll(() => planner(page).isDirty()).toBe(false);
 
     await page.reload();
     await planner(page).waitFor();

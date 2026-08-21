@@ -2,7 +2,7 @@ import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 
 import type { ViewKind } from '../../document/PlannerDocument';
-import type { PlannerStorage } from '../../engine/PersistenceNamespace';
+import type { PlannerStorage, SaveTarget } from '../../engine/PersistenceNamespace';
 import type { PlannerLogger } from '../../engine/PlannerManager';
 import { createPlanner, type PlannerInstance } from '../../projection/createPlanner';
 import { PlannerContext } from '../PlannerContext';
@@ -20,6 +20,11 @@ export interface PlannerProps {
    * смена не пересоздаёт планер; **присутствие** пропа читается при монтировании.
    */
   storage?: PlannerStorage;
+  /**
+   * Куда сохраняет автосейв (`0082`): `'server'` по умолчанию — обычный проект, раз в 60 с; `'draft'` —
+   * демо-роут, где серверного автосейва нет вовсе (`0083`). Читается при монтировании.
+   */
+  saveTarget?: SaveTarget;
   /** Бюджет кадров render-on-demand (ADR 0015 A7); по умолчанию `FRAME_BUDGET = 5`. Читается при монтировании. */
   frameBudget?: number;
   className?: string;
@@ -67,6 +72,7 @@ export const Planner: React.FC<PlannerProps> = ({
   projectId,
   logger,
   storage,
+  saveTarget,
   frameBudget,
   className,
   onReady,
@@ -82,6 +88,7 @@ export const Planner: React.FC<PlannerProps> = ({
   const loggerRef = useRef(logger);
   const onReadyRef = useRef(onReady);
   const storageRef = useRef(storage);
+  const saveTargetRef = useRef(saveTarget);
   const frameBudgetRef = useRef(frameBudget);
   useEffect(() => {
     loggerRef.current = logger;
@@ -125,6 +132,7 @@ export const Planner: React.FC<PlannerProps> = ({
         projectId,
         logger: stableLogger,
         storage: stableStorage,
+        saveTarget: saveTargetRef.current,
         frameBudget: frameBudgetRef.current,
       });
     } catch (error) {

@@ -54,11 +54,11 @@ test.describe('оболочка редактора', () => {
     await expect(frame).toHaveCSS('border-radius', `${CANVAS_FRAME_RADIUS}px`);
     await expect(frame).toHaveCSS('border-top-width', '1px');
 
-    // Возврат — ссылка с текстом; кнопка сохранения отрисована и недоступна, пока обработчика нет (0082/0084).
+    // Возврат — ссылка с текстом; кнопка сохранения подключена к планеру, как только он поднят (0082).
     const back = page.getByRole('link', { name: 'Проекты' });
     await expect(back).toHaveAttribute('href', '/projects');
     await expect(back.getByText('Проекты')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Сохранить' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Сохранить' })).toBeEnabled();
     expect(await gapOf(page)).toBe('16px');
   });
 

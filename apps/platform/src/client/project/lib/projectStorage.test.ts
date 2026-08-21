@@ -1,3 +1,5 @@
+import { AxiosError, type AxiosResponse } from 'axios';
+
 import { planDocumentFixture } from '../api/projectDocumentFixture';
 import { ProjectDocumentError, projectStorage } from './projectStorage';
 
@@ -55,5 +57,51 @@ describe('projectStorage', () => {
 
     await expect(projectStorage.save('p1', document, { autosave: true })).resolves.toEqual({ updatedAt: UPDATED_AT });
     expect(saveProjectDocument).toHaveBeenCalledWith('p1', document, { autosave: true });
+  });
+
+  describe('ветки отказа save (задача 0082): причину объявляет транспорт, планер её только читает', () => {
+    const save = (): Promise<unknown> => projectStorage.save('p1', planDocumentFixture(), { autosave: false });
+
+    /** Ответ сервера в формате `errorMiddleware`: `{ error, code? }`. */
+    const responseError = (status: number, data: unknown): AxiosError =>
+      new AxiosError('Request failed', 'ERR_BAD_RESPONSE', undefined, {}, {
+        status,
+        data,
+        statusText: '',
+        headers: {},
+        config: {},
+      } as AxiosResponse);
+
+    it('ответа нет вовсе — «нет сети»: это офлайн спеки 10, а не отказ сервера', async () => {
+      saveProjectDocument.mockRejectedValue(new AxiosError('Network Error', 'ERR_NETWORK'));
+
+      await expect(save()).rejects.toMatchObject({ failure: 'offline', detail: null });
+    });
+
+    it('404 — «проект удалён во второй вкладке», с текстом сервера', async () => {
+      saveProjectDocument.mockRejectedValue(responseError(404, { error: 'Проект не найден' }));
+
+      await expect(save()).rejects.toMatchObject({ failure: 'not-found', detail: 'Проект не найден' });
+    });
+
+    it('409 отката версии — прочий отказ с текстом сервера: клиенту достаточно показать ошибку', async () => {
+      saveProjectDocument.mockRejectedValue(
+        responseError(409, { error: 'Документ устарел', code: 'document_version_outdated' }),
+      );
+
+      await expect(save()).rejects.toMatchObject({ failure: 'unknown', detail: 'Документ устарел' });
+    });
+
+    it('500 без разбираемого тела — прочий отказ без текста: сухую строку выдумывать нечем', async () => {
+      saveProjectDocument.mockRejectedValue(responseError(500, '<html>502</html>'));
+
+      await expect(save()).rejects.toMatchObject({ failure: 'unknown', detail: null });
+    });
+
+    it('исключение не от axios тоже доезжает объявленной причиной, а не голым Error', async () => {
+      saveProjectDocument.mockRejectedValue(new Error('boom'));
+
+      await expect(save()).rejects.toMatchObject({ failure: 'unknown', detail: null });
+    });
   });
 });
