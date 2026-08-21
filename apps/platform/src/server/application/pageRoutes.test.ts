@@ -90,6 +90,19 @@ describe('registerPageRoutes', () => {
       expect(response.body).toBe(PAGE_BODY);
     });
 
+    /**
+     * `/demo` — единственный путь, у которого «доступен гостю» мало: страница обещана лендингом как «пример без
+     * регистрации», поэтому проверяем именно 200 без редиректа. Статус тут держит `isKnownPagePath`: пока `/demo`
+     * не был в enum `Route`, сплат отдавал 404 (задача 0092).
+     */
+    it('/demo открыт гостю со статусом 200 — ни 404, ни редиректа на вход', async () => {
+      const response = await get(server, '/demo');
+
+      expect(response.status).toBe(200);
+      expect(response.location).toBeNull();
+      expect(response.body).toBe(PAGE_BODY);
+    });
+
     it('неизвестный путь отдаёт 404 с той же страницей (её отрисует NotFoundPage)', async () => {
       const response = await get(server, '/project/01890abc/unknown-segment');
 
@@ -108,7 +121,7 @@ describe('registerPageRoutes', () => {
       await server.close();
     });
 
-    it.each(['/project/01890abc', '/projects'])('%s открывается без редиректа', async path => {
+    it.each(['/project/01890abc', '/projects', '/demo'])('%s открывается без редиректа', async path => {
       const response = await get(server, path);
 
       expect(response.status).toBe(200);
