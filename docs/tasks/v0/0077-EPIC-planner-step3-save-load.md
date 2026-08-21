@@ -1,6 +1,6 @@
 # 0077 · EPIC · Планер, шаг 3: сохранение и загрузка проекта
 
-- Статус: [ ]
+- Статус: [~]
 - Зависит от: 0066 (шаг 2b закрыт), 0037 (бэкенд проектов), 0063 (`/project/:id` за авторизацией)
 - Спека: docs/product/features/planner/10-save-load.md (целиком: Save, Load, версионирование формата, превью, автосохранение, storage backend, крайние случаи); решения — docs/adr/0021-hranenie-dokumenta-planera-i-format-sohraneniya.md (ADR F, принят 2026-08-21), docs/adr/0016-model-dokumenta-planera.md (B6 версия формата), docs/adr/0015-arhitektura-dvizhka-planera.md (A8 DI-контракт, проп `storage`), docs/adr/0018-mutatsii-tranzaktsii-i-undo-planera.md (D7 dirty-флаг); порядок шагов — docs/product/architecture/planner-build-order.md (шаг 3)
 
