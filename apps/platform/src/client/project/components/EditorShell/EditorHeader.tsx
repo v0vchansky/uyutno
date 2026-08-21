@@ -25,9 +25,18 @@ interface Props {
   projectId: string;
   /**
    * Обработчик кнопки «Сохранить». Каркас сохранения не делает: пока обработчик не передан, кнопка `disabled`.
-   * Приносит задача 0082, состояния «идёт запись» / «Сохранено, ЧЧ:ММ» — 0084.
+   * Приносит задача 0082, состояния индикатора — 0084.
    */
   onSave?: () => void;
+  /**
+   * Идёт запись — кнопка показывает спиннер с «Сохраняем…» и становится недоступной (handoff, «Индикатор
+   * состояния сохранения»). Второго запроса из неё не запустить, и это не украшение: очередь `persistence`
+   * всё равно схлопнула бы его в один, а кнопка не должна выглядеть работающей, пока идёт запись.
+   *
+   * Статус при этом **один на все запросы**: ручной Save и автосейв дают один и тот же кадр — шапка знает
+   * только состояние `persistence`, а не то, сколько запросов стоит в очереди.
+   */
+  isSaving?: boolean;
   /**
    * Слот индикатора состояния сохранения — пустое место слева от кнопки с уже заданным порядком и gap 12px
    * (handoff, «Индикатор состояния сохранения»). Каркас про состояния индикатора не знает и `persistence` не
@@ -63,7 +72,13 @@ const DIMMED = 'pointer-events-none opacity-40';
  * Чего в шапке нет и не заводится: переключателя видов (он в рейле), отмены и повтора (они в панели
  * инструментов), «Поделиться», «Скриншот», «Настройки проекта».
  */
-export const EditorHeader: React.FC<Props> = ({ projectId, onSave, saveStatus, isDimmed = false }) => {
+export const EditorHeader: React.FC<Props> = ({
+  projectId,
+  onSave,
+  isSaving = false,
+  saveStatus,
+  isDimmed = false,
+}) => {
   const { authManager } = useRegistry();
   const [isRenameOpen, setIsRenameOpen] = useState(false);
 
@@ -117,10 +132,17 @@ export const EditorHeader: React.FC<Props> = ({ projectId, onSave, saveStatus, i
             <button
               type='button'
               onClick={onSave}
-              disabled={isDimmed || !onSave}
-              className={`inline-flex h-8 cursor-pointer items-center justify-center rounded-lg bg-[var(--accent)] px-3 text-[13px] font-medium text-[color:var(--accent-foreground)] disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING_ON_ACCENT}`}
+              disabled={isDimmed || !onSave || isSaving}
+              className={`inline-flex h-8 cursor-pointer items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-3 text-[13px] font-medium text-[color:var(--accent-foreground)] disabled:cursor-not-allowed ${isSaving ? 'disabled:opacity-[0.55]' : 'disabled:opacity-40'} ${FOCUS_RING_ON_ACCENT}`}
             >
-              Сохранить
+              {isSaving && (
+                /* Спиннер 14px из макета: кольцо на цвете подписи кнопки (`--accent-foreground` — белый). */
+                <span
+                  aria-hidden='true'
+                  className='inline-block size-3.5 animate-spin rounded-full border-2 border-white/35 border-t-white'
+                />
+              )}
+              {isSaving ? 'Сохраняем…' : 'Сохранить'}
             </button>
             {/* Аватар рисуется, поведение не заводится: меню профиля в редакторе не заказывалось (задача 0088). */}
             <span

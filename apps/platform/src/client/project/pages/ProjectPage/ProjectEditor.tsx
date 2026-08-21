@@ -5,7 +5,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { NotFoundScreen } from '@app/common';
 
 import { EditorShell, type EditorOpenStatus } from '../../components/EditorShell/EditorShell';
+import { SaveErrorModal } from '../../components/EditorShell/SaveErrorModal';
+import { SaveStatusIndicator } from '../../components/EditorShell/SaveStatusIndicator';
 import { hasPlan } from '../../hooks/projectOpenState';
+import { saveAlertView, saveIndicatorView } from '../../hooks/saveIndicatorState';
+import { usePersistenceState } from '../../hooks/usePersistenceState';
 import { useProjectOpen } from '../../hooks/useProjectOpen';
 import { plannerLogger } from '../../lib/plannerLogger';
 import { announcePlannerReady } from '../../lib/plannerReadyEvent';
@@ -77,6 +81,26 @@ export const ProjectEditor: React.FC<Props> = ({ projectId }) => {
     void planner?.manager.persistence.save('manual');
   }, [planner]);
 
+  /**
+   * Состояние сохранения для шапки (задача 0084). Тексты, иконки и модалки — платформенные: движок
+   * русских формулировок не знает и знать не должен, он отдаёт только факты (`status`, `savedReason`,
+   * время, причину отказа).
+   */
+  const persistence = usePersistenceState(planner);
+  const saveAlert = saveAlertView(persistence?.alert ?? null);
+
+  /** Закрытие модалки — явная команда движку: статус ошибки при этом остаётся, снимет его успешный save. */
+  const handleDismissAlert = useCallback((): void => planner?.manager.persistence.dismissAlert(), [planner]);
+
+  /**
+   * Повтор из модалки — то же ручное сохранение. Модалка снимается сразу: если и вторая попытка отказала,
+   * `persistence` поднимет **новый** alert, и диалог вернётся уже с актуальной причиной и временем.
+   */
+  const handleRetrySave = useCallback((): void => {
+    planner?.manager.persistence.dismissAlert();
+    void planner?.manager.persistence.save('manual');
+  }, [planner]);
+
   useEffect(() => {
     if (!planner) return;
     // Пустому плану вписывать нечего — он остаётся на дефолтном зуме (ADR 0021, «Камера при открытии»).
@@ -102,7 +126,16 @@ export const ProjectEditor: React.FC<Props> = ({ projectId }) => {
       <title>{`Проект ${projectId} — уютно`}</title>
       <meta name='description' content='Планировка квартиры: чертёж, расстановка мебели и просмотр в 3D.' />
       {/* Шапка, рамка холста, порог 1024px и экран открытия — у оболочки; страница только собирает планер. */}
-      <EditorShell projectId={projectId} openStatus={openStatus} onSave={planner ? handleSave : undefined}>
+      <EditorShell
+        projectId={projectId}
+        openStatus={openStatus}
+        onSave={planner ? handleSave : undefined}
+        isSaving={persistence?.status === 'saving'}
+        saveStatus={<SaveStatusIndicator view={saveIndicatorView(persistence)} />}
+        saveAlert={
+          saveAlert && <SaveErrorModal view={saveAlert} onDismiss={handleDismissAlert} onRetry={handleRetrySave} />
+        }
+      >
         {state.kind === 'open' && (
           /* Скин — дети `<Planner />`: панели живут внутри `PlannerContext` и абсолютом поверх канвасов (ADR 0020 P6). */
           <Planner

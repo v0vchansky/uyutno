@@ -31,8 +31,16 @@ interface Props {
   children?: React.ReactNode;
   /** Прокидывается в кнопку «Сохранить»; пока не передан — кнопка `disabled` (логика — задачи 0082/0084). */
   onSave?: () => void;
+  /** Идёт запись: кнопка «Сохранить» переходит в «Сохраняем…» и не пускает второй запрос (задача 0084). */
+  isSaving?: boolean;
   /** Слот индикатора сохранения в шапке; каркас держит место, содержимое приносит задача 0084. */
   saveStatus?: React.ReactNode;
+  /**
+   * Модалка отказа ручного сохранения (задача 0084). Живёт в оболочке, а не на странице, по той же причине,
+   * что и модалки открытия: ниже порога 1024px редактора нет вовсе, и диалог поверх заглушки был бы вторым
+   * экраном на одном окне.
+   */
+  saveAlert?: React.ReactNode;
   openStatus?: EditorOpenStatus;
 }
 
@@ -63,7 +71,9 @@ export const EditorShell: React.FC<Props> = ({
   projectId,
   children,
   onSave,
+  isSaving,
   saveStatus,
+  saveAlert,
   openStatus = { kind: 'ready' },
 }) => {
   const fit = useEditorViewportFit();
@@ -79,7 +89,13 @@ export const EditorShell: React.FC<Props> = ({
        * единственным выходом не должна оказаться кнопка «назад» в браузере (handoff, «Что перекрывает
        * затемнение»). Уйти в этот момент безопасно — правок ещё нет, терять нечего.
        */}
-      <EditorHeader projectId={projectId} onSave={onSave} saveStatus={saveStatus} isDimmed={isOpening} />
+      <EditorHeader
+        projectId={projectId}
+        onSave={onSave}
+        isSaving={isSaving}
+        saveStatus={saveStatus}
+        isDimmed={isOpening}
+      />
 
       <main className='relative flex min-h-0 flex-1'>
         {children ? (
@@ -93,6 +109,9 @@ export const EditorShell: React.FC<Props> = ({
 
         {openStatus.kind === 'loading' && <ProjectLoadingIndicator phase={openStatus.phase} />}
       </main>
+
+      {/* Пока проект открывается, сохранять нечего — отказ ручного Save в этот момент физически не родится. */}
+      {!isOpening && saveAlert}
 
       {openStatus.kind === 'failed' && <ProjectOpenErrorModal kind='failed' onRetry={openStatus.onRetry} />}
       {openStatus.kind === 'unsupported-version' && (
