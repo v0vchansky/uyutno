@@ -200,7 +200,7 @@
 | 0084 | TASK | [UI сохранения в шапке: индикатор, тихая иконка, модалка ошибки ручного Save](0084-TASK-planner-save-indicator-and-error-modals.md)             | [x]    | 0082, 0088       | —   |
 | 0085 | TASK | [Загрузка проекта: фазы прогресса, восстановление вида и камер, авто-fit, модалка ошибки](0085-TASK-planner-project-load.md)                    | [x]    | 0081             | —   |
 | 0086 | TASK | [Golden-фикстуры в формате сейва + детерминированный генератор id](0086-TASK-planner-golden-fixtures-in-save-format.md)                         | [x]    | 0079             | —   |
-| 0087 | TASK | [`duplicate` копирует документ и превью, «Save As» через create + PUT](0087-TASK-projects-duplicate-document-and-save-as.md)                    | [ ]    | 0080             | —   |
+| 0087 | TASK | [`duplicate` копирует документ и превью, «Save As» через create + PUT](0087-TASK-projects-duplicate-document-and-save-as.md)                    | [x]    | 0080             | —   |
 | 0088 | TASK | [Каркас оболочки редактора: шапка 48px, имя проекта, слот индикатора, рамка холста](0088-TASK-planner-editor-shell-frame.md)                    | [x]    | 0037, 0039, 0063 | —   |
 | 0089 | TASK | [Рамка холста внутри скина: рейл конструктора снаружи рамки](0089-TASK-planner-canvas-frame-inside-skin.md)                                     | [x]    | 0088             | —   |
 | 0090 | TASK | [Обратная связь на кнопке «Сохранить» + неактивность без изменений](0090-TASK-planner-save-button-feedback.md)                                  | [x]    | 0084             | —   |
