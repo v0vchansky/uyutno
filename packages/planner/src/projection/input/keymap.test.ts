@@ -5,6 +5,7 @@ import {
   isPanModifierKey,
   isSaveShortcut,
   keyToAction,
+  survivesEditableFocus,
   type KeyEventLike,
 } from './keymap';
 
@@ -231,6 +232,37 @@ describe('keymap — раскладка клавиш конструктора (A
     it('объект без tagName и без isContentEditable → false', () => {
       expect(isEditableTarget(target({}))).toBe(false);
       expect(isEditableTarget(target({ isContentEditable: false }))).toBe(false);
+    });
+  });
+
+  describe('survivesEditableFocus — что переживает фокус в поле (задача 0094)', () => {
+    it('Ctrl+S и Cmd+S → true: у поля своей команды «сохранить» нет', () => {
+      expect(survivesEditableFocus(ev('s', { ctrlKey: true }))).toBe(true);
+      expect(survivesEditableFocus(ev('S', { metaKey: true }))).toBe(true);
+    });
+
+    it('голая клавиша → false, даже если вне поля она наша', () => {
+      for (const key of ['s', 'w', 'a', 'd', 'Escape', 'Delete', 'Backspace', 'ArrowRight', ' ']) {
+        expect(survivesEditableFocus(ev(key))).toBe(false);
+      }
+    });
+
+    it('отмена и повтор → false: в поле Ctrl+Z — это undo текста, а не документа', () => {
+      expect(survivesEditableFocus(ev('z', { ctrlKey: true }))).toBe(false);
+      expect(survivesEditableFocus(ev('z', { metaKey: true, shiftKey: true }))).toBe(false);
+      expect(survivesEditableFocus(ev('y', { ctrlKey: true }))).toBe(false);
+    });
+
+    it('чужие сочетания браузера → false: выделить всё, копировать, вставить остаются полю', () => {
+      for (const key of ['a', 'c', 'v', 'x']) {
+        expect(survivesEditableFocus(ev(key, { ctrlKey: true }))).toBe(false);
+        expect(survivesEditableFocus(ev(key, { metaKey: true }))).toBe(false);
+      }
+    });
+
+    it('Shift+Ctrl+S и Alt+Ctrl+S → false: это уже не наш Save', () => {
+      expect(survivesEditableFocus(ev('s', { ctrlKey: true, shiftKey: true }))).toBe(false);
+      expect(survivesEditableFocus(ev('s', { ctrlKey: true, altKey: true }))).toBe(false);
     });
   });
 });

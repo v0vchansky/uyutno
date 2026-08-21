@@ -155,4 +155,38 @@ test.describe('планер: поля ввода длины над холсто�
     });
     expect(rotated, 'плашка ошибки без поворота').toBe(false);
   });
+
+  /**
+   * Задача 0094. Слой 4 здесь обязателен: жалоба ровно про живой браузер — при фокусе в поле Ctrl+S открывал
+   * **браузерный диалог сохранения страницы** вместо сохранения проекта. Юнит проверяет маршрут внутри
+   * планера, а «дошло ли до сервера при настоящем фокусе в настоящем `<input>`» — только здесь.
+   */
+  test('Ctrl+S при фокусе в поле длины сохраняет проект, а Ctrl+Z остаётся полю', async ({ plannerPage: page }) => {
+    expect(await drawRoom(page)).toBe(1);
+
+    const field = page.getByLabel('длина внешнего ребра').first();
+    await field.click();
+    await expect(field).toBeFocused();
+
+    const saved = page.waitForRequest(request => request.method() === 'PUT' && request.url().includes('/document'), {
+      timeout: 5000,
+    });
+    await page.keyboard.press('ControlOrMeta+s');
+    await saved;
+    // Сохранение фокус не отнимает: человек продолжает править ту же длину.
+    await expect(field).toBeFocused();
+
+    // А вот отмена в поле — история текста самого поля: документ от неё не откатывается (решение задачи 0094).
+    const points = () =>
+      page.evaluate(() => {
+        const { layout } = window.__uyutnoE2E!.planners[0]!.manager.document.get().floors[0]!;
+        return Object.values(layout.points)
+          .map(point => `${point.x}|${point.y}`)
+          .sort()
+          .join(';');
+      });
+    const before = await points();
+    await page.keyboard.press('ControlOrMeta+z');
+    expect(await points(), 'Ctrl+Z в поле геометрию не трогает').toBe(before);
+  });
 });

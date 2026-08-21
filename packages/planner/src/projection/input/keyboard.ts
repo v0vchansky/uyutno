@@ -1,5 +1,5 @@
 import type { PlannerManager } from '../../engine/PlannerManager';
-import { isEditableTarget, isPanModifierKey, isSaveShortcut, keyToAction } from './keymap';
+import { isEditableTarget, isPanModifierKey, isSaveShortcut, keyToAction, survivesEditableFocus } from './keymap';
 
 export interface KeyboardInputOptions {
   /**
@@ -13,8 +13,8 @@ export interface KeyboardInputOptions {
 
 /**
  * **Единственный владелец клавиатуры планера** (ADR 0019 E5, ADR 0020 P6): один `keydown` и один `keyup` на
- * `window`, guard «фокус в `input`/`textarea`/`contentEditable` → не перехватывать», чистый keymap → `KeyAction`.
- * Создаётся в `createPlanner` (не в React); панель инструментов 0061 клавиш не вешает.
+ * `window`, guard «фокус в `input`/`textarea`/`contentEditable` → не перехватывать голые клавиши», чистый
+ * keymap → `KeyAction`. Создаётся в `createPlanner` (не в React); панель инструментов 0061 клавиш не вешает.
  *
  * Маршрут: `tools.key(action)`; если автомат вернул `{ handled: false }` на `nudge` — панорамирует вьювер.
  * `keyup` нужен только для состояния «Space зажат», которое отдаётся Canvas2D-проекции.
@@ -52,8 +52,12 @@ export class KeyboardInput {
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     if (this.disposed || event.defaultPrevented) return;
-    // Пока фокус в поле ввода длины, глобальные горячие клавиши не срабатывают вообще (спека 07, решение 20).
-    if (isEditableTarget(event.target)) return;
+    /**
+     * Фокус в поле ввода длины гасит **голые клавиши** (спека 07, решение 20): в поле они дают символы и
+     * движение курсора, дёргать ими инструменты нельзя. Сочетания с Ctrl/Cmd символа не дают — те из них, что
+     * не конфликтуют с правкой текста, проходят и в поле (`survivesEditableFocus`, задача `0094`).
+     */
+    if (isEditableTarget(event.target) && !survivesEditableFocus(event)) return;
 
     if (isSaveShortcut(event)) {
       /**

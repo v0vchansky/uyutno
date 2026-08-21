@@ -93,7 +93,7 @@ describe('KeyboardInput — единственный владелец клави
     expect(event.defaultPrevented).toBe(false);
   });
 
-  it('guard: фокус в input/textarea/contentEditable — не перехватывается ничего', () => {
+  it('guard: фокус в input/textarea/contentEditable — голые клавиши не перехватываются', () => {
     const { manager, press, onPanModifier } = setup();
     const key = jest.spyOn(manager.tools, 'key');
 
@@ -105,10 +105,14 @@ describe('KeyboardInput — единственный владелец клави
     document.body.append(input, textarea, editable);
 
     for (const element of [input, textarea, editable]) {
-      expect(press('keydown', { key: 'Escape' }, element).defaultPrevented).toBe(false);
+      // Голая клавиша в поле — ввод символа или дело самого поля (Enter/Esc/Tab, спека 07).
+      for (const bare of ['Escape', 's', 'w', 'a', 'd', 'Delete', 'Backspace', 'ArrowRight', ' ']) {
+        expect(press('keydown', { key: bare }, element).defaultPrevented).toBe(false);
+      }
+      // Отмена и повтор в поле — история текста самого поля, а не документа (задача 0094).
       expect(press('keydown', { key: 'z', ctrlKey: true }, element).defaultPrevented).toBe(false);
-      expect(press('keydown', { key: ' ' }, element).defaultPrevented).toBe(false);
-      press('keydown', { key: 'ArrowRight' }, element);
+      expect(press('keydown', { key: 'z', metaKey: true, shiftKey: true }, element).defaultPrevented).toBe(false);
+      expect(press('keydown', { key: 'y', ctrlKey: true }, element).defaultPrevented).toBe(false);
     }
 
     expect(key).not.toHaveBeenCalled();
@@ -156,15 +160,28 @@ describe('KeyboardInput — ручной Save (спека 10, задача 0082)
     expect(save).toHaveBeenCalledWith('manual');
   });
 
-  it('фокус в поле ввода длины — Ctrl+S не перехватывается, как и остальные горячие клавиши', () => {
+  it('фокус в поле ввода длины Ctrl+S не отменяет: сохранение работает и там (задача 0094)', () => {
     const { manager, press } = setup();
     const save = jest.spyOn(manager.persistence, 'save');
     const field = document.createElement('input');
     document.body.append(field);
 
-    expect(press('keydown', { key: 's', ctrlKey: true }, field).defaultPrevented).toBe(false);
+    // Диалог «сохранить страницу» гасится и в поле — ради него перехват и написан.
+    expect(press('keydown', { key: 's', ctrlKey: true }, field).defaultPrevented).toBe(true);
+    expect(press('keydown', { key: 'S', metaKey: true }, field).defaultPrevented).toBe(true);
 
-    expect(save).not.toHaveBeenCalled();
+    expect(save.mock.calls).toEqual([['manual'], ['manual']]);
+  });
+
+  it('Ctrl+S в поле в автомат инструментов не уходит: «s» там — символ, а не нудж', () => {
+    const { manager, press } = setup();
+    const key = jest.spyOn(manager.tools, 'key');
+    const field = document.createElement('input');
+    document.body.append(field);
+
+    press('keydown', { key: 's', ctrlKey: true }, field);
+
+    expect(key).not.toHaveBeenCalled();
   });
 });
 
