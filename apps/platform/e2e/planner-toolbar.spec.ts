@@ -2,6 +2,7 @@ import { expect, test as base, type Page } from '@playwright/test';
 import type { PlannerInstance, Viewport, ViewportInsets } from '@uyutno/planner';
 
 import { PLANNER_READY_EVENT } from '../src/client/project/lib/plannerReadyEvent';
+import { ensureProjectUrl } from './support/projects';
 
 /**
  * E2E-смоук шага 2 **через UI** (testing-strategy слой 4; задача 0061): весь путь идёт кнопками скина и реальной
@@ -23,7 +24,11 @@ declare global {
   }
 }
 
-const PROJECT_URL = '/project/e2e-toolbar';
+/**
+ * Проект спеки заводится через API и переиспользуется прогонами: с задачи 0085 редактор открывает
+ * настоящий проект, а выдуманный id даёт 404-страницу (`e2e/support/projects.ts`).
+ */
+const PROJECT_NAME = 'e2e · панель инструментов';
 /** Полуоси рисуемого прямоугольника от центра холста, CSS px: контур 200 × 140 px = 200 × 140 см при `scale = 1`. */
 const HALF_WIDTH = 100;
 const HALF_HEIGHT = 70;
@@ -60,7 +65,7 @@ const planOnScreen = (
 };
 
 const test = base.extend<{ plannerPage: Page }>({
-  plannerPage: async ({ page }, use) => {
+  plannerPage: async ({ page, request }, use) => {
     const pageErrors: string[] = [];
     page.on('pageerror', error => pageErrors.push(error.message));
     await page.addInitScript(eventName => {
@@ -71,7 +76,7 @@ const test = base.extend<{ plannerPage: Page }>({
       });
     }, PLANNER_READY_EVENT);
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(PROJECT_URL);
+    await page.goto(await ensureProjectUrl(request, PROJECT_NAME));
     await page.waitForFunction(() => (window.__uyutnoE2E?.planners.length ?? 0) >= 1);
     await use(page);
     expect(pageErrors, 'страница без исключений').toEqual([]);

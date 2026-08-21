@@ -2,6 +2,7 @@ import { expect, test as base, type Page } from '@playwright/test';
 import type { PlannerInstance } from '@uyutno/planner';
 
 import { PLANNER_READY_EVENT } from '../src/client/project/lib/plannerReadyEvent';
+import { ensureProjectUrl } from './support/projects';
 
 /**
  * E2E-смоук DOM-оверлея полей ввода длины (testing-strategy слой 4; ADR 0020 P2/P6, задача 0060): реальный
@@ -23,13 +24,17 @@ declare global {
   }
 }
 
-const PROJECT_URL = '/project/e2e-length-inputs';
+/**
+ * Проект спеки заводится через API и переиспользуется прогонами: с задачи 0085 редактор открывает
+ * настоящий проект, а выдуманный id даёт 404-страницу (`e2e/support/projects.ts`).
+ */
+const PROJECT_NAME = 'e2e · поля ввода длины';
 
 /** Полая комната 400 × 300 см вокруг центра плана: при базовом зуме (1 CSS px = 1 см) все стороны длиннее порогов. */
 const ROOM = { from: { x: -200, y: -150 }, to: { x: 200, y: 150 } };
 
 const test = base.extend<{ plannerPage: Page }>({
-  plannerPage: async ({ page }, use) => {
+  plannerPage: async ({ page, request }, use) => {
     const pageErrors: string[] = [];
     page.on('pageerror', error => pageErrors.push(error.message));
     await page.addInitScript(eventName => {
@@ -39,7 +44,7 @@ const test = base.extend<{ plannerPage: Page }>({
         store.planners.push((event as CustomEvent<PlannerInstance>).detail);
       });
     }, PLANNER_READY_EVENT);
-    await page.goto(PROJECT_URL);
+    await page.goto(await ensureProjectUrl(request, PROJECT_NAME));
     await page.waitForFunction(() => (window.__uyutnoE2E?.planners.length ?? 0) >= 1);
     await use(page);
     expect(pageErrors, 'страница без исключений').toEqual([]);

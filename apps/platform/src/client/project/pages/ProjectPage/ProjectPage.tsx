@@ -1,28 +1,16 @@
 import type React from 'react';
 import { useParams } from 'react-router';
-import { ConstructorSkin, LengthInputsOverlay, Planner } from '@uyutno/planner';
 
-import { EditorShell } from '../../components/EditorShell/EditorShell';
-import { plannerLogger } from '../../lib/plannerLogger';
-import { announcePlannerReady } from '../../lib/plannerReadyEvent';
+import { ProjectEditor } from './ProjectEditor';
 
+/**
+ * Роут `/project/:id`. Вся работа — в `ProjectEditor`; страница только достаёт id из адреса и **пересоздаёт
+ * редактор на смену проекта** (`key`): переход между двумя проектами оставляет компонент смонтированным, а
+ * состояние открытия — фаза, поднятый планер, признак восстановленной сцены — принадлежит конкретному
+ * проекту и обязано начинаться заново.
+ */
 export const ProjectPage: React.FC = () => {
   const { id = '' } = useParams<{ id: string }>();
 
-  return (
-    <>
-      <title>{`Проект ${id} — уютно`}</title>
-      <meta name='description' content='Планировка квартиры: чертёж, расстановка мебели и просмотр в 3D.' />
-      {/* Шапка, рамка холста и порог 1024px — у оболочки (задача 0088); страница только собирает планер. */}
-      <EditorShell projectId={id}>
-        {/* Скин — дети `<Planner />`: панели живут внутри `PlannerContext` и абсолютом поверх канвасов (ADR 0020 P6). */}
-        <Planner projectId={id} logger={plannerLogger} className='block h-full w-full' onReady={announcePlannerReady}>
-          {/* Оверлей размеров — ребёнок скина: ему нужен и контейнер с канвасами, и общий контекст скина (0060). */}
-          <ConstructorSkin>
-            <LengthInputsOverlay />
-          </ConstructorSkin>
-        </Planner>
-      </EditorShell>
-    </>
-  );
+  return <ProjectEditor key={id} projectId={id} />;
 };

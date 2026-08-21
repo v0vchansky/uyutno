@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { EDITOR_MIN_WIDTH } from '../src/client/project/hooks/useEditorViewportFit';
+import { ensureProjectUrl } from './support/projects';
 
 /**
  * Каркас оболочки редактора (задача 0088, handoff `docs/ui/handoffs/planner/planner-editor-ui.md`, раздел
@@ -11,7 +12,16 @@ import { EDITOR_MIN_WIDTH } from '../src/client/project/hooks/useEditorViewportF
  * реальным окном. Числа шапки берутся из норматива, а не подгоняются под реализацию.
  */
 
-const PROJECT_URL = '/project/e2e-editor-shell';
+/**
+ * Проект спеки заводится через API и переиспользуется прогонами: с задачи 0085 редактор открывает настоящий
+ * проект, а выдуманный id даёт 404-страницу (`e2e/support/projects.ts`).
+ */
+const PROJECT_NAME = 'e2e · оболочка редактора';
+let PROJECT_URL = '';
+
+test.beforeEach(async ({ request }) => {
+  PROJECT_URL = await ensureProjectUrl(request, PROJECT_NAME);
+});
 
 /** Внешний габарит шапки, CSS px (handoff, «Шапка»: «ровно 48px по внешнему габариту»). */
 const HEADER_HEIGHT = 48;

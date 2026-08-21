@@ -2,6 +2,7 @@ import { expect, test as base, type Page } from '@playwright/test';
 import type { Canvas2dStats, PlannerInstance, PlannerProjections, ProjectionStats, ViewKind } from '@uyutno/planner';
 
 import { PLANNER_READY_EVENT } from '../src/client/project/lib/plannerReadyEvent';
+import { ensureProjectUrl } from './support/projects';
 
 /**
  * Perf/leak-гвард планера (testing-strategy, слой 3; ADR 0015 A7, ADR 0020 P5/P7): обе проекции спят в покое,
@@ -23,7 +24,13 @@ declare global {
   }
 }
 
-const PROJECT_URL = '/project/e2e-render-guard';
+/**
+ * Проект спеки заводится через API и переиспользуется прогонами: с задачи 0085 редактор открывает настоящий
+ * проект, а выдуманный id даёт 404-страницу (`e2e/support/projects.ts`). Адрес нужен и фикстуре, и телу теста
+ * (возврат в редактор через `navigateInApp`), поэтому он живёт переменной, которую заполняет фикстура.
+ */
+const PROJECT_NAME = 'e2e · render-guard';
+let PROJECT_URL = '';
 /** Бюджет кадров 5 при ~60 fps — ≈100 мс; запас, чтобы луп гарантированно уснул. */
 const SETTLE_MS = 400;
 const IDLE_MS = 1000;
@@ -141,7 +148,7 @@ const expectFillsContainer = (metrics: CanvasMetrics, name: string): void => {
  * снятия скриншотов трассы) — шум окружения, не диагностика нашего кода; всё остальное про WebGL/three — ошибка.
  */
 const test = base.extend<{ plannerPage: Page }>({
-  plannerPage: async ({ page }, use) => {
+  plannerPage: async ({ page, request }, use) => {
     const consoleIssues: string[] = [];
     page.on('console', message => {
       const text = message.text();
@@ -160,6 +167,7 @@ const test = base.extend<{ plannerPage: Page }>({
       });
     }, PLANNER_READY_EVENT);
 
+    PROJECT_URL = await ensureProjectUrl(request, PROJECT_NAME);
     await page.goto(PROJECT_URL);
     await registry(page).waitFor(1);
     await page.waitForTimeout(SETTLE_MS);

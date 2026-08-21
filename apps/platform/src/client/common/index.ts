@@ -1,4 +1,5 @@
 export { Logo } from './components/Logo/Logo';
+export { NotFoundScreen } from './components/NotFoundScreen/NotFoundScreen';
 export { PublicLayout } from './components/PublicLayout/PublicLayout';
 
 export { displayNameOrEmailFallback, initialsFromName } from './lib/userDisplay';

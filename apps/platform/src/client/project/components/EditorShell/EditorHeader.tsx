@@ -35,7 +35,17 @@ interface Props {
    * лишние 12px gap'а и сдвинул кнопку с аватаром.
    */
   saveStatus?: React.ReactNode;
+  /**
+   * Проект ещё открывается или открыть его не удалось (задача 0085): всё, кроме возврата «Проекты»,
+   * гасится до 40% и перестаёт принимать указатель (handoff, «Что перекрывает затемнение»). Погашенное
+   * заодно уходит из таб-обхода — `pointer-events: none` клавиатуру не останавливает, а недоступное
+   * действие не должно ловить фокус.
+   */
+  isDimmed?: boolean;
 }
+
+/** Гашение неактивных элементов шапки на экране открытия — числа из макета. */
+const DIMMED = 'pointer-events-none opacity-40';
 
 /**
  * Шапка редактора (handoff `docs/ui/handoffs/planner/planner-editor-ui.md`, «Оболочка редактора (P1)» →
@@ -53,7 +63,7 @@ interface Props {
  * Чего в шапке нет и не заводится: переключателя видов (он в рейле), отмены и повтора (они в панели
  * инструментов), «Поделиться», «Скриншот», «Настройки проекта».
  */
-export const EditorHeader: React.FC<Props> = ({ projectId, onSave, saveStatus }) => {
+export const EditorHeader: React.FC<Props> = ({ projectId, onSave, saveStatus, isDimmed = false }) => {
   const { authManager } = useRegistry();
   const [isRenameOpen, setIsRenameOpen] = useState(false);
 
@@ -89,7 +99,8 @@ export const EditorHeader: React.FC<Props> = ({ projectId, onSave, saveStatus })
               aria-label='Переименовать проект'
               title='Переименовать проект'
               onClick={() => setIsRenameOpen(true)}
-              className={`h-8 max-w-[150px] cursor-pointer truncate rounded-lg px-2 text-left text-[14px] font-medium text-[color:var(--foreground)] hover:bg-[var(--surface-secondary)] xl:max-w-[280px] ${FOCUS_RING}`}
+              disabled={isDimmed}
+              className={`h-8 max-w-[150px] cursor-pointer truncate rounded-lg px-2 text-left text-[14px] font-medium text-[color:var(--foreground)] hover:bg-[var(--surface-secondary)] xl:max-w-[280px] ${FOCUS_RING} ${isDimmed ? DIMMED : ''}`}
             >
               {project.name}
             </button>
@@ -101,12 +112,12 @@ export const EditorHeader: React.FC<Props> = ({ projectId, onSave, saveStatus })
 
           <span className='flex-1' />
 
-          <div className='flex shrink-0 items-center gap-3'>
+          <div className={`flex shrink-0 items-center gap-3 ${isDimmed ? DIMMED : ''}`}>
             {saveStatus}
             <button
               type='button'
               onClick={onSave}
-              disabled={!onSave}
+              disabled={isDimmed || !onSave}
               className={`inline-flex h-8 cursor-pointer items-center justify-center rounded-lg bg-[var(--accent)] px-3 text-[13px] font-medium text-[color:var(--accent-foreground)] disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING_ON_ACCENT}`}
             >
               Сохранить

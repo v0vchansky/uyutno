@@ -1,11 +1,20 @@
 import type React from 'react';
 import { Link } from 'react-router';
 
-import { PublicLayout } from '@app/common';
-
 import { Route } from '../../../../shared/router/routes';
+import { PublicLayout } from '../PublicLayout/PublicLayout';
 
-export const NotFoundPage: React.FC = () => {
+/**
+ * Экран «страницы нет» — вместе со своими `<title>`/`<meta>`, поэтому вставляется вместо страницы, а не
+ * внутрь неё.
+ *
+ * Живёт в `common`, а не в `landing`, потому что его рендерят **две** ветки роутинга из разных модулей:
+ * `*` в роутере (задача 0014) и `/project/:id` на чужом или несуществующем проекте (задача 0085, спека 10 —
+ * «прямая ссылка на удалённый проект → 404, та же страница, что для несуществующего id»). Прямой импорт
+ * между `landing` и `project` запрещён графом модулей ADR 0007 в **обе** стороны, и общее место для такого
+ * экрана — только `common`. Компонент, а не страница: страниц у модулей-библиотек не бывает.
+ */
+export const NotFoundScreen: React.FC = () => {
   return (
     <>
       <title>Страница не найдена — уютно</title>

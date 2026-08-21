@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 
+import { ensureProjectUrlAsUser } from './support/projects';
 import { E2E_USER, GUEST_STORAGE_STATE } from './support/testUser';
 
 /**
@@ -8,9 +9,19 @@ import { E2E_USER, GUEST_STORAGE_STATE } from './support/testUser';
  * для SPA-навигации. После входа пользователь возвращается на запрошенный проект — через `?from=`.
  */
 
-const PROJECT_ID = 'e2e-auth-guard';
-const PROJECT_URL = `/project/${PROJECT_ID}`;
-const LOGIN_URL_WITH_FROM = `/login?from=${encodeURIComponent(PROJECT_URL)}`;
+/**
+ * Проект заводится через API и переиспользуется прогонами: с задачи 0085 редактор открывает настоящий проект,
+ * а выдуманный id даёт 404-страницу. Гостевые тесты ходят под пустой сессией, поэтому проект добывается
+ * отдельным контекстом под сессией e2e-пользователя (`e2e/support/projects.ts`).
+ */
+const PROJECT_NAME = 'e2e · гард авторизации';
+let PROJECT_URL = '';
+let LOGIN_URL_WITH_FROM = '';
+
+test.beforeEach(async ({ baseURL }) => {
+  PROJECT_URL = await ensureProjectUrlAsUser(baseURL!, PROJECT_NAME);
+  LOGIN_URL_WITH_FROM = `/login?from=${encodeURIComponent(PROJECT_URL)}`;
+});
 /**
  * Канвасов у планера два — Three и Canvas2D конструктора (ADR 0020 P6), неактивный скрыт. «Редактор открылся» —
  * это видимый холст активного вида; по умолчанию активен конструктор, его канвас — единственный с `role="img"`.

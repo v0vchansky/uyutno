@@ -1,25 +1,44 @@
 import type React from 'react';
 
+import type { ProjectOpenPhase } from '../../hooks/projectOpenState';
 import { useEditorViewportFit } from '../../hooks/useEditorViewportFit';
 import { DesktopOnlyScreen } from './DesktopOnlyScreen';
 import { EditorHeader } from './EditorHeader';
+import { ProjectLoadingIndicator } from './ProjectLoadingIndicator';
+import { ProjectOpenErrorModal } from './ProjectOpenErrorModal';
+
+/**
+ * Чем занята оболочка, пока проект открывается (задача 0085; handoff, «Состояния экрана · оболочка»).
+ * Дефолт — `ready`: до 0085 экран открытия не существовал, и без пропа оболочка ведёт себя как раньше.
+ */
+export type EditorOpenStatus =
+  | { kind: 'loading'; phase: ProjectOpenPhase }
+  /** Битый документ или отказ транспорта: модалка с повтором, индикатора уже нет. */
+  | { kind: 'failed'; onRetry: () => void }
+  /** Документ записан более новым бандлом: своя модалка, повторять нечего. */
+  | { kind: 'unsupported-version' }
+  | { kind: 'ready' };
 
 interface Props {
   projectId: string;
   /**
    * Планер со скином. Ниже порога 1024px **не рендерится вовсе**: элемент создан, но в дерево не попадает,
    * поэтому ни канвасов, ни WebGL-контекста на телефоне не появляется.
+   *
+   * Пока проект не открыт, страница не передаёт сюда ничего — и рамка холста тогда не рисуется: обводить
+   * ей нечего, под шапкой чистый белый экран (handoff, «Состояния экрана · оболочка»).
    */
-  children: React.ReactNode;
+  children?: React.ReactNode;
   /** Прокидывается в кнопку «Сохранить»; пока не передан — кнопка `disabled` (логика — задачи 0082/0084). */
   onSave?: () => void;
   /** Слот индикатора сохранения в шапке; каркас держит место, содержимое приносит задача 0084. */
   saveStatus?: React.ReactNode;
+  openStatus?: EditorOpenStatus;
 }
 
 /**
  * Каркас оболочки редактора (handoff `docs/ui/handoffs/planner/planner-editor-ui.md`, «Каркас» P0 и «Оболочка
- * редактора (P1)»; прототип `Planner Editor Shell.dc.html`, кадры `s0`–`s2`).
+ * редактора (P1)»; прототип `Planner Editor Shell.dc.html`, кадры `s0`–`s2` и «загрузка · фаза 1/2»).
  *
  * Фон страницы `--background`, сверху шапка 48px, под ней строка с холстом: внешний отступ 8px, радиус 12px,
  * рамка 1px `--border`, внутри белая область. Оверлеи скина (панель инструментов, контролы холста, полоса
@@ -33,23 +52,52 @@ interface Props {
  * охватывает контейнер целиком: числа (8/12/1px) и взаимное положение оверлеев верны, снаружи рамки остаётся
  * не рейл, а край окна. Вернуть рейл наружу — задача правки пакета, а не платформы.
  *
- * Логики сохранения здесь нет ни строки: каркас не читает `persistence`, не ходит в `…/document` и про формат
- * не знает (задачи 0081–0084).
+ * **Экран открытия — тоже оболочка** (задача 0085): индикатор фаз и модалки отказа живут здесь, а не на
+ * странице, потому что оба обязаны оставаться под порогом 1024px — ниже него редактора нет вовсе, и модалка
+ * поверх заглушки была бы вторым экраном на одном окне.
+ *
+ * Логики сохранения здесь по-прежнему нет ни строки: каркас не читает `persistence` и про формат не знает
+ * (задачи 0082–0084).
  */
-export const EditorShell: React.FC<Props> = ({ projectId, children, onSave, saveStatus }) => {
+export const EditorShell: React.FC<Props> = ({
+  projectId,
+  children,
+  onSave,
+  saveStatus,
+  openStatus = { kind: 'ready' },
+}) => {
   const fit = useEditorViewportFit();
 
   if (fit === 'too-narrow') return <DesktopOnlyScreen />;
 
+  const isOpening = openStatus.kind !== 'ready';
+
   return (
     <div className='flex h-screen w-full flex-col overflow-hidden bg-[var(--background)] text-[color:var(--foreground)]'>
-      <EditorHeader projectId={projectId} onSave={onSave} saveStatus={saveStatus} />
+      {/*
+       * Во время открытия в шапке рабочей остаётся только ссылка «Проекты»: подгрузка может подвиснуть, и
+       * единственным выходом не должна оказаться кнопка «назад» в браузере (handoff, «Что перекрывает
+       * затемнение»). Уйти в этот момент безопасно — правок ещё нет, терять нечего.
+       */}
+      <EditorHeader projectId={projectId} onSave={onSave} saveStatus={saveStatus} isDimmed={isOpening} />
 
-      <main className='flex min-h-0 flex-1'>
-        <div className='relative m-2 min-w-0 flex-1 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]'>
-          {fit === 'fits' ? children : null}
-        </div>
+      <main className='relative flex min-h-0 flex-1'>
+        {children ? (
+          <div className='relative m-2 min-w-0 flex-1 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]'>
+            {fit === 'fits' ? children : null}
+          </div>
+        ) : (
+          /* Ни рамки, ни внутреннего отступа: под шапкой чистый белый экран (handoff). */
+          <div className='min-w-0 flex-1 bg-[var(--surface)]' />
+        )}
+
+        {openStatus.kind === 'loading' && <ProjectLoadingIndicator phase={openStatus.phase} />}
       </main>
+
+      {openStatus.kind === 'failed' && <ProjectOpenErrorModal kind='failed' onRetry={openStatus.onRetry} />}
+      {openStatus.kind === 'unsupported-version' && (
+        <ProjectOpenErrorModal kind='unsupported-version' onRetry={() => undefined} />
+      )}
     </div>
   );
 };
