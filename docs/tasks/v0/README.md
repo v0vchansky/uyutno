@@ -185,7 +185,7 @@
 | 0071 | TASK | [Команды ядра для полов и зон (`document.*`, без интерфейса)](0071-TASK-planner-cover-area-commands.md)                              | [x]    | 0069       | —   |
 | 0072 | TASK | [Golden-фикстуры с зонами, ручными полами и дырками + property-тесты](0072-TASK-planner-covers-areas-fixtures-and-property.md)       | [x]    | 0070, 0071 | —   |
 
-### 0077 · Планер — шаг 3: сохранение и загрузка проекта · [~]
+### 0077 · Планер — шаг 3: сохранение и загрузка проекта · [x]
 
 Спека и общее описание: [0077-EPIC-planner-step3-save-load.md](0077-EPIC-planner-step3-save-load.md). Все решения приняты [ADR 0021](../../adr/0021-hranenie-dokumenta-planera-i-format-sohraneniya.md) (ADR F, 2026-08-21) — задачи его исполняют, а не переоткрывают; спека — [10-save-load.md](../../product/features/planner/10-save-load.md), порядок шагов — [planner-build-order.md](../../product/architecture/planner-build-order.md) (шаг 3). `0078` и `0079` независимы и идут первыми, `0080` зависит от обеих. Две задачи с `Нужен дизайн: да` (`0084`, `0085`) ждут макета оболочки — бриф [planner-editor-shell.md](../../ui/briefs/planner-editor-shell.md), блоки B3/B4/B6 — и без ссылки в строке «Дизайн» в работу не берутся. `0088` (каркас оболочки) макет уже получила — приёмка [`README-audit-shell.md`](../../ui/handoffs/planner/README-audit-shell.md), блоки B1/B2 — и от задач шага 3 не зависит; зато от неё зависит `0084`: индикатору нужен слот в шапке. Эпик разблокирует уже заведённые `0064` и `0065`; лимит 2 МБ бесполезен для пользователя без [0076](0076-TASK-error-middleware-express-errors.md).
 
