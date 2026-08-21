@@ -24,7 +24,7 @@
 | Переименование                | `sRGBEncoding`                           | `SRGBColorSpace`                              | Enum удалён                                                                    |
 | Переименование                | `LinearEncoding`                         | `LinearSRGBColorSpace`                        | Enum удалён                                                                    |
 | `gammaFactor`/`GammaEncoding` | было                                     | удалено (r136)                                | Не ссылаться                                                                   |
-| RGB-форматы                   | `RGBFormat`                              | удалён (r152) — использовать `RGBAFormat`     | Никогда не создавать RGB-текстуры                                              |
+| RGB-форматы                   | `RGBFormat`                              | **есть в r185** (`1022`), удаляли в r137      | Всё равно авторить RGBA-текстуры, но не рассчитывать, что символа нет          |
 | Шейдер-чанк                   | `encodings_fragment`                     | `colorspace_fragment` (r153)                  | Переименовать в кастом-шейдерах                                                |
 | Шейдер-чанк                   | `output_fragment`                        | `opaque_fragment` (r153)                      | Переименовать                                                                  |
 
@@ -43,6 +43,8 @@ normalTexture.colorSpace = NoColorSpace; // normal/roughness/metalness/AO
 
 **Важно:** `new THREE.Color('#8899aa')` при включённом ColorManagement трактуется как **sRGB** и конвертится в linear внутри. **Не пре-линеаризовать цвета руками** — двойная коррекция.
 
+> Про `RGBFormat`: Migration Guide убирает его в r136→r137 («RGBFormat has been removed. Please use RGBAFormat instead»), но в r185 константа снова есть и экспортируется из `three` — проверено на `three@0.185.1`: `src/constants.js:754` (`export const RGBFormat = 1022;`), рантайм-импорт даёт `RGBFormat === 1022`, используется в `src/renderers/webgl/WebGLUtils.js:27`. Релиз, в котором её вернули, не установлен (_непроверено_). Практика прежняя — для наших текстур `RGBAFormat`, но обосновывать это «символа не существует» нельзя.
+
 ---
 
 ## 2. Свет / физические единицы (r155, r165) — CRITICAL
@@ -51,7 +53,7 @@ normalTexture.colorSpace = NoColorSpace; // normal/roughness/metalness/AO
 | ----------------- | ------------------------------------------ | ------------------------------------------- | ---------------------------------------------- |
 | Легаси-флаг света | `physicallyCorrectLights = false` (дефолт) | удалён; `useLegacyLights` тоже удалён       | Не задавать ни то, ни другое                   |
 | Интенсивности     | произвольные                               | физически-корректные (candela/lux-подобные) | Легаси ~π× темнее; авторить заново под r185    |
-| `Material.fog`    | на базовом `Material`                      | на конкретных материалах (r155)             | Ставить `fog` на Standard/Basic, не на базовом |
+| `Material.fog`    | на базовом `Material`                      | на конкретных материалах (**r139**)         | Ставить `fog` на Standard/Basic, не на базовом |
 
 ```js
 // r185 — физически-корректный режим единственный
@@ -60,22 +62,26 @@ const amb = new THREE.AmbientLight(0xffffff, Math.PI * 0.5);
 // свойств physicallyCorrectLights / useLegacyLights не существует
 ```
 
+> Про `Material.fog`: переезд — **r138→r139** по Migration Guide («The fog property has been moved from the abstract Material class to materials which actually support it»), не r155. Проверено на `three@0.185.1`: `new Material().fog === undefined`, `new MeshStandardMaterial().fog === true` (`src/materials/MeshStandardMaterial.js:402`, `src/materials/MeshBasicMaterial.js:231`).
+
 Практически для планировщика: **авторить свет заново под r185**, а не механически ×π копировать значения конкурента (у них другая система единиц). Point/spot теперь подчиняются inverse-square + `decay` (дефолт 2). **r181:** непрямой specular и энергосбережение шершавых материалов изменились — PBR может выглядеть ярче; перетюнить roughness/env один раз на r185 и зафиксировать.
 
 ---
 
 ## 3. Renderer & render targets — IMPORTANT
 
-| Что                                         | r134                           | r185                                                             | Критичность                           |
-| ------------------------------------------- | ------------------------------ | ---------------------------------------------------------------- | ------------------------------------- |
-| `outputEncoding`                            | было                           | → `outputColorSpace` (r152)                                      | Critical (см. §1)                     |
-| `physicallyCorrectLights`/`useLegacyLights` | —                              | удалены                                                          | Critical (см. §2)                     |
-| MSAA RT                                     | `WebGLMultisampleRenderTarget` | удалён — опция `{ samples: N }` на `WebGLRenderTarget`           | Important                             |
-| MRT                                         | `WebGLMultipleRenderTargets`   | удалён (r162) — свойство `count` на RT                           | Important (G-buffer для SSAO/outline) |
-| RT-тип пост-обработки                       | UnsignedByte                   | по умолчанию `HalfFloatType` (r153)                              | Important                             |
-| `copyTextureToTexture`                      | старая сигнатура               | новая: `(src, dst, srcRegion=null, dstPos=null, level=0)` (r165) | Minor                                 |
-| Stencil                                     | по умолчанию `true`            | по умолчанию `false` (r163)                                      | Minor — запрашивать явно если нужен   |
-| WebGL1                                      | поддерживался                  | удалён (r162/r163)                                               | Important — мы WebGL2-only            |
+| Что                                         | r134                           | r185                                                                     | Критичность                           |
+| ------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------ | ------------------------------------- |
+| `outputEncoding`                            | было                           | → `outputColorSpace` (r152)                                              | Critical (см. §1)                     |
+| `physicallyCorrectLights`/`useLegacyLights` | —                              | удалены                                                                  | Critical (см. §2)                     |
+| MSAA RT                                     | `WebGLMultisampleRenderTarget` | удалён — опция `{ samples: N }` на `WebGLRenderTarget`                   | Important                             |
+| MRT                                         | `WebGLMultipleRenderTargets`   | удалён (r162) — свойство `count` на RT                                   | Important (G-buffer для SSAO/outline) |
+| RT-тип пост-обработки                       | UnsignedByte                   | по умолчанию `HalfFloatType` (r153)                                      | Important                             |
+| `copyTextureToTexture`                      | старая сигнатура               | новая: `(src, dst, srcRegion=null, dstPos=null, srcLevel=0, dstLevel=0)` | Minor                                 |
+| Stencil                                     | по умолчанию `true`            | по умолчанию `false` (r163)                                              | Minor — запрашивать явно если нужен   |
+| WebGL1                                      | поддерживался                  | удалён (r162/r163)                                                       | Important — мы WebGL2-only            |
+
+Сигнатура `copyTextureToTexture` дана по r185 дословно — `three@0.185.1`, `src/renderers/WebGLRenderer.js:3270`: `( srcTexture, dstTexture, srcRegion = null, dstPosition = null, srcLevel = 0, dstLevel = 0 )`; в каком релизе единый `level` разошёлся на `srcLevel`/`dstLevel`, не установлено (_непроверено_).
 
 **Тени:** `PCFSoftShadowMap` для WebGLRenderer **депрекейтнут в r182** — использовать `PCFShadowMap` (или VSM), проверить визуально. Настройка shadow-bias изменилась в r183.
 
@@ -141,20 +147,24 @@ composer.addPass(new OutputPass()); // тонмаппинг + sRGB
 | Инверсия кватерниона      | `Quaternion.inverse()`                        | `.invert()`                                                          |
 | Слияние геометрий         | `BufferGeometryUtils.mergeBufferGeometries()` | `mergeGeometries()` (из `three/addons/utils/BufferGeometryUtils.js`) |
 | Слияние атрибутов         | `mergeBufferAttributes()`                     | `mergeAttributes()`                                                  |
-| `Geometry`/`Face3`        | удалены (r125)                                | только `BufferGeometry`                                              |
+| `Geometry`/`Face3`        | удалены (`Face3` — r126, `Geometry` — r141)   | только `BufferGeometry`                                              |
 | Нормализация кватернионов | лениво                                        | ожидаются нормализованными (r158)                                    |
 | `THREE.Math`              | —                                             | `THREE.MathUtils`                                                    |
+
+> Про `Geometry`/`Face3`: по Migration Guide `Face3` вынесен из core в r125→r126 («Face3 has been removed from core. It is now located in examples/jsm/deprecated/Geometry.js»), сам класс `Geometry` удалён в r140→r141 («The deprecated Geometry class has been removed»), а не оба разом в r125. В r185 обоих нет вовсе — проверено на `three@0.185.1`: рантайм-импорт даёт `Geometry === undefined` и `Face3 === undefined`, в `src/` нет ни одного вхождения.
 
 ---
 
 ## 7. Материалы & текстуры — IMPORTANT
 
-| Что                            | r134          | r185                                                 | Действие                                      |
-| ------------------------------ | ------------- | ---------------------------------------------------- | --------------------------------------------- |
-| `Texture.encoding`             | свойство      | → `Texture.colorSpace` (r152)                        | См. §1                                        |
-| Дефолты `MeshStandardMaterial` | (старые)      | `roughness 1 / metalness 0`                          | Задавать явно                                 |
-| `envMapIntensity`              | влияло широко | только на собственный `envMap` (r163)                | Сила IBL — через `Scene.environmentIntensity` |
-| Прозрачность                   | вручную       | transparent по умолчанию `depthWrite = false` (r114) | Явно управлять порядком (стекло/оверлеи)      |
+| Что                            | r134          | r185                                           | Действие                                      |
+| ------------------------------ | ------------- | ---------------------------------------------- | --------------------------------------------- |
+| `Texture.encoding`             | свойство      | → `Texture.colorSpace` (r152)                  | См. §1                                        |
+| Дефолты `MeshStandardMaterial` | (старые)      | `roughness 1 / metalness 0`                    | Задавать явно                                 |
+| `envMapIntensity`              | влияло широко | только на собственный `envMap` (r163)          | Сила IBL — через `Scene.environmentIntensity` |
+| Прозрачность                   | вручную       | `depthWrite` так и остался `true` по умолчанию | Явно управлять порядком (стекло/оверлеи)      |
+
+> Про прозрачность: автоматики «`transparent = true` → `depthWrite = false`» в three нет и не было. Проверено на `three@0.185.1`: `src/materials/Material.js:123` (`this.transparent = false`) и `:230` (`this.depthWrite = true`), рантайм `new MeshStandardMaterial().depthWrite === true`. Изменение r113→r114 касалось только загрузчика: «GLTFLoader now sets depthWrite to false for transparent materials» — и в r185 это по-прежнему код GLTFLoader для `alphaMode: BLEND` (`examples/jsm/loaders/GLTFLoader.js:3623`). **Для нашей геометрии (стекло, оверлеи, подсветка) `depthWrite` выставляем сами** — по умолчанию он включён.
 
 ---
 
@@ -165,7 +175,9 @@ composer.addPass(new OutputPass()); // тонмаппинг + sRGB
 | UMD-сборка   | `build/three.js`       | удалена (r161) — только ESM | ESM + бандлер, никакого глобального `THREE` |
 | Путь аддонов | `three/examples/jsm/*` | канонично `three/addons/*`  | Настроить import map / алиас бандлера       |
 | Tree-shaking | ограничен              | ESM включает                | Импортить именованные символы               |
-| TS-типы      | внешние `@types/three` | типы в самом репозитории    | Не тянуть устаревшие `@types/three`         |
+| TS-типы      | внешние `@types/three` | **в пакете типов нет**      | Ставить `@types/three` рядом с `three`      |
+
+> Про типы — это была самая дорогая ошибка документа: **пакет `three` не поставляет TypeScript-деклараций.** Проверено на `three@0.185.1`: в `package.json` нет полей `types`/`typings`, во всём пакете **ноль** файлов `*.d.ts` (`find node_modules/.../three -name '*.d.ts' | wc -l` → `0`), `exports` отдаёт только `.js`. Типы живут отдельно в DefinitelyTyped и версионируются в такт: у нас `packages/planner/package.json` — `"three": "~0.185.1"` в `dependencies` и `"@types/three": "~0.185.4"` в `devDependencies`. Убрать `@types/three` = сломать `pnpm typecheck` на первом же `import { Scene } from 'three'` (см. `packages/planner/src/projection/three/ThreeProjection.ts:1`). JSDoc-типы в исходниках three существуют, но `.d.ts` из них в npm-пакет не кладут.
 
 ---
 
@@ -207,6 +219,8 @@ r185 везёт зрелый **`WebGPURenderer`** (`three/webgpu`) и **TSL** (`
 
 ## Оговорки по точности
 
-- Алиас `three/examples/jsm` → `three/addons` появился до r152; оба резолвятся в r185, но `three/addons` канонично.
-- `useLegacyLights`: дефолт `false` с **r155**; свойство полностью удалено позже (после r165). В r185 — отсутствует.
-- `PCFSoftShadowMap` депрекейтнут для WebGLRenderer в r182 — для нас предпочесть `PCFShadowMap` (или VSM), проверить мягкость теней визуально.
+- Оба пути — `three/examples/jsm/*` и `three/addons/*` — резолвятся в r185 (`three@0.185.1`, `package.json` → `exports`: `"./examples/jsm/*"`, `"./addons/*"`, `"./addons"`), канонично `three/addons`. Релиз, в котором алиас появился, не установлен (_непроверено_).
+- `useLegacyLights`: дефолт `false` и депрекейт — **r154→r155** (Migration Guide). В r185 свойства нет: `grep` по `src/` и `build/three.module.js` на `useLegacyLights`/`physicallyCorrectLights` даёт ноль вхождений (`three@0.185.1`). Релиз окончательного удаления не установлен (_непроверено_).
+- `PCFSoftShadowMap` депрекейтнут для WebGLRenderer в r182 — для нас предпочесть `PCFShadowMap` (или VSM), проверить мягкость теней визуально. Подтверждено в r185: `src/renderers/webgl/WebGLShadowMap.js:99–101` — при `type === PCFSoftShadowMap` рендерер пишет `warn('WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead.')` и молча подменяет тип.
+
+**Как проверялось (2026-08-21):** установленный `three@0.185.1` (`node_modules/.pnpm/three@0.185.1/node_modules/three`, `REVISION === '185'`) — исходники и рантайм-импорт; официальный [Migration Guide](https://github.com/mrdoob/three.js/wiki/Migration-Guide) — для номеров релизов. Пункты, помеченные _непроверено_, ни одним из двух источников не закрываются — не выдумывать их при написании ADR G.
