@@ -6,6 +6,7 @@ import { PROJECT_DOCUMENT_BODY_LIMIT } from '../../shared/projects';
 import { createCreateProjectController } from './controllers/createProjectController';
 import { createDeleteProjectController } from './controllers/deleteProjectController';
 import { createDuplicateProjectController } from './controllers/duplicateProjectController';
+import { createGetProjectController } from './controllers/getProjectController';
 import { createGetProjectDocumentController } from './controllers/getProjectDocumentController';
 import { createListProjectsController } from './controllers/listProjectsController';
 import { createRenameProjectController } from './controllers/renameProjectController';
@@ -14,8 +15,8 @@ import type { ProjectsManager } from './managers/ProjectsManager';
 import {
   createCreateProjectIpRateLimit,
   createCreateProjectUserRateLimit,
-  createDocumentReadRateLimit,
   createDocumentWriteRateLimit,
+  createProjectReadRateLimit,
 } from './middleware/projectsRateLimit';
 
 interface ProjectsRouterDeps {
@@ -33,6 +34,12 @@ export const createProjectsRouter = ({ projectsManager }: ProjectsRouterDeps): R
   const createProjectIpRateLimit = createCreateProjectIpRateLimit();
   const createProjectUserRateLimit = createCreateProjectUserRateLimit();
 
+  /**
+   * Карточка и документ — две фазы одного действия «открыть проект» (задача 0095), поэтому счётчик у них
+   * **один экземпляр** ровно по той же причине, что у создания выше.
+   */
+  const projectReadRateLimit = createProjectReadRateLimit();
+
   router.get('/', requireAuth('api'), createListProjectsController(projectsManager));
   router.post(
     '/',
@@ -41,6 +48,8 @@ export const createProjectsRouter = ({ projectsManager }: ProjectsRouterDeps): R
     createProjectUserRateLimit,
     createCreateProjectController(projectsManager),
   );
+  /** Лёгкая карточка одного проекта: без документа и превью (ADR 0021, «Хранилище и API»). */
+  router.get('/:id', requireAuth('api'), projectReadRateLimit, createGetProjectController(projectsManager));
   router.patch('/:id', requireAuth('api'), createRenameProjectController(projectsManager));
   router.post(
     '/:id/duplicate',
@@ -54,7 +63,7 @@ export const createProjectsRouter = ({ projectsManager }: ProjectsRouterDeps): R
   router.get(
     '/:id/document',
     requireAuth('api'),
-    createDocumentReadRateLimit(),
+    projectReadRateLimit,
     createGetProjectDocumentController(projectsManager),
   );
   /**

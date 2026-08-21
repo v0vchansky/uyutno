@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCallback } from 'react';
 
-import { getProjects, PROJECTS_QUERY_KEY } from '@app/projects';
+import { projectQueryKey } from '@app/projects';
 
-import type { ProjectDto } from '../../../shared/projects';
+import { getProject } from '../api/getProject';
 import { getProjectDocument, projectDocumentQueryKey } from '../api/getProjectDocument';
 import { projectOpenState, type ProjectOpenState } from './projectOpenState';
 
@@ -16,22 +16,42 @@ export interface ProjectOpen {
 /**
  * Две фазы открытия проекта (ADR 0021, «Хранилище и API»; спека 10, «Load проекта»):
  *
- * 1. **карточка проекта** — лёгкий запрос, он же отвечает, существует ли проект и ваш ли он;
+ * 1. **карточка проекта** — `GET …/:id`, лёгкий запрос без документа и превью; он же отвечает,
+ *    существует ли проект и ваш ли он;
  * 2. **документ** — `GET …/:id/document` плюс разбор формата.
  *
- * Карточка берётся из списка проектов тем же ключом кеша, что и шапка редактора: ручки «один проект» в
- * API нет (`src/server/projects/router.ts`), а общий ключ означает **один** запрос на обе цели и имя
- * проекта в шапке без второго похода на сервер. Побочный эффект — вместо 404 от сервера признаком
- * «проекта нет» служит его отсутствие в галерее пользователя; для v0 это то же множество: чужие проекты
- * в список не попадают.
+ * До задачи 0095 карточка добывалась из **списка всех проектов пользователя**: ручки «один проект» в API
+ * не было, и клиент грузил галерею целиком, чтобы найти в ней одно имя, а признаком «проекта нет» служило
+ * отсутствие строки в этом списке. Теперь «нет» — честный 404 от сервера про этот конкретный id, и
+ * открытие одного проекта больше не зависит от размера библиотеки планов.
+ *
+ * Связь с галереей при этом сохранена ключом кеша: `projectQueryKey` — потомок `PROJECTS_QUERY_KEY`,
+ * react-query сопоставляет по префиксу, поэтому переименование инвалидирует карточку заодно со списком
+ * (см. `client/projects/api/projectsQueryKeys.ts`).
  *
  * Документ намеренно не протухает и не перезапрашивается сам: любой фоновый рефетч вернул бы индикатор
  * загрузки поверх работающего редактора и затёр бы несохранённые правки при `document.load`. Единственный
  * повторный запрос — явный `retry()`.
  */
 export const useProjectOpen = (projectId: string): ProjectOpen => {
-  const card = useQuery<ProjectDto[]>({ queryKey: PROJECTS_QUERY_KEY, queryFn: getProjects });
-  const project = card.data?.find(item => item.id === projectId);
+  /** `null` в `data` — 404 от сервера, `undefined` — ответа ещё нет; ветки разные (см. `projectOpenState`). */
+  const card = useQuery({
+    queryKey: projectQueryKey(projectId),
+    queryFn: () => getProject(projectId),
+    /**
+     * Та же дисциплина, что у документа ниже, и по родственной причине. Карточка — часть открытия
+     * проекта, а не живая подписка на имя: фоновый рефетч на возврате фокуса во вкладку ничего на экране
+     * не меняет, зато тратит бюджет рейт-лимита, общий у неё с документом (`projectsRateLimit.ts`), —
+     * одно открытие обязано стоить ровно два запроса.
+     *
+     * Переименование это не ломает: `invalidateQueries` перечитывает **активные** запросы независимо от
+     * `staleTime`, поэтому имя в шапке обновляется сразу после `PATCH`.
+     */
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+  const project = card.data ?? undefined;
 
   const document = useQuery({
     queryKey: projectDocumentQueryKey(projectId),

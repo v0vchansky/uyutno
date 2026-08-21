@@ -43,7 +43,7 @@ describe('projectOpenState — две фазы открытия (ADR 0021, сп�
     });
   });
 
-  it('проекта нет в галерее пользователя — 404, а не модалка редактора', () => {
+  it('сервер ответил на карточку 404 — 404-страница, а не модалка редактора', () => {
     expect(projectOpenState({ card: card({ project: undefined }), document: documentInput() })).toEqual({
       kind: 'not-found',
     });

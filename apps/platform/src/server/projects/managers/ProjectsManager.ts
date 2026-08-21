@@ -132,6 +132,21 @@ export class ProjectsManager {
     return { updatedAt: updatedAt.toISOString() };
   }
 
+  /**
+   * Карточка одного проекта (задача 0095) — то же, что строка списка, без документа и превью: ADR 0021
+   * требует, чтобы `GET /projects/:id` оставался лёгким, тяжёлые колонки ездят своими эндпоинтами.
+   *
+   * Владение зашито в `where` выборки, поэтому чужой и несуществующий проект приходят сюда одинаково —
+   * `null` — и наружу уходят одним и тем же 404: факт существования чужого проекта не утекает.
+   */
+  async get(userId: string, id: string): Promise<ProjectDto> {
+    const row = await this.projectsRepository.findByIdForUser(id, userId);
+    if (!row) {
+      throw new NotFoundError(PROJECT_NOT_FOUND_MESSAGE);
+    }
+    return toDto(row);
+  }
+
   async list(userId: string): Promise<ProjectDto[]> {
     const rows = await this.projectsRepository.listByUser(userId);
     return rows.map(toDto);

@@ -10,6 +10,7 @@ export {
   PROJECTS_API_BASE,
   PROJECT_DOCUMENT_API_PATTERN,
   PROJECT_DOCUMENT_BODY_LIMIT,
+  projectApiPath,
   projectDocumentApiPath,
 } from './projectApi';
 export {

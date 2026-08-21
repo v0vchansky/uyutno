@@ -5,7 +5,13 @@
 
 export const PROJECTS_API_BASE = '/api/v1/projects';
 
-export const projectDocumentApiPath = (projectId: string): string => `${PROJECTS_API_BASE}/${projectId}/document`;
+/**
+ * Метаданные одного проекта (задача 0095). Ручка **лёгкая** — без документа и превью: они тяжёлые и
+ * ездят своими эндпоинтами (ADR 0021, «Хранилище и API»).
+ */
+export const projectApiPath = (projectId: string): string => `${PROJECTS_API_BASE}/${projectId}`;
+
+export const projectDocumentApiPath = (projectId: string): string => `${projectApiPath(projectId)}/document`;
 
 /**
  * Тот же путь регуляркой — для middleware, которому маршрут ещё не разобран и доступен только `req.url`.

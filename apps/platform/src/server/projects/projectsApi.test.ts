@@ -13,8 +13,8 @@ import { ProjectsManager } from './managers/ProjectsManager';
 import {
   CREATE_PROJECT_IP_LIMIT,
   CREATE_PROJECT_USER_LIMIT,
-  DOCUMENT_READ_LIMIT,
   DOCUMENT_WRITE_LIMIT,
+  PROJECT_READ_LIMIT,
 } from './middleware/projectsRateLimit';
 import type { ProjectsRepository } from './repositories/projectsRepository';
 import { createProjectsRouter } from './router';
@@ -232,6 +232,62 @@ const duplicateProject = (server: TestServer, projectId: string, user: string = 
   call(server, `${PROJECTS_API_BASE}/${projectId}/duplicate`, { method: 'POST', user });
 
 const projectIdOf = (response: TestResponse): string => (response.body.project as { id: string }).id;
+
+describe('GET /api/v1/projects/:id', () => {
+  let server: TestServer;
+
+  beforeAll(async () => {
+    server = await startApp();
+  });
+  afterAll(async () => {
+    await server.close();
+  });
+
+  const getProject = (projectId: string, user?: string): Promise<TestResponse> =>
+    call(server, `${PROJECTS_API_BASE}/${projectId}`, { user });
+
+  it('отдаёт владельцу метаданные проекта', async () => {
+    const response = await getProject(PROJECT_ID, OWNER_ID);
+
+    expect(response.status).toBe(200);
+    expect(response.body.project).toEqual({
+      id: PROJECT_ID,
+      name: 'Квартира',
+      createdAt: '2026-08-11T20:00:00.000Z',
+      updatedAt: '2026-08-11T20:00:00.000Z',
+    });
+  });
+
+  /**
+   * Ядро задачи 0095: ручка «один проект» обязана оставаться лёгкой (ADR 0021, «Хранилище и API») —
+   * документ (~118 КБ на строку) и превью ездят своими эндпоинтами и в карточку не просачиваются.
+   * Проверяется по **всему телу**, а не по паре ключей: лишнее поле в ответе — это и есть регресс.
+   */
+  it('документ и превью в ответ не попадают', async () => {
+    const response = await getProject(PROJECT_ID, OWNER_ID);
+
+    const project = response.body.project as Record<string, unknown>;
+    expect(Object.keys(project).sort()).toEqual(['createdAt', 'id', 'name', 'updatedAt']);
+  });
+
+  it('чужой и несуществующий проект — 404 без различия', async () => {
+    const foreign = await getProject(PROJECT_ID, STRANGER_ID);
+    const missing = await getProject(MISSING_PROJECT_ID, OWNER_ID);
+
+    expect(foreign.status).toBe(404);
+    expect(missing.status).toBe(404);
+    // Тела сравниваются как наши JSON-ошибки: одинаковый HTML «Cannot GET …» доказывал бы только то,
+    // что маршрута нет вовсе.
+    expect(typeof foreign.body.error).toBe('string');
+    expect(foreign.body).toEqual(missing.body);
+  });
+
+  it('без сессии — 401', async () => {
+    const response = await getProject(PROJECT_ID);
+
+    expect(response.status).toBe(401);
+  });
+});
 
 describe('GET /api/v1/projects/:id/document', () => {
   let server: TestServer;
@@ -474,8 +530,18 @@ describe('рейт-лимиты (ADR 0021: квоты на число проек
     await server.close();
   });
 
-  const repeat = async (times: number, run: (index: number) => Promise<TestResponse>): Promise<TestResponse[]> =>
-    Promise.all(Array.from({ length: times }, (_unused, index) => run(index)));
+  /**
+   * Запросы идут **по одному**, а не `Promise.all`: с бюджетом чтения в 240 запросов параллельный залп
+   * упирается уже не в лимитер, а в сокеты — undici рвёт соединения (`ECONNRESET`) раньше, чем сервер
+   * успевает ответить. Лимитеру порядок безразличен, счётчик у него общий на окно.
+   */
+  const repeat = async (times: number, run: (index: number) => Promise<TestResponse>): Promise<TestResponse[]> => {
+    const responses: TestResponse[] = [];
+    for (let index = 0; index < times; index += 1) {
+      responses.push(await run(index));
+    }
+    return responses;
+  };
 
   it(`PUT документа: ${DOCUMENT_WRITE_LIMIT} за окно проходят, следующий — 429`, async () => {
     const inside = await repeat(DOCUMENT_WRITE_LIMIT, () =>
@@ -488,14 +554,29 @@ describe('рейт-лимиты (ADR 0021: квоты на число проек
     expect(typeof overflow.body.error).toBe('string');
   });
 
-  it(`GET документа: ${DOCUMENT_READ_LIMIT} за окно проходят, следующий — 429`, async () => {
-    const inside = await repeat(DOCUMENT_READ_LIMIT, () =>
+  it(`GET документа: ${PROJECT_READ_LIMIT} за окно проходят, следующий — 429`, async () => {
+    const inside = await repeat(PROJECT_READ_LIMIT, () =>
       call(server, projectDocumentApiPath(PROJECT_ID), { user: OWNER_ID }),
     );
     const overflow = await call(server, projectDocumentApiPath(PROJECT_ID), { user: OWNER_ID });
 
     expect(inside.every(response => response.status === 200)).toBe(true);
     expect(overflow.status).toBe(429);
+  });
+
+  /**
+   * `GET /:id` и `GET /:id/document` — две фазы **одного** действия «открыть проект» (задача 0095),
+   * поэтому счётчик у них общий: отдельный экземпляр лимитера с теми же числами удвоил бы разрешённое.
+   */
+  it(`GET /:id делит счётчик с GET документа: после ${PROJECT_READ_LIMIT} чтений документа карточка — 429`, async () => {
+    const inside = await repeat(PROJECT_READ_LIMIT, () =>
+      call(server, projectDocumentApiPath(PROJECT_ID), { user: OWNER_ID }),
+    );
+    const overflow = await call(server, `${PROJECTS_API_BASE}/${PROJECT_ID}`, { user: OWNER_ID });
+
+    expect(inside.every(response => response.status === 200)).toBe(true);
+    expect(overflow.status).toBe(429);
+    expect(typeof overflow.body.error).toBe('string');
   });
 
   const createProject = (user: string): Promise<TestResponse> =>
