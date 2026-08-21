@@ -70,8 +70,9 @@ const saveFailure = (cause: unknown): ProjectSaveError => {
  * (`@app/common`). Ссылку можно передавать пропом как есть — планер от смены `storage` не пересоздаётся.
  *
  * **Draft-методов нет намеренно.** Локальной копии у обычного проекта не существует (спека 10,
- * «Storage backend»): черновик живёт только на демо-роуте и заводится задачей 0083. Отсутствие методов —
- * это контракт: по нему `persistence` отвечает `no-draft-storage`, а не пишет мимо сервера.
+ * «Storage backend»): черновик живёт только на демо-роуте, и его реализация — соседний
+ * [`demoDraftStorage`](./demoDraftStorage.ts). Отсутствие методов здесь — это контракт: по нему
+ * `persistence` отвечает `no-draft-storage`, а не пишет мимо сервера.
  */
 export const projectStorage: PlannerStorage = {
   load: async (projectId: string): Promise<PlannerDocument | null> => {
