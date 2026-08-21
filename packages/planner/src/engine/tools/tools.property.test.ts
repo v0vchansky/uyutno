@@ -11,6 +11,8 @@ import type { Viewport } from '../../document/geometry/viewport';
 import { createEmptyDocument } from '../../document/createEmptyDocument';
 import { type PlannerDocument } from '../../document/PlannerDocument';
 import { quantize } from '../../document/quantize';
+import { onFaceHandle } from '../../document/geometry/hittest/faceHandle';
+import { hitTest } from '../../document/geometry/hittest/hitTest';
 import { createTestManager, ringDocument } from '../testing/testManager';
 import { DEFAULT_VIEWPORT, type DrawingTool, type PointerInput, type ToolState } from './ToolState';
 
@@ -225,16 +227,19 @@ const pointAt = (document: PlannerDocument, index: number) => {
   return points.length === 0 ? null : points[index % points.length]!;
 };
 
-/** Середина ребра контура по индексам (по кругу); `null` — контуров нет. */
-const faceMidpoint = (document: PlannerDocument, contour: number, edge: number) => {
+/** Точка на ребре контура по индексам (по кругу) и параметру `t`; `null` — контуров нет. */
+const facePoint = (document: PlannerDocument, contour: number, edge: number, t: number) => {
   const { layout } = document.floors[0]!;
   if (layout.contours.length === 0) return null;
   const ring = layout.contours[contour % layout.contours.length]!;
   const n = ring.points.length;
   const a = layout.points[ring.points[edge % n]!];
   const b = layout.points[ring.points[(edge + 1) % n]!];
-  return a && b ? { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } : null;
+  return a && b ? { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t } : null;
 };
+
+/** Захват стороны — **четверть** ребра: середину занимает ручка деления грани (0096), там нажатие делит стену. */
+const faceGrab = (document: PlannerDocument, contour: number, edge: number) => facePoint(document, contour, edge, 0.25);
 
 /** Планировка как значение без порядка контуров/записей: точки и контуры (по id). */
 const layoutKey = (layout: PlannerDocument['floors'][number]['layout']) => ({
@@ -265,12 +270,76 @@ const selectionAlive = (state: ToolState, document: PlannerDocument, roomIds: re
   }
 };
 
+/**
+ * Курсор на ручке деления грани: нажатие там делит стену **сразу**, без порога сдвига (спека 01, 0096), поэтому
+ * обычные `down`/`click` в `editing` могут тронуть документ — но только в диске 4 px вокруг середины грани.
+ */
+const onSplitHandleAt = (document: PlannerDocument, viewport: Viewport, x: number, y: number): boolean => {
+  const { layout } = document.floors[0]!;
+  const hit = hitTest({ x, y }, layout, [], viewport);
+  if (hit?.kind !== 'wall') return false;
+  const a = layout.points[hit.face.a];
+  const b = layout.points[hit.face.b];
+  return a !== undefined && b !== undefined && onFaceHandle({ x, y }, a, b, viewport);
+};
+
+/**
+ * Точки, в которых шаг нажимает основную кнопку. В `editing` каждая из них может оказаться ручкой деления грани,
+ * и тогда шаг коммитит рождение вершины — даже обычный `click`. `closeFirst`/`closeLast` вне рисования не нажимают
+ * вовсе, `pressPoint` целится ровно в вершину (там побеждает угол), поэтому их здесь нет.
+ */
+const corners = (x: number, y: number, size: number) => [
+  { x, y },
+  { x: x + size, y },
+  { x: x + size, y: y + size },
+  { x, y: y + size },
+];
+
+const pressPoints = (op: Op, document: PlannerDocument): { x: number; y: number }[] => {
+  switch (op.kind) {
+    case 'down':
+    case 'click':
+    case 'up':
+      return [{ x: op.x, y: op.y }];
+    case 'square':
+      return corners(op.x, op.y, op.size);
+    // Составные шаги начинаются со `start`, но инструмент мог не подняться (нет этажа/вид не конструктор), да и
+    // замыкание петли возвращает в `editing` раньше последнего клика — значит их клики тоже могут делить грань.
+    case 'ring':
+    case 'roomRing':
+      return [...corners(op.x, op.y, op.size), { x: op.x, y: op.y }];
+    case 'rect':
+      return [
+        { x: op.x, y: op.y },
+        { x: op.x + op.w, y: op.y + op.h },
+      ];
+    case 'pressFace': {
+      const grab = faceGrab(document, op.contour, op.edge);
+      return grab ? [grab] : [];
+    }
+    default:
+      return [];
+  }
+};
+
+/**
+ * Попадёт ли шаг хоть одним нажатием по ручке деления грани (0096) — считается по документу **до** шага, и это
+ * точно: пока попаданий нет, документ не меняется, и следующие нажатия шага видят ту же геометрию (индукция по
+ * нажатиям). А вот **сколько** транзакций получится, по `docBefore` уже не сказать: после первого деления
+ * геометрия другая, и следующее нажатие того же шага может попасть по ручке новой полуграни — потолком служит
+ * число нажатий шага.
+ */
+const splitsOnPress = (op: Op, before: ToolState, document: PlannerDocument): boolean =>
+  before.kind === 'editing' &&
+  pressPoints(op, document).some(p => onSplitHandleAt(document, before.viewport, p.x, p.y));
+
 /** Меняет ли шаг документ/историю по контракту (иначе они обязаны остаться прежними по ссылке/значению). */
-const mayTouchDocument = (op: Op, before: ToolState): boolean => {
+const mayTouchDocument = (op: Op, before: ToolState, splits: boolean): boolean => {
+  if (splits) return true;
   switch (op.kind) {
     case 'up':
-      // Рисование — постановка/завершение; драг — коммит `movePoints`.
-      return isDrawing(before) && op.button === 0;
+      // Рисование — постановка/завершение; драг — коммит `movePoints` (в него входит и нажатие по ручке).
+      return (isDrawing(before) && op.button === 0) || isDragging(before);
     case 'dblclick':
       // В `editing` — удаление выделенной вершины под курсором.
       return before.kind === 'editing';
@@ -333,6 +402,8 @@ describe('tools — property (ADR 0019 E8, testing-strategy)', () => {
           const docBefore: PlannerDocument = manager.document.get();
           const historyBefore = manager.history.get();
           const viewBefore = manager.view.get().activeView;
+          // Считается до шага: попадёт ли хоть одно его нажатие по ручке деления грани (0096).
+          const splits = splitsOnPress(op, before, docBefore);
           emitted.length = 0;
           tm.events.length = 0;
 
@@ -424,8 +495,8 @@ describe('tools — property (ADR 0019 E8, testing-strategy)', () => {
               break;
             }
             case 'pressFace': {
-              const mid = faceMidpoint(docBefore, op.contour, op.edge);
-              if (mid) tools.pointerDown(input(mid.x, mid.y));
+              const grab = faceGrab(docBefore, op.contour, op.edge);
+              if (grab) tools.pointerDown(input(grab.x, grab.y));
               break;
             }
             case 'dragPoint': {
@@ -438,12 +509,12 @@ describe('tools — property (ADR 0019 E8, testing-strategy)', () => {
               break;
             }
             case 'dragWall': {
-              const mid = faceMidpoint(docBefore, op.contour, op.edge);
-              if (!mid) break;
-              tools.pointerDown(input(mid.x, mid.y));
-              tools.pointerMove(input(mid.x + op.dx / 2, mid.y + op.dy / 2));
-              tools.pointerMove(input(mid.x + op.dx, mid.y + op.dy));
-              tools.pointerUp(input(mid.x + op.dx, mid.y + op.dy));
+              const grab = faceGrab(docBefore, op.contour, op.edge);
+              if (!grab) break;
+              tools.pointerDown(input(grab.x, grab.y));
+              tools.pointerMove(input(grab.x + op.dx / 2, grab.y + op.dy / 2));
+              tools.pointerMove(input(grab.x + op.dx, grab.y + op.dy));
+              tools.pointerUp(input(grab.x + op.dx, grab.y + op.dy));
               break;
             }
             case 'commitPoint':
@@ -521,7 +592,8 @@ describe('tools — property (ADR 0019 E8, testing-strategy)', () => {
           if (after.kind === 'dragging-point') {
             expect(Object.keys(after.pointOverrides)).toEqual([after.pointId]);
             expect(layoutAfter.points[after.pointId]).toBeDefined();
-            expect(after.selection).toEqual({ kind: 'point', id: after.pointId });
+            // Жест деления грани не выделяет ничего — ни при входе, ни после (спека 01, 0096).
+            expect(after.selection).toEqual(after.split ? null : { kind: 'point', id: after.pointId });
             const override = after.pointOverrides[after.pointId]!;
             // Без цели дропа превью = снап (квантован); с целью — позиция дропа (координата цели / проекция на сторону).
             if (!after.dropTarget) {
@@ -546,7 +618,7 @@ describe('tools — property (ADR 0019 E8, testing-strategy)', () => {
             expect(b1.x - a1.x).toBeCloseTo(b0.x - a0.x, 6);
             expect(b1.y - a1.y).toBeCloseTo(b0.y - a0.y, 6);
           }
-          if (isDragging(before) && !isDragging(after) && !mayTouchDocument(op, before)) {
+          if (isDragging(before) && !isDragging(after) && !mayTouchDocument(op, before, splits)) {
             // Отмена жеста — без записи и без правки документа.
             expect(manager.document.get()).toBe(docBefore);
           }
@@ -625,13 +697,16 @@ describe('tools — property (ADR 0019 E8, testing-strategy)', () => {
             if (!places.includes(op.kind)) expect(after.origin).toBe(before.origin);
           }
 
-          if (!mayTouchDocument(op, before)) {
+          if (!mayTouchDocument(op, before, splits)) {
             expect(manager.document.get()).toBe(docBefore);
             expect(manager.history.get()).toBe(historyBefore);
           }
-          // Коммит из рисования/драга: не больше одной транзакции содержимого и переход в editing.
-          expect(changes).toBeLessThanOrEqual(1);
-          if ((op.kind === 'dragPoint' || op.kind === 'dragWall') && before.kind === 'editing' && changes === 1) {
+          // Коммит из рисования/драга: одна транзакция содержимого на шаг. Исключение — нажатия по ручке деления
+          // грани: каждое коммитит рождение вершины прямо в `pointerDown`, без порога сдвига (спека 01, 0096),
+          // поэтому у шага с несколькими нажатиями потолок — их число, а не единица.
+          expect(changes).toBeLessThanOrEqual(Math.max(1, pressPoints(op, docBefore).length));
+          const gesture = op.kind === 'dragPoint' || op.kind === 'dragWall';
+          if (gesture && before.kind === 'editing' && changes === 1) {
             dragCommits++;
             expect(after.kind).toBe('editing');
             expect(manager.history.get().canUndo).toBe(true);

@@ -155,7 +155,7 @@ describe('tools — правка в editing (ADR 0019 E4, задача 0059)', (
       const s = setup();
       s.click(2, 2);
       expect(s.editing().selection).toEqual({ kind: 'point', id: 'p1' });
-      s.click(200, 2);
+      s.click(150, 2);
       expect(s.editing().selection).toEqual(outerFace(s, 'p1', 'p2'));
       s.click(200, 150);
       expect(s.editing().selection).toEqual(roomTarget(s));
@@ -170,11 +170,11 @@ describe('tools — правка в editing (ADR 0019 E4, задача 0059)', (
 
     it('Ctrl/Cmd+клик по стороне комнаты (inner) — вся комната; по стороне без комнаты (outer) — стена', () => {
       const s = setup();
-      s.click(200, 12, { ctrl: true });
+      s.click(150, 12, { ctrl: true });
       expect(s.editing().selection).toEqual(roomTarget(s));
-      s.click(200, 12, { meta: true });
+      s.click(150, 12, { meta: true });
       expect(s.editing().selection).toEqual(roomTarget(s));
-      s.click(200, 2, { ctrl: true });
+      s.click(150, 2, { ctrl: true });
       expect(s.editing().selection).toEqual(outerFace(s, 'p1', 'p2'));
     });
 
@@ -215,7 +215,7 @@ describe('tools — правка в editing (ADR 0019 E4, задача 0059)', (
       s.click(200, 200);
       s.manager.document.deletePoint(s.floorId, 'p5');
       expect(s.editing().selection).toBeNull();
-      s.click(50, 0);
+      s.click(30, 0);
       expect(s.editing().selection).toEqual({ kind: 'wall', face: { contourId: 'c1', a: 'p1', b: 'p2' } });
       s.manager.document.deletePoint(s.floorId, 'p2');
       expect(s.editing().selection).toBeNull();
@@ -540,13 +540,13 @@ describe('tools — правка в editing (ADR 0019 E4, задача 0059)', (
   describe('драг стороны', () => {
     it('дельта проецируется на нормаль, оба конца едут одинаково; pointerUp — movePoints двух концов одной записью', () => {
       const s = setup();
-      s.drag(200, 0, [[200, -2]]);
+      s.drag(150, 0, [[150, -2]]);
       expect(s.tools.get().kind).toBe('editing');
       s.move(230, -20);
       const drag = s.draggingWall();
       expect({ kind: 'wall', face: drag.face }).toEqual(outerFace(s, 'p1', 'p2'));
       expect(drag.selection).toEqual(outerFace(s, 'p1', 'p2'));
-      expect(drag.grab).toEqual({ x: 200, y: 0 });
+      expect(drag.grab).toEqual({ x: 150, y: 0 });
       expect(drag.shift).toBe(-20);
       expect(drag.pointOverrides).toEqual({ p1: { x: 0, y: -20 }, p2: { x: 400, y: -20 } });
       expect('guides' in drag).toBe(false);
@@ -566,14 +566,14 @@ describe('tools — правка в editing (ADR 0019 E4, задача 0059)', (
     it('снап позиции конца учитывается (движение остаётся по нормали), Ctrl — без снапа', () => {
       const s = setup(twoBlocks());
       // Грань p5(200,200) → p6(300,200) блока B, нормаль вниз/вверх; тянем к y=100 (уровень p3/p4 блока A → ось Y).
-      s.drag(250, 200, [[250, 150]]);
-      s.move(250, 103);
+      s.drag(230, 200, [[230, 150]]);
+      s.move(230, 103);
       const drag = s.draggingWall();
       // Кандидат (200,103) → крест осей: x = 200 через p8, y = 100 через p3/p4 → (200,100); сдвиг ровно −100.
       expect(drag.snap.hit).toEqual({ kind: 'cross' });
       expect(drag.shift).toBe(-100);
       expect(drag.pointOverrides).toEqual({ p5: { x: 200, y: 100 }, p6: { x: 300, y: 100 } });
-      s.move(250, 103, { ctrl: true });
+      s.move(230, 103, { ctrl: true });
       expect(s.draggingWall().shift).toBe(-97);
       expect(s.draggingWall().snap.hit).toEqual({ kind: 'none' });
     });
@@ -585,10 +585,10 @@ describe('tools — правка в editing (ADR 0019 E4, задача 0059)', (
       // Треугольник с вершиной (193,101) сбоку от будущей позиции конца a (одиночную точку без владельца GC-ит normalize).
       b.contour('outer', [b.point(193, 101), b.point(160, 40), b.point(120, 60)]);
       const s = setup(b.document());
-      s.drag(250, 200, [[250, 150]]);
+      s.drag(230, 200, [[230, 150]]);
       // Кандидат конца a = (200,103): угловой снап к (193,101) (манхэттен 9 < 10) — цель сбоку; сдвиг берёт только
       // нормальную компоненту (−99), концы остаются на x = 200/300.
-      s.move(250, 103);
+      s.move(230, 103);
       const drag = s.draggingWall();
       expect(drag.snap.hit).toEqual({ kind: 'point', id: 'p9' });
       expect(drag.shift).toBe(-99);
@@ -604,7 +604,7 @@ describe('tools — правка в editing (ADR 0019 E4, задача 0059)', (
       ['Ctrl+Y', (s: Setup) => s.tools.key({ kind: 'redo' })],
     ])('%s во время драга стороны — отмена без коммита, выделение стены сохраняется', (_, abort) => {
       const s = setup();
-      s.drag(200, 0, [[230, -20]]);
+      s.drag(150, 0, [[230, -20]]);
       abort(s);
       expect(s.editing().selection).toEqual(outerFace(s, 'p1', 'p2'));
       expect(s.point('p1')).toEqual({ x: 0, y: 0 });
@@ -614,7 +614,7 @@ describe('tools — правка в editing (ADR 0019 E4, задача 0059)', (
 
     it('interrupt / смена вида / смена инструмента / программный undo во время драга стороны; дубль pointerMove без события', () => {
       const s = setup();
-      s.drag(200, 0, [[230, -20]]);
+      s.drag(150, 0, [[230, -20]]);
       s.toolStates.length = 0;
       s.move(230, -20);
       expect(s.toolStates).toEqual([]);
@@ -622,15 +622,15 @@ describe('tools — правка в editing (ADR 0019 E4, задача 0059)', (
       expect(s.tools.get().kind).toBe('making-rect');
       s.tools.cancel();
       s.manager.document.movePoints(s.floorId, [{ id: 'p3', x: 500, y: 300 }]);
-      s.drag(200, 0, [[230, -20]]);
+      s.drag(150, 0, [[230, -20]]);
       expect(s.manager.history.undo().ok).toBe(true);
       expect(s.editing()).toMatchObject({ hover: null, selection: null });
       expect(s.point('p1')).toEqual({ x: 0, y: 0 });
-      s.drag(200, 0, [[230, -20]]);
+      s.drag(150, 0, [[230, -20]]);
       s.manager.view.setActive('orbit');
       expect(s.editing()).toMatchObject({ kind: 'editing', hover: null, selection: outerFace(s, 'p1', 'p2') });
       s.manager.view.setActive('constructor');
-      s.drag(200, 0, [[230, -20]]);
+      s.drag(150, 0, [[230, -20]]);
       s.tools.interrupt();
       expect(s.editing()).toMatchObject({ kind: 'editing', hover: null, selection: null });
       expect(s.point('p1')).toEqual({ x: 0, y: 0 });
@@ -638,7 +638,7 @@ describe('tools — правка в editing (ADR 0019 E4, задача 0059)', (
 
     it('грань исчезла под драгом (команда извне) — жест отменён, мёртвое выделение снято', () => {
       const s = setup();
-      s.drag(200, 0, [[230, -20]]);
+      s.drag(150, 0, [[230, -20]]);
       s.manager.document.deletePoint(s.floorId, 'p1');
       expect(s.editing().selection).toBeNull();
       expect(s.point('p2')).toEqual({ x: 400, y: 0 });
@@ -665,7 +665,7 @@ describe('tools — правка в editing (ADR 0019 E4, задача 0059)', (
       s.tools.doubleClick(input(2, 2));
       s.click(200, 150);
       s.tools.doubleClick(input(2, 2));
-      s.tools.doubleClick(input(200, 2));
+      s.tools.doubleClick(input(150, 2));
       s.tools.doubleClick(input(1000, 1000));
       // Один клик выделил вершину, но подтверждения (второго клика по выделенной) не было.
       s.click(2, 2);
@@ -712,7 +712,7 @@ describe('tools — правка в editing (ADR 0019 E4, задача 0059)', (
     it('Delete/Backspace (key delete) по выделенной вершине → deletePoint; по стене/комнате/без выделения — handled: false', () => {
       const s = setup();
       expect(s.tools.key({ kind: 'delete' })).toEqual({ handled: false });
-      s.click(200, 2);
+      s.click(150, 2);
       expect(s.tools.key({ kind: 'delete' })).toEqual({ handled: false });
       s.click(200, 150);
       expect(s.tools.key({ kind: 'delete' })).toEqual({ handled: false });
@@ -767,12 +767,12 @@ describe('tools — правка в editing (ADR 0019 E4, задача 0059)', (
 
     it('сторона: оба конца, ключ nudge:<a>|<b>; смена выделения на другую сторону — новая серия', () => {
       const s = setup();
-      s.click(200, 2);
+      s.click(150, 2);
       expect(s.tools.key({ kind: 'nudge', dx: 0, dy: -1, factor: 1 })).toEqual({ handled: true });
       s.tools.key({ kind: 'nudge', dx: 0, dy: -1, factor: 1 });
       expect(s.point('p1')).toEqual({ x: 0, y: -2 });
       expect(s.point('p2')).toEqual({ x: 400, y: -2 });
-      s.click(398, 150);
+      s.click(398, 60);
       s.tools.key({ kind: 'nudge', dx: 1, dy: 0, factor: 1 });
       expect(s.point('p2')).toEqual({ x: 401, y: -2 });
       expect(s.point('p3')).toEqual({ x: 401, y: 300 });
@@ -832,5 +832,129 @@ describe('tools — правка в editing (ADR 0019 E4, задача 0059)', (
     s.drag(0, 0, [[-50, -40]]);
     for (const state of s.toolStates) expect(Object.isFrozen(state)).toBe(true);
     expect(s.toolStates[s.toolStates.length - 1]).toBe(s.tools.get());
+  });
+
+  // Ручка деления грани — спека 01 «Ручка деления грани», ADR 0019 E4 (задача 0096).
+  // Кольцо `ringDocument`: грань p1–p2 идёт (0,0) → (400,0), её середина — (200, 0).
+  describe('ручка деления грани (0096)', () => {
+    /** Полоса стены 200×10: торец (200,0)–(200,10) длиной ровно 10 см — граничный случай чистки контура. */
+    const band = (height = 10): PlannerDocument => {
+      const b = createPlanBuilder();
+      b.rect('outer', 0, 0, 200, height);
+      return b.document();
+    };
+    const zoom = (s: Setup, scale: number): void => {
+      s.tools.setViewport({ scale, center: { x: 0, y: 0 }, width: 1024, height: 768 });
+    };
+    /** Координаты кольца хранимого контура, содержащего точку `id`. */
+    const ringOf = (s: Setup, id: string): { x: number; y: number }[] => {
+      const contour = s.layout().contours.find(c => c.points.includes(id))!;
+      return contour.points.map(pid => ({ x: s.layout().points[pid]!.x, y: s.layout().points[pid]!.y }));
+    };
+    /** Единственная вершина, которой не было в исходном пуле. */
+    const bornPoint = (s: Setup, before: readonly string[]): string => {
+      const born = Object.keys(s.layout().points).filter(id => !before.includes(id));
+      expect(born).toHaveLength(1);
+      return born[0]!;
+    };
+
+    it('наведение на грань ставит ручку в её середину: в диске 4 px — splitHandle, вне его — просто грань', () => {
+      const s = setup();
+      s.move(207, 2);
+      expect(s.editing().hover).toEqual(outerFace(s, 'p1', 'p2'));
+      expect(s.editing().splitHandle).toBeFalsy();
+      s.move(202, 2);
+      expect(s.editing().hover).toEqual(outerFace(s, 'p1', 'p2'));
+      expect(s.editing().splitHandle).toBe(true);
+      // Увод с грани убирает и наведение, и ручку.
+      s.move(200, 150);
+      expect(s.editing().splitHandle).toBeFalsy();
+    });
+
+    it('приоритет угла жёсткий: в радиусе вершины грань не ищется, ручки нет', () => {
+      const s = setup();
+      // Грань p5–p6 (10,10)–(390,10) длиной 380: её середина (200,10) далеко, но у самой вершины p5 угол побеждает.
+      s.move(12, 10);
+      expect(s.editing().hover).toEqual({ kind: 'point', id: 'p5' });
+      expect(s.editing().splitHandle).toBeFalsy();
+    });
+
+    it('ручка живёт и на внутреннем контуре (дырке)', () => {
+      const s = setup();
+      s.move(200, 12);
+      expect(s.editing().hover).toEqual(innerFace(s, 'p5', 'p6'));
+      expect(s.editing().splitHandle).toBe(true);
+    });
+
+    it('нажатие без единого движения мыши рождает вершину; на весь жест — ровно один шаг истории', () => {
+      const s = setup();
+      const before = Object.keys(s.layout().points);
+      const document = s.manager.document.get();
+      s.move(200, 2);
+      s.events.length = 0;
+
+      s.down(200, 2);
+      // Порога сдвига у этой ветки нет (решение автора 2026-08-21): жест уже начат.
+      expect(s.tools.get().kind).toBe('dragging-point');
+      s.up(200, 2);
+
+      const id = bornPoint(s, before);
+      expect(s.point(id)).toEqual({ x: 200, y: 0 });
+      expect(ringOf(s, id)).toContainEqual({ x: 200, y: 0 });
+      // После отпускания не выделено ничего (спека 01).
+      expect(s.editing().selection).toBeNull();
+
+      expect(s.manager.history.get()).toEqual({ canUndo: true, canRedo: false });
+      s.tools.key({ kind: 'undo' });
+      expect(s.manager.history.get()).toEqual({ canUndo: false, canRedo: true });
+      expect(s.manager.document.get()).toEqual(document);
+    });
+
+    it('перетаскивание от ручки ставит вершину в конечную точку жеста; коммит один, на отпускании', () => {
+      const s = setup();
+      const before = Object.keys(s.layout().points);
+      s.move(200, 2);
+      // Ctrl — снап и цели дропа выключены, позиция ровно сырая.
+      s.down(200, 2, { ctrl: true });
+      const drag = s.draggingPoint();
+      expect(drag.origin).toEqual({ x: 200, y: 0 });
+      expect(drag.selection).toBeNull();
+      s.events.length = 0;
+      s.move(200, -60, { ctrl: true });
+      expect(s.draggingPoint().pointOverrides).toEqual({ [s.draggingPoint().pointId]: { x: 200, y: -60 } });
+      // Документ во время жеста не трогается: рождение вершины уже прошло, второго коммита до отпускания нет.
+      expect(s.changes()).toBe(0);
+
+      s.up(200, -60, { ctrl: true });
+      const id = bornPoint(s, before);
+      expect(s.point(id)).toEqual({ x: 200, y: -60 });
+      expect(s.editing().selection).toBeNull();
+      expect(s.manager.history.get()).toEqual({ canUndo: true, canRedo: false });
+    });
+
+    it('порога показа нет: на грани 10 см ручка есть, вершина встаёт ровно посередине и чистка её не съедает', () => {
+      const s = setup(band(10));
+      zoom(s, 4);
+      const before = Object.keys(s.layout().points);
+      s.move(200, 5);
+      expect(s.editing().hover).toMatchObject({ kind: 'wall' });
+      expect(s.editing().splitHandle).toBe(true);
+      s.click(200, 5);
+      const id = bornPoint(s, before);
+      expect(s.point(id)).toEqual({ x: 200, y: 5 });
+      expect(ringOf(s, id)).toContainEqual({ x: 200, y: 5 });
+    });
+
+    it('грань короче 10 см ручки не имеет: нажатие ведёт себя как обычный клик по стене', () => {
+      const s = setup(band(8));
+      zoom(s, 4);
+      const before = Object.keys(s.layout().points);
+      s.move(200, 4);
+      expect(s.editing().hover).toMatchObject({ kind: 'wall' });
+      expect(s.editing().splitHandle).toBeFalsy();
+      s.click(200, 4);
+      expect(Object.keys(s.layout().points)).toEqual(before);
+      expect(s.editing().selection).toMatchObject({ kind: 'wall' });
+    });
   });
 });

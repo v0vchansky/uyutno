@@ -1,3 +1,4 @@
+import type { FaceRef } from '../../document/geometry/axes/findAxes';
 import { getSnapPoint, missSnap, SNAP_DIST, type SnapResult } from '../../document/geometry/snap/getSnapPoint';
 import { guidesFor, type SnapGuide } from '../../document/geometry/snap/guidesFor';
 import { projectPointOnLine } from '../../document/geometry/predicates/projectPointOnLine';
@@ -13,14 +14,22 @@ import { createEditingState, type DraggingPointState, type HitTarget, type Point
 /** Снап выключен целиком при Ctrl/Cmd (ADR 0019 E2): позиция — квантованный сырой курсор, целей дропа нет. */
 const snapOff = (input: PointerInput): boolean => input.mods.ctrl || input.mods.meta;
 
-/** Снап курсора при драге вершины: пул этажа без самой вершины (`exceptIds` — один id покрывает совладельцев), без орто-якорей. */
-const snapDragged = (pointId: Id, input: PointerInput, ctx: ToolContext): SnapResult => {
+/**
+ * Вершины, исключённые из снапа и из целей дропа: сама перетаскиваемая (один id покрывает совладельцев), а в
+ * жесте деления грани — ещё и оба конца разрезанной грани. Снап на них вернул бы новорождённую вершину в конец
+ * той же грани, `clearContour` схлопнул бы её обратно, и деление молча не состоялось бы (спека 01).
+ */
+const exceptOf = (state: DraggingPointState): Id[] =>
+  state.split ? [state.pointId, state.split.face.a, state.split.face.b] : [state.pointId];
+
+/** Снап курсора при драге вершины: пул этажа без исключённых вершин, без орто-якорей. */
+const snapDragged = (state: DraggingPointState, input: PointerInput, ctx: ToolContext): SnapResult => {
   if (snapOff(input)) return missSnap(input);
   return getSnapPoint(input, ctx.snapIndex().candidates, {
     snapDist: pixelsToPlan(ctx.viewport, SNAP_DIST),
     viewport: ctx.viewport,
     flags: ctx.snapFlags,
-    exceptIds: [pointId],
+    exceptIds: exceptOf(state),
   });
 };
 
@@ -45,10 +54,21 @@ const dropPosition = (snapped: PlanPosition, dropTarget: HitTarget | null, ctx: 
 
 /** Кадр драга по вводу указателя: снап → цель дропа под снапнутой позицией → override = позиция дропа → гайды. */
 const frame = (state: DraggingPointState, input: PointerInput, ctx: ToolContext): DraggingPointState => {
-  const snap = snapDragged(state.pointId, input, ctx);
+  // Жест деления грани до первого движения курсора: вершина стоит ровно там, где родилась, снап её не трогает —
+  // одиночный клик по ручке обязан оставить её на грани (reference снапит только начиная с `mouseMove`).
+  if (state.split && samePosition(state.split.down, input)) {
+    return {
+      ...state,
+      pointOverrides: { [state.pointId]: state.origin },
+      snap: missSnap(state.origin),
+      guides: [],
+      dropTarget: null,
+    };
+  }
+  const snap = snapDragged(state, input, ctx);
   const dropTarget = snapOff(input)
     ? null
-    : keepTarget(state.dropTarget, hitAt(snap.snapped, ctx, { exceptPointIds: [state.pointId], skipRooms: true }));
+    : keepTarget(state.dropTarget, hitAt(snap.snapped, ctx, { exceptPointIds: exceptOf(state), skipRooms: true }));
   const position = dropPosition(snap.snapped, dropTarget, ctx);
   const guides: readonly SnapGuide[] = snapOff(input)
     ? []
@@ -92,6 +112,33 @@ export const startDraggingPoint = (
   return frame(base, input, ctx);
 };
 
+/**
+ * Вход в жест деления грани (спека 01, задача 0096): вершины `pointId` в документе ещё нет — её родит эффект
+ * `insertPoint` сразу после этого перехода, — поэтому `origin` приходит извне (позиция рождения на грани), а
+ * не читается из планировки. Выделение снимается **при входе** и остаётся пустым после жеста: так спека 01
+ * («после отпускания не выделено ничего»), и так серию коалесинга не рвёт `breakSeries` (ADR 0018 D5).
+ */
+export const startSplittingFace = (
+  pointId: Id,
+  face: FaceRef,
+  origin: PlanPosition,
+  input: PointerInput,
+  ctx: ToolContext,
+): DraggingPointState => {
+  const base: DraggingPointState = {
+    kind: 'dragging-point',
+    pointId,
+    selection: null,
+    origin,
+    pointOverrides: { [pointId]: origin },
+    snap: missSnap(origin),
+    guides: [],
+    dropTarget: null,
+    split: { face, down: { x: input.x, y: input.y } },
+  };
+  return frame(base, input, ctx);
+};
+
 /** Отмена жеста: `editing` с тем же выделением, документ и история не тронуты, override сброшен. */
 const abort = (state: DraggingPointState, ctx: ToolContext): Step => ({ state: editingWith(state.selection, ctx) });
 
@@ -111,14 +158,20 @@ export const draggingPointHandler: ToolHandler<DraggingPointState> = {
     const position = moved.pointOverrides[moved.pointId] ?? moved.origin;
     const move: PointMove = { id: moved.pointId, x: position.x, y: position.y };
     // Слияние с целью: `normalize` оставляет меньший id (ADR 0017 C1) — выделение переносится на выжившую вершину;
-    // если политика id иная, мёртвое выделение снимет `refresh` (безопасная деградация).
-    const selection: HitTarget =
-      moved.dropTarget?.kind === 'point' && moved.dropTarget.id < moved.pointId ? moved.dropTarget : moved.selection;
+    // если политика id иная, мёртвое выделение снимет `refresh` (безопасная деградация). Жест деления грани не
+    // выделяет ничего — ни при входе, ни на выходе (спека 01).
+    const selection: HitTarget | null = moved.split
+      ? null
+      : moved.dropTarget?.kind === 'point' && moved.dropTarget.id < moved.pointId
+        ? moved.dropTarget
+        : moved.selection;
+    // Тот же ключ, что взяла себе `insertPoint`: рождение вершины и её постановка — одна запись истории.
+    const coalesce = moved.split ? `insert-point:${moved.pointId}` : undefined;
     return {
       state: editingWith(selection, ctx),
       effect: () => {
         if (floorId === null) return;
-        const result = ctx.movePoints(floorId, [move]);
+        const result = ctx.movePoints(floorId, [move], { coalesce });
         if (!result.ok) ctx.logger.debug('@uyutno/planner: point drag rejected by movePoints', result.error);
       },
     };

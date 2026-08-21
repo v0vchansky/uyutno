@@ -1,11 +1,13 @@
 import { nudgeStep } from '../../document/geometry/edit/nudgeStep';
+import { splitPositionOn } from '../../document/geometry/hittest/faceHandle';
 import { euclDist } from '../../document/geometry/predicates/distance';
 import { pixelsToPlan } from '../../document/geometry/viewport';
-import type { Id } from '../../document/id';
+import { createId, type Id } from '../../document/id';
+import type { PlanPosition } from '../../document/PlannerDocument';
 import type { PointMove } from '../commands/movePoints';
-import { startDraggingPoint } from './draggingPoint';
+import { startDraggingPoint, startSplittingFace } from './draggingPoint';
 import { startDraggingWall } from './draggingWall';
-import { DRAG_THRESHOLD, hitAt, inConstructor, keepTarget, targetAlive } from './editHit';
+import { DRAG_THRESHOLD, facePoints, hitAt, inConstructor, keepTarget, onSplitHandle, targetAlive } from './editHit';
 import type { KeyStep, Step, ToolContext, ToolHandler } from './ToolHandler';
 import { sameHitTarget } from '../../document/geometry/hittest/hitTest';
 import { createEditingState, type EditingState, type HitTarget, type PointerInput, type Pressed } from './ToolState';
@@ -13,9 +15,14 @@ import { createEditingState, type EditingState, type HitTarget, type PointerInpu
 /** Новое состояние только при фактической смене hover/выделения/нажатия — иначе прежняя ссылка (no-op для `tools:changed`). */
 const update = (state: EditingState, patch: Partial<EditingState>): EditingState => {
   const next: EditingState = { kind: 'editing', hover: state.hover, selection: state.selection };
+  if (state.splitHandle) next.splitHandle = true;
   if (state.pressed) next.pressed = state.pressed;
   if (state.reclicked !== undefined) next.reclicked = state.reclicked;
   if ('hover' in patch) next.hover = keepTarget(state.hover, patch.hover ?? null);
+  if ('splitHandle' in patch) {
+    if (patch.splitHandle) next.splitHandle = true;
+    else delete next.splitHandle;
+  }
   if ('selection' in patch) next.selection = keepTarget(state.selection, patch.selection ?? null);
   if ('pressed' in patch) {
     if (patch.pressed) next.pressed = patch.pressed;
@@ -29,10 +36,17 @@ const update = (state: EditingState, patch: Partial<EditingState>): EditingState
   if (next.selection !== state.selection) delete next.reclicked;
   const same =
     next.hover === state.hover &&
+    next.splitHandle === state.splitHandle &&
     next.selection === state.selection &&
     next.pressed === state.pressed &&
     next.reclicked === state.reclicked;
   return same ? state : next;
+};
+
+/** Наведение по вводу указателя: цель хит-теста и ручка деления внутри неё — считаются вместе, живут вместе. */
+const hoverAt = (point: PlanPosition, ctx: ToolContext): Pick<EditingState, 'hover' | 'splitHandle'> => {
+  const hover = hitAt(point, ctx);
+  return { hover, splitHandle: onSplitHandle(hover, point, ctx) };
 };
 
 /**
@@ -55,20 +69,48 @@ const beyondThreshold = (from: { x: number; y: number }, input: PointerInput, ct
 /** Нажатие в `editing` → сдвиг за порог: вершина → `dragging-point`, сторона → `dragging-wall`; иначе — остаёмся. */
 const maybeStartDrag = (state: EditingState, input: PointerInput, ctx: ToolContext): Step => {
   const { pressed } = state;
-  const hover = hitAt(input, ctx);
-  if (!pressed?.target || !beyondThreshold(pressed.origin, input, ctx)) return { state: update(state, { hover }) };
+  const hover = hoverAt(input, ctx);
+  if (!pressed?.target || !beyondThreshold(pressed.origin, input, ctx)) return { state: update(state, hover) };
   const { target } = pressed;
   // Ссылка цели: если она уже выделена — та же (серия не рвётся), иначе новая — драг выделяет свою цель.
   const selection = keepTarget(state.selection, target);
   if (selection?.kind === 'point') {
     const drag = startDraggingPoint(selection, input, ctx);
-    return { state: drag ?? update(state, { hover, pressed: undefined }) };
+    return { state: drag ?? update(state, { ...hover, pressed: undefined }) };
   }
   if (selection?.kind === 'wall') {
     const drag = startDraggingWall(selection, pressed.origin, input, ctx);
-    return { state: drag ?? update(state, { hover, pressed: undefined }) };
+    return { state: drag ?? update(state, { ...hover, pressed: undefined }) };
   }
-  return { state: update(state, { hover }) };
+  return { state: update(state, hover) };
+};
+
+/**
+ * Нажатие по ручке деления грани (спека 01, задача 0096): вершина рождается **прямо здесь**, синхронно и
+ * **без порога сдвига** — это осознанное решение автора (2026-08-21), полный паритет с reference, а не
+ * недосмотр; одиночный клик уже делит грань, вернуть — только отменой. Не «чинить» гистерезисом.
+ *
+ * Порядок: id генерируется инструментом (состояние жеста замораживается раньше, чем выполнится `effect`) →
+ * переход в `dragging-point` этой вершины → эффект `insertPoint`. Дальше вершина тянется как обычная угловая,
+ * а `pointerUp` коммитит `movePoints` тем же ключом коалесинга — весь жест одна запись истории.
+ *
+ * `null` — делить нечем (нет этажа, грань пропала или на ней нет законной позиции): обычная ветка нажатия.
+ */
+const startSplit = (hover: HitTarget | null, input: PointerInput, ctx: ToolContext): Step | null => {
+  if (hover?.kind !== 'wall' || ctx.floorId === null) return null;
+  const ends = facePoints(hover.face, ctx);
+  const origin = ends && splitPositionOn(input, ends.a, ends.b);
+  if (!origin) return null;
+  const { floorId } = ctx;
+  const { face } = hover;
+  const pointId = createId();
+  return {
+    state: startSplittingFace(pointId, face, origin, input, ctx),
+    effect: () => {
+      const result = ctx.insertPoint(floorId, face, origin, { id: pointId });
+      if (!result.ok) ctx.logger.debug('@uyutno/planner: face split rejected by insertPoint', result.error);
+    },
+  };
 };
 
 /**
@@ -137,27 +179,32 @@ const deleteSelected = (state: EditingState, ctx: ToolContext): KeyStep => {
 export const editingHandler: ToolHandler<EditingState> = {
   pointerDown: (state, input, ctx) => {
     if (!inConstructor(ctx)) return { state };
-    const hover = hitAt(input, ctx);
-    if (input.button !== 0) return { state: update(state, { hover }) };
-    const selected = hover !== null && sameHitTarget(hover, state.selection);
-    const pressed: Pressed = { target: hover, origin: { x: input.x, y: input.y }, selected };
-    return { state: update(state, { hover, pressed, reclicked: undefined }) };
+    const hover = hoverAt(input, ctx);
+    if (input.button !== 0) return { state: update(state, hover) };
+    // Ручка деления грани обходит `pressed` целиком: порога сдвига у неё нет (спека 01).
+    if (hover.splitHandle) {
+      const split = startSplit(hover.hover, input, ctx);
+      if (split) return split;
+    }
+    const selected = hover.hover !== null && sameHitTarget(hover.hover, state.selection);
+    const pressed: Pressed = { target: hover.hover, origin: { x: input.x, y: input.y }, selected };
+    return { state: update(state, { ...hover, pressed, reclicked: undefined }) };
   },
 
   pointerMove: (state, input, ctx) => {
     if (!inConstructor(ctx)) return { state };
-    return state.pressed ? maybeStartDrag(state, input, ctx) : { state: update(state, { hover: hitAt(input, ctx) }) };
+    return state.pressed ? maybeStartDrag(state, input, ctx) : { state: update(state, hoverAt(input, ctx)) };
   },
 
   pointerUp: (state, input, ctx) => {
     if (!inConstructor(ctx)) return { state };
-    const hover = hitAt(input, ctx);
-    if (input.button !== 0 || !state.pressed) return { state: update(state, { hover }) };
+    const hover = hoverAt(input, ctx);
+    if (input.button !== 0 || !state.pressed) return { state: update(state, hover) };
     const { pressed } = state;
     const selection = clickSelection(pressed.target, input, ctx);
     // Клик по уже выделенной вершине (второй клик двойного) — подтверждение для `doubleClick`.
     const reclicked = pressed.selected && pressed.target?.kind === 'point' ? pressed.target.id : undefined;
-    return { state: update(state, { hover, selection, pressed: undefined, reclicked }) };
+    return { state: update(state, { ...hover, selection, pressed: undefined, reclicked }) };
   },
 
   // Удаляется вершина под курсором, по которой второй раз кликнули уже выделенной (`reclicked`): пара кликов двойного
@@ -165,13 +212,20 @@ export const editingHandler: ToolHandler<EditingState> = {
   // подтверждения не даёт — конец ленты/угол прямоугольника дабл-кликом не удаляется (развилка 0057/0058).
   doubleClick: (state, input, ctx) => {
     if (!inConstructor(ctx)) return { state };
-    const hit = hitAt(input, ctx);
+    const hover = hoverAt(input, ctx);
+    const hit = hover.hover;
     const { floorId } = ctx;
     const confirmed = hit?.kind === 'point' && state.reclicked === hit.id && sameHitTarget(hit, state.selection);
-    if (!confirmed || floorId === null) return { state: update(state, { hover: hit, pressed: undefined }) };
+    if (!confirmed || floorId === null) return { state: update(state, { ...hover, pressed: undefined }) };
     const { id } = hit;
     return {
-      state: update(state, { hover: null, selection: null, pressed: undefined, reclicked: undefined }),
+      state: update(state, {
+        hover: null,
+        splitHandle: false,
+        selection: null,
+        pressed: undefined,
+        reclicked: undefined,
+      }),
       effect: () => {
         const result = ctx.deletePoint(floorId, id);
         if (!result.ok) ctx.logger.debug('@uyutno/planner: deletePoint rejected', result.error);
@@ -189,7 +243,7 @@ export const editingHandler: ToolHandler<EditingState> = {
       ? state
       : createEditingState(),
 
-  leaveConstructor: state => update(state, { hover: null, pressed: undefined }),
+  leaveConstructor: state => update(state, { hover: null, splitHandle: false, pressed: undefined }),
 
   key: (state, action, ctx) => {
     const restore = (run: () => { ok: boolean }, what: string) => (): void => {
@@ -209,13 +263,16 @@ export const editingHandler: ToolHandler<EditingState> = {
   },
 
   refresh: (state, ctx) => {
-    const hover = ctx.pointer && inConstructor(ctx) ? hitAt(ctx.pointer, ctx) : state.hover;
+    const hover =
+      ctx.pointer && inConstructor(ctx)
+        ? hoverAt(ctx.pointer, ctx)
+        : { hover: state.hover, splitHandle: state.splitHandle };
     const selection = state.selection && !targetAlive(state.selection, ctx) ? null : state.selection;
     // Нажатая цель, исчезнувшая из документа, драг уже не начнёт.
     const pressed =
       state.pressed?.target && !targetAlive(state.pressed.target, ctx)
         ? { ...state.pressed, target: null }
         : state.pressed;
-    return { state: update(state, { hover, selection, pressed }) };
+    return { state: update(state, { ...hover, selection, pressed }) };
   },
 };

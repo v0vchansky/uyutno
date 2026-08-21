@@ -2,6 +2,7 @@ import type { WallBlock } from '../../document/geometry/band/blocksFromContour';
 import { DEFAULT_WALL_WIDTH } from '../../document/geometry/band/blocksFromContour';
 import { CLOSE_EPS, contourClosure } from '../../document/geometry/contours/contourClosure';
 import { POLYLINE_ROOM_MIN_POINTS } from '../../document/geometry/contours/validateContour';
+import { faceHandleAvailable, faceMidpoint } from '../../document/geometry/hittest/faceHandle';
 import { euclDist, manhDist } from '../../document/geometry/predicates/distance';
 import type { SnapGuide } from '../../document/geometry/snap/guidesFor';
 import { planToView, type Viewport } from '../../document/geometry/viewport';
@@ -371,6 +372,21 @@ const drawPointHandles = (frame: DraftFrame, ctx: Ctx, hover: HitTarget | null, 
   }
 };
 
+/**
+ * Ручка деления наведённой грани (спека 01, задача 0096) — тем же хендлом точки, что и вершины: покой, пока
+ * курсор просто на грани, наведение — когда он в диске захвата (`tools.splitHandle`). Собственных метрик и
+ * цветов у ручки нет. Сдвига от грани тоже нет (реверс: смещение 0) — с подписями длин она не спорит, те уже
+ * отнесены по нормали в DOM-оверлее. На грани короче двух порогов чистки контура ручки нет вовсе.
+ */
+const drawSplitHandle = (frame: DraftFrame, ctx: Ctx, hover: HitTarget | null): void => {
+  const { tools, layout } = frame;
+  if (tools.kind !== 'editing' || hover?.kind !== 'wall') return;
+  const a = layout.points[hover.face.a];
+  const b = layout.points[hover.face.b];
+  if (!a || !b || !faceHandleAvailable(a, b)) return;
+  drawHandle(frame, ctx, point(frame.viewport, faceMidpoint(a, b)), tools.splitHandle ? 'hover' : 'rest');
+};
+
 // ── Слой 5. Превью рисования ────────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -593,6 +609,7 @@ export const drawFrame = (ctx: Ctx, frame: DraftFrame): void => {
   drawWalls(frame, ctx);
   drawContours(frame, ctx, hover, selection);
   drawPointHandles(frame, ctx, hover, selection);
+  drawSplitHandle(frame, ctx, hover);
   drawPreview(frame, ctx);
   drawGuides(frame, ctx, guidesOf(frame.tools));
 

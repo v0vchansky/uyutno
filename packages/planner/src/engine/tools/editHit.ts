@@ -1,3 +1,4 @@
+import { onFaceHandle } from '../../document/geometry/hittest/faceHandle';
 import { hitTest, type HitTestOptions, sameHitTarget } from '../../document/geometry/hittest/hitTest';
 import type { Id } from '../../document/id';
 import type { PlanPosition } from '../../document/PlannerDocument';
@@ -20,6 +21,16 @@ export const hitAt = (point: PlanPosition, ctx: ToolContext, options?: HitTestOp
   const floor = ctx.document.floors.find(candidate => candidate.id === ctx.floorId);
   if (!floor) return null;
   return hitTest(point, floor.layout, ctx.derived?.rooms ?? [], ctx.viewport, options);
+};
+
+/**
+ * Ручка деления грани под курсором (задача 0096) — вложенный уровень хит-теста: считается **только** внутри уже
+ * выигравшей грани, поэтому приоритет угла соблюдается сам собой (попал в вершину — грани нет, ручки нет тоже).
+ */
+export const onSplitHandle = (hover: HitTarget | null, point: PlanPosition, ctx: ToolContext): boolean => {
+  if (hover?.kind !== 'wall') return false;
+  const ends = facePoints(hover.face, ctx);
+  return ends !== null && onFaceHandle(point, ends.a, ends.b, ctx.viewport);
 };
 
 /** Та же цель по значению → прежняя ссылка (ссылка `selection` стабильна между движениями, ADR 0019 «Что важно знать»). */

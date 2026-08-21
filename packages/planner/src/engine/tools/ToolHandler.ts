@@ -1,9 +1,11 @@
+import type { FaceRef } from '../../document/geometry/axes/findAxes';
 import type { SnapFlags } from '../../document/geometry/snap/getSnapPoint';
 import type { Viewport } from '../../document/geometry/viewport';
 import type { Id } from '../../document/id';
 import type { PlannerDocument, PlanPosition } from '../../document/PlannerDocument';
 import type { AddContoursError, ContourInput } from '../commands/addContours';
 import type { DeletePointError } from '../commands/deletePoint';
+import type { InsertPointError, InsertPointOptions } from '../commands/insertPoint';
 import type { MovePointsError, MovePointsOptions, PointMove } from '../commands/movePoints';
 import type { HistoryError } from '../history/HistoryLog';
 import type { PlannerLogger } from '../PlannerManager';
@@ -33,6 +35,12 @@ export interface ToolContext {
   addContours(floorId: Id, contours: readonly ContourInput[]): Result<void, AddContoursError>;
   movePoints(floorId: Id, moves: readonly PointMove[], options?: MovePointsOptions): Result<void, MovePointsError>;
   deletePoint(floorId: Id, id: Id): Result<void, DeletePointError>;
+  insertPoint(
+    floorId: Id,
+    face: FaceRef,
+    position: PlanPosition,
+    options?: InsertPointOptions,
+  ): Result<Id, InsertPointError>;
   historyUndo(): Result<void, HistoryError>;
   historyRedo(): Result<void, HistoryError>;
   logger: PlannerLogger;

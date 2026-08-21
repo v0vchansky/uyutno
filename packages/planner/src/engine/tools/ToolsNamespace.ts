@@ -6,6 +6,7 @@ import type { Id } from '../../document/id';
 import type { PlanPosition } from '../../document/PlannerDocument';
 import { addContours } from '../commands/addContours';
 import { deletePoint } from '../commands/deletePoint';
+import { insertPoint } from '../commands/insertPoint';
 import { movePoints } from '../commands/movePoints';
 import type { PlannerBus } from '../PlannerBus';
 import type { PlannerLogger } from '../PlannerManager';
@@ -333,6 +334,7 @@ export class ToolsNamespace {
       addContours: (id, contours) => addContours(this.store, id, contours),
       movePoints: (id, moves, options) => movePoints(this.store, id, moves, options),
       deletePoint: (id, pointId) => deletePoint(this.store, id, pointId),
+      insertPoint: (id, face, position, options) => insertPoint(this.store, id, face, position, options),
       historyUndo: () => this.store.restore('undo'),
       historyRedo: () => this.store.restore('redo'),
       logger: this.logger,

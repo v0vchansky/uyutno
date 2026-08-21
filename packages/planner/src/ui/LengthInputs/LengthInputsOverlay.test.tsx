@@ -413,7 +413,8 @@ describe('<LengthInputsOverlay />', () => {
   it('ширина стены: свой пол 1 см — стену можно утоньшить и абсолютом, и относительной формой', () => {
     const { manager } = setup(ringDocument());
     // Клик по стороне внешнего контура выделяет стену: у неё есть ось, значит и поле ширины (спека 07).
-    click(manager, { x: 200, y: 0 });
+    // Не в середину: там ручка деления грани, и нажатие делило бы стену вместо выделения (0096).
+    click(manager, { x: 150, y: 0 });
     expect(manager.tools.get()).toMatchObject({ kind: 'editing', selection: { kind: 'wall' } });
 
     const width = screen.getByLabelText('ширина стены') as HTMLInputElement;

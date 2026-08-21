@@ -1,7 +1,7 @@
 import { expect, test as base, type Page } from '@playwright/test';
 import type { PlannerDocument, PlannerInstance, ViewportInsets } from '@uyutno/planner';
 
-import { projectDocumentApiPath, PROJECTS_API_BASE } from '../src/shared/projects';
+import { projectApiPath, projectDocumentApiPath } from '../src/shared/projects';
 import { PLANNER_READY_EVENT } from '../src/client/project/lib/plannerReadyEvent';
 import { ensureProject, putProjectDocument } from './support/projects';
 
@@ -145,7 +145,8 @@ test.describe('открытие проекта: фазы, восстановле
       releaseDocument = resolve;
     });
 
-    await page.route(PROJECTS_API_BASE, async route => {
+    // Фаза 1 — карточка проекта `GET …/:id` (задача 0095), а не список всех проектов, как было раньше.
+    await page.route(projectApiPath(projectId), async route => {
       await cardHeld;
       await route.continue();
     });

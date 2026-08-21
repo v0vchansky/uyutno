@@ -14,6 +14,7 @@ import { addCover, type AddCoverError, type AddCoverOptions } from './commands/a
 import { deleteArea, type DeleteAreaError } from './commands/deleteArea';
 import { deleteCover, type DeleteCoverError } from './commands/deleteCover';
 import { deletePoint, type DeletePointError } from './commands/deletePoint';
+import { insertPoint, type InsertPointError, type InsertPointOptions } from './commands/insertPoint';
 import { movePoints, type MovePointsError, type MovePointsOptions, type PointMove } from './commands/movePoints';
 import {
   setEdgeLength,
@@ -103,6 +104,19 @@ export class DocumentNamespace {
   /** Удаление вершины с каскадом D2 по всем владельцам. */
   deletePoint(floorId: Id, id: Id): Result<void, DeletePointError> {
     return deletePoint(this.store, floorId, id);
+  }
+
+  /**
+   * Рождение вершины на существующей грани (ручка деления грани, спека 01): точка встаёт в кольцо контура между
+   * концами грани, разрез соседних контуров/полов/зон делает `normalize`. Возвращает id новой вершины.
+   */
+  insertPoint(
+    floorId: Id,
+    face: FaceRef,
+    position: PlanPosition,
+    options?: InsertPointOptions,
+  ): Result<Id, InsertPointError> {
+    return insertPoint(this.store, floorId, face, position, options);
   }
 
   /** Длина ребра `a→b`: симметрично ±Δ/2 или вся Δ на конец, противоположный `anchor`. Серия по ребру — одна запись. */

@@ -701,6 +701,52 @@ describe('drawFrame', () => {
     });
   });
 
+  // Спека 01 «Ручка деления грани», задача 0096: собственных метрик у ручки нет — она рисуется теми же
+  // состояниями хендла точки, что и вершины, и сидит ровно на середине наведённой грани (сдвиг 0).
+  describe('ручка деления грани (0096)', () => {
+    const splitFace = faceOf(0, 0);
+    const midOf = (face: { a: Id; b: Id }, layout: FloorLayout = PLAN.layout): PlanPosition =>
+      screen({
+        x: (layout.points[face.a]!.x + layout.points[face.b]!.x) / 2,
+        y: (layout.points[face.a]!.y + layout.points[face.b]!.y) / 2,
+      });
+
+    it('наведение на грань — хендл в покое ровно на её середине, сверх хендлов вершин', () => {
+      const fake = render(frameOf({ tools: editing({ hover: { kind: 'wall', face: splitFace } }) }));
+      const bodies = restHandles(fake);
+      expect(bodies).toHaveLength(Object.keys(PLAN.layout.points).length + 1);
+      expect(bodies.filter(call => centeredAt(call, midOf(splitFace)))).toHaveLength(1);
+    });
+
+    it('курсор в диске захвата — то же состояние наведения, что у вершины: ореол r 6.6', () => {
+      const fake = render(frameOf({ tools: editing({ hover: { kind: 'wall', face: splitFace }, splitHandle: true }) }));
+      const halos = circles(fake).filter(call => arcOf(call)!.r === H.hoverHaloRadius);
+      expect(halos).toHaveLength(1);
+      expect(centeredAt(halos[0]!, midOf(splitFace))).toBe(true);
+    });
+
+    it('без наведения на грань ручки нет вовсе', () => {
+      const fake = render(frameOf());
+      expect(restHandles(fake)).toHaveLength(Object.keys(PLAN.layout.points).length);
+    });
+
+    it('на грани короче двух порогов чистки контура ручки нет', () => {
+      const builder = createPlanBuilder();
+      builder.rect('outer', 0, 0, 200, 8);
+      const store = new PlannerStore(createPlannerBus(), builder.document());
+      const layout = store.getDocument().floors[0]!.layout;
+      const contour = layout.contours[0]!;
+      const n = contour.points.length;
+      const shortEdge = [...Array(n).keys()].find(
+        i => length(layout.points[contour.points[i]!]!, layout.points[contour.points[(i + 1) % n]!]!) === 8,
+      )!;
+      const face = { contourId: contour.id, a: contour.points[shortEdge]!, b: contour.points[(shortEdge + 1) % n]! };
+      const fake = render(frameOf({ layout, derived: null, tools: editing({ hover: { kind: 'wall', face } }) }));
+      expect(restHandles(fake)).toHaveLength(Object.keys(layout.points).length);
+      expect(restHandles(fake).some(call => centeredAt(call, midOf(face, layout)))).toBe(false);
+    });
+  });
+
   describe('цели «замкнуть контур» и «завершить открытую стену» (решение 2)', () => {
     const WALL_POINTS: readonly PlanPosition[] = [
       { x: 0, y: 0 },
