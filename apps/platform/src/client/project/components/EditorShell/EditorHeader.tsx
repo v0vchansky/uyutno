@@ -1,3 +1,4 @@
+import { Spinner } from '@heroui/react';
 import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronLeft } from 'lucide-react';
 import type React from 'react';
@@ -65,6 +66,25 @@ interface Props {
 
 /** Гашение неактивных элементов шапки на экране открытия — числа из макета. */
 const DIMMED = 'pointer-events-none opacity-40';
+
+/**
+ * Приглушение погашенной кнопки «Сохранить» — по причине, а не одним числом на все случаи.
+ *
+ * У `saving` приглушения нет намеренно. HeroUI различает два состояния кнопки: `isPending` — нажатие не
+ * проходит, но кнопка **не помечена недоступной и прозрачностью не гасится**, и `isDisabled` — недоступна
+ * и приглушена. «Идёт запись» — это первое: занятость уже сказана спиннером и подписью «Сохраняем…»,
+ * гасить её сверху нечем и незачем. Прежние 55% съедали контраст ровно у спиннера — единственного, что в
+ * этом кадре и нужно разглядеть. Кнопка на своём `<button>`, поэтому пропа `isPending` у неё нет и правило
+ * держится здесь; сам `disabled` остаётся — второй запрос из кнопки не запустить (задача 0084).
+ *
+ * `saved` и `idle` — обе недоступность «нечего делать», и приглушение у них разное: под галочкой оно
+ * слабее, чтобы подтверждение читалось.
+ */
+const SAVE_BUTTON_DIM: Record<SaveButtonPhase, string> = {
+  idle: 'disabled:opacity-40',
+  saving: '',
+  saved: 'disabled:opacity-[0.55]',
+};
 
 /**
  * Шапка редактора (handoff `docs/ui/handoffs/planner/planner-editor-ui.md`, «Оболочка редактора (P1)» →
@@ -150,20 +170,27 @@ export const EditorHeader: React.FC<Props> = ({
                * Ширина фиксирована по самому длинному кадру («Сохраняем…» со спиннером): подпись меняется
                * трижды за полторы секунды, и без этого кнопка дёргалась бы вместе с аватаром на каждом
                * переходе. Внутри всё центрируется, поэтому короткие кадры не выглядят прижатыми.
+               *
+               * Число измерено, а не взято на глаз: 12 + 16 (спиннер) + 8 (gap) + 84.7 («Сохраняем…» в
+               * Inter 13/500) + 12 = 132.7. Прежние 124px этот кадр не вмещали, и лишнее флекс отбирал у
+               * спиннера — тот сжимался с 14 до 7.3px и вращался эллипсом. С библиотечным `Spinner`
+               * (`flex-shrink: 0` внутри) сжималась бы уже подпись, поэтому ширина считается по кадру.
                */
-              className={`inline-flex h-8 w-[124px] cursor-pointer items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-3 text-[13px] font-medium text-[color:var(--accent-foreground)] disabled:cursor-not-allowed ${savePhase === 'idle' ? 'disabled:opacity-40' : 'disabled:opacity-[0.55]'} ${FOCUS_RING_ON_ACCENT}`}
+              className={`inline-flex h-8 w-[136px] cursor-pointer items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-3 text-[13px] font-medium text-[color:var(--accent-foreground)] disabled:cursor-not-allowed ${SAVE_BUTTON_DIM[savePhase]} ${FOCUS_RING_ON_ACCENT}`}
             >
               {saveButton.icon === 'spinner' && (
                 /*
-                 * Спиннер 14px из макета: кольцо на цвете подписи кнопки (`--accent-foreground` — белый).
-                 * Вращение — общий класс платформы, а не `animate-spin`: он один умеет замирать при
-                 * `prefers-reduced-motion: reduce`, и держать кольцо неподвижным теперь есть смысл — оно
-                 * стоит на экране полсекунды, а не один кадр.
+                 * Спиннер — библиотечный (HeroUI v3), а не самописное кольцо из бордюра: `color="current"`
+                 * наследует цвет подписи кнопки, то есть контраст на акценте получается по построению.
+                 * Замирание при `prefers-reduced-motion: reduce` у компонента своё, штатное.
+                 *
+                 * `size="sm"` — 16px; заказанных макетом 14px в шкале компонента нет (sm 16 / md 24 /
+                 * lg 32 / xl 40), 16px в кнопку 32px садится, ручной подгонки размера не заводим.
+                 *
+                 * Своя роль и своё имя у компонента снимаются: подпись «Сохраняем…» кнопка несёт сама, а
+                 * `role="status"` в шапке ровно один — слот статуса слева от кнопки.
                  */
-                <span
-                  aria-hidden='true'
-                  className='uyutno-spinner inline-block size-3.5 rounded-full border-2 border-white/35 border-t-white'
-                />
+                <Spinner color='current' size='sm' role={undefined} aria-label={undefined} aria-hidden='true' />
               )}
               {saveButton.icon === 'check' && <Check size={16} aria-hidden='true' />}
               {saveButton.label}

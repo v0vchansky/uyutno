@@ -33,9 +33,19 @@ export const ProjectLoadingIndicator: React.FC<Props> = ({ phase }) => (
   <div className='absolute inset-0 z-10 flex items-center justify-center bg-[var(--surface)]'>
     {/* `role="status"` — смена фазы читается скринридером и не перебивает (handoff, «Доступность»). */}
     <div role='status' className='flex flex-col items-center gap-3'>
+      {/*
+       * Кольцо 28px из макета: своё, а не библиотечный `Spinner` HeroUI, который с доводки 0090 стоит на
+       * кнопке «Сохранить». Причина — гидрация: этот индикатор попадает в SSR-разметку, а `Spinner`
+       * внутри зовёт `useId`, и на сервере с клиентом он считается от разных корней. Разбор целиком —
+       * над `.uyutno-spinner` в `client/global.css`.
+       *
+       * Тут приём с прозрачными сторонами бордюра работает: на 28px четверть круга видна как четверть
+       * круга, а `--accent` по `--border` на белом фоне разделены и по светлоте, и по цвету. Ломался он
+       * на кнопке — вдвое меньший диаметр на акцентной заливке.
+       */}
       <span
         aria-hidden='true'
-        className='uyutno-spinner size-7 rounded-full border-2 border-[var(--border)] border-t-[color:var(--accent)]'
+        className='uyutno-spinner size-7 shrink-0 rounded-full border-2 border-[var(--border)] border-t-[color:var(--accent)]'
       />
       <span className='text-[14px] font-medium text-[color:var(--foreground)]'>{PHASE_LABEL[phase]}</span>
       <span className='text-[12px] text-[color:var(--muted)]'>{`Шаг ${phase} из ${PROJECT_LOADING_PHASES}`}</span>
