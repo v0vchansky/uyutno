@@ -67,13 +67,58 @@ const test = base.extend<{ editorPage: Page }>({
 test.use({ viewport: { width: 1440, height: 900 } });
 
 test.describe('индикатор сохранения в шапке', () => {
-  test('покой: статуса нет вовсе, кнопка «Сохранить» активна', async ({ editorPage: page, request }) => {
+  test('покой: статуса нет вовсе, кнопка «Сохранить» неактивна — сохранять нечего', async ({
+    editorPage: page,
+    request,
+  }) => {
     const projectId = await ensureProject(request, PROJECT_NAME);
     await page.goto(`/project/${projectId}`);
     await planner(page).waitFor();
 
-    await expect(page.getByRole('button', { name: 'Сохранить' })).toBeEnabled();
+    /*
+     * Задача 0090 отменила строку макета «покой — кнопка активна»: раньше нажатие в покое молча отбрасывал
+     * dirty-гейт внутри `persistence.save()`, и это читалось как сломанная кнопка. Первая же правка
+     * документа её включает.
+     */
+    const save = page.getByRole('button', { name: 'Сохранить' });
+    await expect(save).toBeDisabled();
     await expect(statusOf(page)).toHaveCount(0);
+
+    await planner(page).touch(290);
+    await expect(save).toBeEnabled();
+  });
+
+  test('нажатие видно: спиннер, потом галочка на погашенной кнопке, потом обычный вид', async ({
+    editorPage: page,
+    request,
+  }) => {
+    const projectId = await ensureProject(request, PROJECT_NAME);
+    await page.goto(`/project/${projectId}`);
+    await planner(page).waitFor();
+    await planner(page).touch(298);
+
+    /*
+     * Сценарий жалобы автора целиком, и **без перехвата запроса**: локальный `PUT …/document` отвечает за
+     * ~11 мс, то есть быстрее кадра экрана. Раз кадры всё равно видны — их держит минимальный срок показа
+     * (задача 0090), а не удача планировщика.
+     */
+    await page.getByRole('button', { name: 'Сохранить' }).click();
+
+    const saving = page.getByRole('button', { name: 'Сохраняем…' });
+    await expect(saving).toBeVisible();
+    await expect(saving).toBeDisabled();
+
+    // Подтверждение доживает своё на погашенной кнопке: dirty снят успехом, сохранять уже нечего.
+    const saved = page.getByRole('button', { name: 'Сохранено' });
+    await expect(saved).toBeVisible();
+    await expect(saved).toBeDisabled();
+    // Пока галочка на кнопке, слот молчит — двух подтверждений рядом не бывает.
+    await expect(statusOf(page)).toHaveCount(0);
+
+    // Галочка уходит сама, текстовый статус встаёт на её место, кнопка остаётся неактивной.
+    await expect(saved).toHaveCount(0);
+    await expect(statusOf(page)).toHaveText(/^Сохранено, \d{2}:\d{2}$/);
+    await expect(page.getByRole('button', { name: 'Сохранить' })).toBeDisabled();
   });
 
   test('ручной Save: кнопка держит «Сохраняем…», потом статус «Сохранено, ЧЧ:ММ»', async ({
@@ -106,7 +151,8 @@ test.describe('индикатор сохранения в шапке', () => {
     release();
     const status = statusOf(page);
     await expect(status).toHaveText(/^Сохранено, \d{2}:\d{2}$/);
-    await expect(page.getByRole('button', { name: 'Сохранить' })).toBeEnabled();
+    // Сохранено — значит сохранять больше нечего: кнопка гаснет по dirty, а не залипает в «идёт запись» (0090).
+    await expect(page.getByRole('button', { name: 'Сохранить' })).toBeDisabled();
     await expect(page.getByRole('dialog')).toHaveCount(0);
   });
 

@@ -11,6 +11,7 @@ import { hasPlan } from '../../hooks/projectOpenState';
 import { saveAlertView, saveIndicatorView } from '../../hooks/saveIndicatorState';
 import { usePersistenceState } from '../../hooks/usePersistenceState';
 import { useProjectOpen } from '../../hooks/useProjectOpen';
+import { useSaveButtonFeedback } from '../../hooks/useSaveButtonFeedback';
 import { plannerLogger } from '../../lib/plannerLogger';
 import { announcePlannerReady } from '../../lib/plannerReadyEvent';
 import { projectStorage } from '../../lib/projectStorage';
@@ -28,8 +29,9 @@ interface Props {
  *
  * 1. фазы 1–2 — планера в дереве нет вовсе, значит нет ни канвасов, ни владельца клавиатуры: ввод
  *    физически некуда доставить, а не «выглядит неактивным»;
- * 2. документ разобран → монтируется `<Planner />` **сразу в конечную геометрию рамки** (иначе `fitToContent`
- *    считал бы по кадру на 16px шире), но индикатор всё ещё поверх — планер поднимается только в эффекте;
+ * 2. документ разобран → монтируется `<Planner />` **сразу в конечную геометрию рамки** (рейл и внешний отступ
+ *    он держит с первого кадра, иначе `fitToContent` считал бы по кадру шире реального), но индикатор всё ещё
+ *    поверх — планер поднимается только в эффекте;
  * 3. `onReady` заменяет документ движка и отдаёт сюда экземпляр: следующий кадр — тот, где `<Planner />`
  *    впервые рисует скин, а индикатор уходит;
  * 4. эффект ниже относится к тому же кадру и идёт **после** эффекта скина, потому что React зовёт эффекты
@@ -89,6 +91,13 @@ export const ProjectEditor: React.FC<Props> = ({ projectId }) => {
   const persistence = usePersistenceState(planner);
   const saveAlert = saveAlertView(persistence?.alert ?? null);
 
+  /**
+   * Обратная связь на кнопке (задача 0090). Реальный `PUT …/document` возвращается быстрее одного кадра
+   * экрана, поэтому кадры «идёт запись» и «сохранено» проскакивали незамеченными; хук держит их видимый срок
+   * и сам гасит галочку. Слот статуса всё это время молчит — иначе рядом с галочкой кнопки стояла бы вторая.
+   */
+  const savePhase = useSaveButtonFeedback(persistence);
+
   /** Закрытие модалки — явная команда движку: статус ошибки при этом остаётся, снимет его успешный save. */
   const handleDismissAlert = useCallback((): void => planner?.manager.persistence.dismissAlert(), [planner]);
 
@@ -125,13 +134,16 @@ export const ProjectEditor: React.FC<Props> = ({ projectId }) => {
     <>
       <title>{`Проект ${projectId} — уютно`}</title>
       <meta name='description' content='Планировка квартиры: чертёж, расстановка мебели и просмотр в 3D.' />
-      {/* Шапка, рамка холста, порог 1024px и экран открытия — у оболочки; страница только собирает планер. */}
+      {/* Шапка, порог 1024px и экран открытия — у оболочки; рейл и рамку холста раскладывает сам планер. */}
       <EditorShell
         projectId={projectId}
         openStatus={openStatus}
         onSave={planner ? handleSave : undefined}
-        isSaving={persistence?.status === 'saving'}
-        saveStatus={<SaveStatusIndicator view={saveIndicatorView(persistence)} />}
+        savePhase={savePhase}
+        hasChanges={persistence?.dirty ?? false}
+        saveStatus={
+          <SaveStatusIndicator view={saveIndicatorView(persistence, { buttonCarriesSaved: savePhase !== 'idle' })} />
+        }
         saveAlert={
           saveAlert && <SaveErrorModal view={saveAlert} onDismiss={handleDismissAlert} onRetry={handleRetrySave} />
         }
@@ -142,7 +154,7 @@ export const ProjectEditor: React.FC<Props> = ({ projectId }) => {
             projectId={projectId}
             logger={plannerLogger}
             storage={projectStorage}
-            className='block h-full w-full'
+            className='h-full w-full'
             onReady={handleReady}
           >
             {/* Оверлей размеров — ребёнок скина: ему нужен и контейнер с канвасами, и общий контекст скина (0060). */}

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft } from 'lucide-react';
+import { Check, ChevronLeft } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
 import { Link } from 'react-router';
@@ -9,6 +9,8 @@ import { getProjects, PROJECTS_QUERY_KEY, RenameProjectModal } from '@app/projec
 
 import type { ProjectDto } from '../../../../shared/projects';
 import { Route } from '../../../../shared/router/routes';
+import { saveButtonView } from '../../hooks/saveIndicatorState';
+import type { SaveButtonPhase } from '../../hooks/useSaveButtonFeedback';
 
 /**
  * Кольцо фокуса — 2px акцентом вплотную к элементу (handoff, «Имя проекта»: «фокус с клавиатуры — кольцо 2px
@@ -29,14 +31,22 @@ interface Props {
    */
   onSave?: () => void;
   /**
-   * Идёт запись — кнопка показывает спиннер с «Сохраняем…» и становится недоступной (handoff, «Индикатор
-   * состояния сохранения»). Второго запроса из неё не запустить, и это не украшение: очередь `persistence`
-   * всё равно схлопнула бы его в один, а кнопка не должна выглядеть работающей, пока идёт запись.
+   * Кадр обратной связи кнопки (задача 0090): спиннер с «Сохраняем…» на время записи, галочка «Сохранено»
+   * после успеха, обычный вид в покое. Сроки считает `useSaveButtonFeedback` — шапка их не знает и знать не
+   * должна, её дело нарисовать присланный кадр.
    *
-   * Статус при этом **один на все запросы**: ручной Save и автосейв дают один и тот же кадр — шапка знает
+   * Статус при этом **один на все запросы**: ручной Save и автосейв дают один и тот же спиннер — шапка знает
    * только состояние `persistence`, а не то, сколько запросов стоит в очереди.
    */
-  isSaving?: boolean;
+  savePhase?: SaveButtonPhase;
+  /**
+   * Есть ли что сохранять — `dirty` из `persistence` (задача 0090). Нет изменений — кнопка неактивна:
+   * нажатие всё равно отбросил бы dirty-гейт внутри движка, а молчащая кнопка читается как сломанная.
+   *
+   * **Не передан — кнопка активна.** Это не «забыли», а рабочий режим демо-роута: там нажатие поднимает
+   * гейт логина (`0065`), а не сохраняет, и гасить кнопку по `dirty` нельзя (спека 10).
+   */
+  hasChanges?: boolean;
   /**
    * Слот индикатора состояния сохранения — пустое место слева от кнопки с уже заданным порядком и gap 12px
    * (handoff, «Индикатор состояния сохранения»). Каркас про состояния индикатора не знает и `persistence` не
@@ -75,12 +85,15 @@ const DIMMED = 'pointer-events-none opacity-40';
 export const EditorHeader: React.FC<Props> = ({
   projectId,
   onSave,
-  isSaving = false,
+  savePhase = 'idle',
+  hasChanges,
   saveStatus,
   isDimmed = false,
 }) => {
   const { authManager } = useRegistry();
   const [isRenameOpen, setIsRenameOpen] = useState(false);
+
+  const saveButton = saveButtonView(savePhase, { canSave: !isDimmed && onSave !== undefined, hasChanges });
 
   /**
    * Имя приходит из карточки проекта — отдельной ручки «один проект» в API нет (`src/server/projects/router.ts`),
@@ -132,17 +145,28 @@ export const EditorHeader: React.FC<Props> = ({
             <button
               type='button'
               onClick={onSave}
-              disabled={isDimmed || !onSave || isSaving}
-              className={`inline-flex h-8 cursor-pointer items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-3 text-[13px] font-medium text-[color:var(--accent-foreground)] disabled:cursor-not-allowed ${isSaving ? 'disabled:opacity-[0.55]' : 'disabled:opacity-40'} ${FOCUS_RING_ON_ACCENT}`}
+              disabled={saveButton.disabled}
+              /*
+               * Ширина фиксирована по самому длинному кадру («Сохраняем…» со спиннером): подпись меняется
+               * трижды за полторы секунды, и без этого кнопка дёргалась бы вместе с аватаром на каждом
+               * переходе. Внутри всё центрируется, поэтому короткие кадры не выглядят прижатыми.
+               */
+              className={`inline-flex h-8 w-[124px] cursor-pointer items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-3 text-[13px] font-medium text-[color:var(--accent-foreground)] disabled:cursor-not-allowed ${savePhase === 'idle' ? 'disabled:opacity-40' : 'disabled:opacity-[0.55]'} ${FOCUS_RING_ON_ACCENT}`}
             >
-              {isSaving && (
-                /* Спиннер 14px из макета: кольцо на цвете подписи кнопки (`--accent-foreground` — белый). */
+              {saveButton.icon === 'spinner' && (
+                /*
+                 * Спиннер 14px из макета: кольцо на цвете подписи кнопки (`--accent-foreground` — белый).
+                 * Вращение — общий класс платформы, а не `animate-spin`: он один умеет замирать при
+                 * `prefers-reduced-motion: reduce`, и держать кольцо неподвижным теперь есть смысл — оно
+                 * стоит на экране полсекунды, а не один кадр.
+                 */
                 <span
                   aria-hidden='true'
-                  className='inline-block size-3.5 animate-spin rounded-full border-2 border-white/35 border-t-white'
+                  className='uyutno-spinner inline-block size-3.5 rounded-full border-2 border-white/35 border-t-white'
                 />
               )}
-              {isSaving ? 'Сохраняем…' : 'Сохранить'}
+              {saveButton.icon === 'check' && <Check size={16} aria-hidden='true' />}
+              {saveButton.label}
             </button>
             {/* Аватар рисуется, поведение не заводится: меню профиля в редакторе не заказывалось (задача 0088). */}
             <span

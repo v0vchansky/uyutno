@@ -1,5 +1,7 @@
 import type { PersistenceState, SaveAlert, SaveFailureKind } from '@uyutno/planner';
 
+import type { SaveButtonPhase } from './useSaveButtonFeedback';
+
 /**
  * Что стоит в слоте статуса шапки (handoff `docs/ui/handoffs/planner/planner-editor-ui.md`, «Индикатор
  * состояния сохранения»). Ровно **один** статус на все запросы: состояние `persistence` одно на планер, и
@@ -35,7 +37,19 @@ const clockAt = (at: number): string => CLOCK.format(at);
  * проекта не существует (ADR 0021, спека 10 «Автосохранение»), а на демо-роуте, где черновик есть,
  * индикатора нет вовсе. Обещание давалось бы ровно там, где оно заведомо ложно.
  */
-export const saveIndicatorView = (state: PersistenceState | null): SaveIndicatorView => {
+export const saveIndicatorView = (
+  state: PersistenceState | null,
+  options: {
+    /**
+     * Подтверждение ручного сохранения сейчас несёт сама кнопка (задача 0090): она держит галочку около
+     * полутора секунд. Всё это время слот молчит — двух галочек в двенадцати пикселях друг от друга не
+     * бывает ни в одном кадре. Текст не потерян, а **отложен**: «Сохранено, ЧЧ:ММ» встаёт в слот ровно
+     * тогда, когда галочка ушла, и дальше держится как прежде — время последнего сохранения кнопка не
+     * несёт и нести не может.
+     */
+    buttonCarriesSaved?: boolean;
+  } = {},
+): SaveIndicatorView => {
   if (state === null) return { kind: 'none' };
 
   switch (state.status) {
@@ -44,6 +58,8 @@ export const saveIndicatorView = (state: PersistenceState | null): SaveIndicator
       if (state.savedAt === null || state.savedReason === null || state.savedReason === 'draft') {
         return { kind: 'none' };
       }
+      // Перехватывается только `manual`: «Автосохранено, ЧЧ:ММ» кнопка не показывает вовсе (задача 0090).
+      if (options.buttonCarriesSaved === true && state.savedReason === 'manual') return { kind: 'none' };
       return {
         kind: 'saved',
         reason: state.savedReason,
@@ -67,6 +83,43 @@ export const saveIndicatorView = (state: PersistenceState | null): SaveIndicator
       // `idle` — покой; `saving` — «идёт запись», и её показывает кнопка, а не слот (handoff, таблица B3).
       return { kind: 'none' };
   }
+};
+
+/** Вид кнопки «Сохранить»: подпись, что стоит слева от неё и нажимается ли она вообще (задача 0090). */
+export interface SaveButtonView {
+  label: string;
+  icon: 'none' | 'spinner' | 'check';
+  disabled: boolean;
+}
+
+/**
+ * Кадр кнопки «Сохранить» (задача 0090).
+ *
+ * **Причин неактивности две, и выглядят они по-разному.** «Идёт запись» — со спиннером и подписью
+ * «Сохраняем…»: кнопка занята, второй запрос из неё не запустить (это правило задачи 0084, очередь
+ * `persistence` схлопнула бы его всё равно). «Сохранять нечего» — обычный погашенный вид: раньше кнопка в
+ * этом состоянии оставалась активной, нажатие молча отбрасывал dirty-гейт внутри `persistence.save()`, и
+ * читалось это как сломанная кнопка. После успешного сохранения кнопка гаснет именно по второй причине —
+ * `dirty` снят, — а не залипает в «идёт запись».
+ *
+ * **Отсутствие признака изменений — не «изменений нет».** `hasChanges` необязателен, и без него кнопка
+ * активна: так живёт демо-роут, где нажатие не сохраняет, а поднимает гейт логина (спека 10, «Storage
+ * backend и авторизация»: «в демо кнопка Save и Ctrl+S активны и кликабельны, не disabled-кнопка, иначе
+ * Ctrl+S остаётся без ответа»). Гасить её там по `dirty` нельзя, и правило заложено сразу, до 0064/0065.
+ */
+export const saveButtonView = (
+  phase: SaveButtonPhase,
+  options: {
+    /** Сохранение вообще доступно: планер поднят и оболочка не гасит шапку экраном открытия. */
+    canSave: boolean;
+    hasChanges?: boolean;
+  },
+): SaveButtonView => {
+  if (phase === 'saving') return { label: 'Сохраняем…', icon: 'spinner', disabled: true };
+  // Галочка доживает своё на погашенной кнопке: `dirty` снят успехом, сохранять к этому моменту уже нечего.
+  if (phase === 'saved') return { label: 'Сохранено', icon: 'check', disabled: true };
+
+  return { label: 'Сохранить', icon: 'none', disabled: !options.canSave || options.hasChanges === false };
 };
 
 /**

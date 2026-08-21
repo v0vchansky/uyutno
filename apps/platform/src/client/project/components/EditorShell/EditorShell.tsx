@@ -2,6 +2,7 @@ import type React from 'react';
 
 import type { ProjectOpenPhase } from '../../hooks/projectOpenState';
 import { useEditorViewportFit } from '../../hooks/useEditorViewportFit';
+import type { SaveButtonPhase } from '../../hooks/useSaveButtonFeedback';
 import { DesktopOnlyScreen } from './DesktopOnlyScreen';
 import { EditorHeader } from './EditorHeader';
 import { ProjectLoadingIndicator } from './ProjectLoadingIndicator';
@@ -25,14 +26,16 @@ interface Props {
    * Планер со скином. Ниже порога 1024px **не рендерится вовсе**: элемент создан, но в дерево не попадает,
    * поэтому ни канвасов, ни WebGL-контекста на телефоне не появляется.
    *
-   * Пока проект не открыт, страница не передаёт сюда ничего — и рамка холста тогда не рисуется: обводить
-   * ей нечего, под шапкой чистый белый экран (handoff, «Состояния экрана · оболочка»).
+   * Пока проект не открыт, страница не передаёт сюда ничего — и ни рейла, ни рамки холста тогда на экране нет:
+   * обводить нечего, под шапкой чистый белый экран (handoff, «Состояния экрана · оболочка»).
    */
   children?: React.ReactNode;
   /** Прокидывается в кнопку «Сохранить»; пока не передан — кнопка `disabled` (логика — задачи 0082/0084). */
   onSave?: () => void;
-  /** Идёт запись: кнопка «Сохранить» переходит в «Сохраняем…» и не пускает второй запрос (задача 0084). */
-  isSaving?: boolean;
+  /** Кадр обратной связи кнопки: «Сохраняем…» со спиннером, «Сохранено» с галочкой, покой (задача 0090). */
+  savePhase?: SaveButtonPhase;
+  /** Есть ли что сохранять: без изменений кнопка «Сохранить» неактивна (задача 0090). */
+  hasChanges?: boolean;
   /** Слот индикатора сохранения в шапке; каркас держит место, содержимое приносит задача 0084. */
   saveStatus?: React.ReactNode;
   /**
@@ -48,17 +51,12 @@ interface Props {
  * Каркас оболочки редактора (handoff `docs/ui/handoffs/planner/planner-editor-ui.md`, «Каркас» P0 и «Оболочка
  * редактора (P1)»; прототип `Planner Editor Shell.dc.html`, кадры `s0`–`s2` и «загрузка · фаза 1/2»).
  *
- * Фон страницы `--background`, сверху шапка 48px, под ней строка с холстом: внешний отступ 8px, радиус 12px,
- * рамка 1px `--border`, внутри белая область. Оверлеи скина (панель инструментов, контролы холста, полоса
- * подсказки, место под сводку) позиционируются абсолютом **внутри контейнера планера**, поэтому их отступы 12px
- * по-прежнему считаются от края холста, а не окна: рамка их не сдвигает и не перекрывает.
+ * Фон страницы `--background`, сверху шапка 48px, под ней — вся оставшаяся площадь под планер.
  *
- * **Известное расхождение с макетом, требующее правки в пакете планера.** В макете рейл 60px стоит слева
- * **снаружи** рамки, а внутрь неё попадает только холст. Рейл рисует `ConstructorSkin` абсолютом внутри
- * контейнера `<Planner />` (`packages/planner/src/ui/ConstructorSkin/ConstructorSkin.tsx`), а канвасы занимают
- * этот контейнер целиком (`inset: 0`) — то есть отделить рейл от холста можно только внутри пакета. Пока рамка
- * охватывает контейнер целиком: числа (8/12/1px) и взаимное положение оверлеев верны, снаружи рамки остаётся
- * не рейл, а край окна. Вернуть рейл наружу — задача правки пакета, а не платформы.
+ * **Строку под шапкой раскладывает пакет** (задача 0089): рейл 60px слева, затем рамка холста — отступ 8px,
+ * радиус 12px, граница 1px `--border`. Платформа рамку не рисует намеренно: в макете рейл стоит **снаружи**
+ * рамки, а рамка вокруг всего `<Planner />` неизбежно забирала бы рейл внутрь себя — рейл и канвасы принадлежат
+ * пакету, и разделить их может только он.
  *
  * **Экран открытия — тоже оболочка** (задача 0085): индикатор фаз и модалки отказа живут здесь, а не на
  * странице, потому что оба обязаны оставаться под порогом 1024px — ниже него редактора нет вовсе, и модалка
@@ -71,7 +69,8 @@ export const EditorShell: React.FC<Props> = ({
   projectId,
   children,
   onSave,
-  isSaving,
+  savePhase,
+  hasChanges,
   saveStatus,
   saveAlert,
   openStatus = { kind: 'ready' },
@@ -92,18 +91,17 @@ export const EditorShell: React.FC<Props> = ({
       <EditorHeader
         projectId={projectId}
         onSave={onSave}
-        isSaving={isSaving}
+        savePhase={savePhase}
+        hasChanges={hasChanges}
         saveStatus={saveStatus}
         isDimmed={isOpening}
       />
 
       <main className='relative flex min-h-0 flex-1'>
-        {children ? (
-          <div className='relative m-2 min-w-0 flex-1 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]'>
-            {fit === 'fits' ? children : null}
-          </div>
+        {fit === 'fits' && children ? (
+          children
         ) : (
-          /* Ни рамки, ни внутреннего отступа: под шапкой чистый белый экран (handoff). */
+          /* Планера в дереве нет — значит нет ни рейла, ни рамки: под шапкой чистый белый экран (handoff). */
           <div className='min-w-0 flex-1 bg-[var(--surface)]' />
         )}
 

@@ -1,6 +1,6 @@
 import type { PersistenceState, SaveAlert } from '@uyutno/planner';
 
-import { saveAlertView, saveIndicatorView } from './saveIndicatorState';
+import { saveAlertView, saveButtonView, saveIndicatorView } from './saveIndicatorState';
 
 /**
  * Отображение состояния `persistence` в шапку (задача 0084; handoff `planner-editor-ui.md`, «Индикатор
@@ -80,6 +80,93 @@ describe('saveIndicatorView', () => {
     const second = saveIndicatorView(state({ status: 'saved', savedAt: EARLIER, savedReason: 'manual' }));
 
     expect(first).not.toEqual(second);
+  });
+});
+
+describe('saveIndicatorView — кнопка перехватывает подтверждение (задача 0090)', () => {
+  const saved = state({ status: 'saved', savedAt: AT, savedReason: 'manual' });
+
+  it('пока галочка на кнопке, слот молчит — двух подтверждений рядом не бывает', () => {
+    expect(saveIndicatorView(saved, { buttonCarriesSaved: true })).toEqual({ kind: 'none' });
+  });
+
+  it('галочка ушла — «Сохранено, ЧЧ:ММ» возвращается в слот и держится дальше', () => {
+    expect(saveIndicatorView(saved, { buttonCarriesSaved: false })).toEqual({
+      kind: 'saved',
+      reason: 'manual',
+      label: 'Сохранено, 14:32',
+    });
+  });
+
+  it('«Автосохранено» кнопка не несёт — его слот показывает всегда', () => {
+    const autosaved = state({ status: 'saved', savedAt: EARLIER, savedReason: 'autosave' });
+
+    expect(saveIndicatorView(autosaved, { buttonCarriesSaved: true })).toEqual({
+      kind: 'saved',
+      reason: 'autosave',
+      label: 'Автосохранено, 09:05',
+    });
+  });
+
+  it('тихую иконку отказа и офлайн кнопка не перехватывает', () => {
+    expect(saveIndicatorView(state({ status: 'error', failedAt: AT }), { buttonCarriesSaved: true }).kind).toBe(
+      'error',
+    );
+    expect(saveIndicatorView(state({ status: 'offline', failedAt: AT }), { buttonCarriesSaved: true }).kind).toBe(
+      'offline',
+    );
+  });
+});
+
+describe('saveButtonView — вид кнопки «Сохранить» (задача 0090)', () => {
+  it('покой с изменениями — обычный вид, кнопка нажимается', () => {
+    expect(saveButtonView('idle', { canSave: true, hasChanges: true })).toEqual({
+      label: 'Сохранить',
+      icon: 'none',
+      disabled: false,
+    });
+  });
+
+  it('изменений нет — кнопка неактивна: нажатие всё равно отбросил бы dirty-гейт', () => {
+    expect(saveButtonView('idle', { canSave: true, hasChanges: false })).toEqual({
+      label: 'Сохранить',
+      icon: 'none',
+      disabled: true,
+    });
+  });
+
+  it('идёт запись — спиннер с «Сохраняем…», второй запрос из кнопки не запустить', () => {
+    expect(saveButtonView('saving', { canSave: true, hasChanges: true })).toEqual({
+      label: 'Сохраняем…',
+      icon: 'spinner',
+      disabled: true,
+    });
+  });
+
+  it('успех — галочка на погашенной кнопке: сохранять уже нечего, а подтверждение ещё видно', () => {
+    expect(saveButtonView('saved', { canSave: true, hasChanges: false })).toEqual({
+      label: 'Сохранено',
+      icon: 'check',
+      disabled: true,
+    });
+  });
+
+  it('две причины неактивности различимы иконкой, а не только словом', () => {
+    const idle = saveButtonView('idle', { canSave: true, hasChanges: false });
+    const saving = saveButtonView('saving', { canSave: true, hasChanges: true });
+
+    expect(idle.disabled).toBe(true);
+    expect(saving.disabled).toBe(true);
+    expect(idle.icon).not.toBe(saving.icon);
+  });
+
+  it('обработчика ещё нет (планер не поднят) — кнопка неактивна независимо от изменений', () => {
+    expect(saveButtonView('idle', { canSave: false, hasChanges: true }).disabled).toBe(true);
+  });
+
+  it('признак изменений не передан — кнопка активна: так живёт демо-роут (спека 10)', () => {
+    // На демо нажатие поднимает гейт логина (0065), а не сохраняет: гасить её по dirty там нельзя.
+    expect(saveButtonView('idle', { canSave: true }).disabled).toBe(false);
   });
 });
 
