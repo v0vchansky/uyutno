@@ -28,10 +28,12 @@ export const ProjectsEmptyState: React.FC<Props> = ({ onCreate }) => {
         <Button onPress={onCreate} className='h-11'>
           Создать проект
         </Button>
-        <Link
-          to='/demo'
-          className='inline-flex h-11 items-center rounded-xl bg-[var(--surface-secondary)] px-4 text-[14px] font-medium text-[color:var(--foreground)] no-underline transition-colors hover:bg-[var(--surface-tertiary)]'
-        >
+        {/*
+         * Ссылка одета классами кнопки (задача 0097) — тем же способом, что и в `common/NotFoundScreen.tsx`.
+         * `h-11` повторяет высоту соседней кнопки «Создать проект»: пара стоит в одну строку, и разной
+         * высоты у неё быть не может.
+         */}
+        <Link to='/demo' className='button button--tertiary h-11 no-underline'>
           Посмотреть пример
         </Link>
       </div>

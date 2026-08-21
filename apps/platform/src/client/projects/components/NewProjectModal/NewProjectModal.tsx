@@ -105,7 +105,7 @@ const NewProjectForm: React.FC<NewProjectFormProps> = ({ onClose }) => {
         <Label>Название</Label>
         <Input ref={inputRef} />
         {errorLabel ? (
-          <span className='mt-1 text-[12px] text-[color:oklch(38%_0.16_27)]'>{errorLabel}</span>
+          <span className='mt-1 text-[12px] text-[color:var(--form-error)]'>{errorLabel}</span>
         ) : (
           <span className='mt-1 text-[12px] text-[color:var(--muted)]'>Название можно изменить позже</span>
         )}

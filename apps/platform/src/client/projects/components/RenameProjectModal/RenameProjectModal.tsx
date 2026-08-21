@@ -110,7 +110,7 @@ const RenameForm: React.FC<RenameFormProps> = ({ project, onClose }) => {
       >
         <Label>Название</Label>
         <Input ref={inputRef} />
-        {errorLabel ? <span className='mt-1 text-[12px] text-[color:oklch(38%_0.16_27)]'>{errorLabel}</span> : null}
+        {errorLabel ? <span className='mt-1 text-[12px] text-[color:var(--form-error)]'>{errorLabel}</span> : null}
       </TextField>
 
       <div className='mt-2 flex items-center justify-end gap-2 max-lg:justify-stretch'>

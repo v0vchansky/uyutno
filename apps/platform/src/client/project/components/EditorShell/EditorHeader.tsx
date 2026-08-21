@@ -1,4 +1,4 @@
-import { Spinner } from '@heroui/react';
+import { Avatar, Button, Separator, Spinner } from '@heroui/react';
 import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronLeft } from 'lucide-react';
 import type React from 'react';
@@ -12,17 +12,6 @@ import type { ProjectDto } from '../../../../shared/projects';
 import { Route } from '../../../../shared/router/routes';
 import { saveButtonView } from '../../hooks/saveIndicatorState';
 import type { SaveButtonPhase } from '../../hooks/useSaveButtonFeedback';
-
-/**
- * Кольцо фокуса — 2px акцентом вплотную к элементу (handoff, «Имя проекта»: «фокус с клавиатуры — кольцо 2px
- * `--accent`»; «Доступность»: «кольцо фокуса всюду акцентное»). Утилиты те же, что у карточек проектов, — на
- * платформе это `ring`, а не `outline` со смещением.
- */
-const FOCUS_RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent)]';
-
-/** То же кольцо, но со смещением: у кнопки, залитой акцентом, кольцо вплотную не видно — акцент по акценту. */
-const FOCUS_RING_ON_ACCENT =
-  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)]';
 
 interface Props {
   projectId: string;
@@ -64,36 +53,38 @@ interface Props {
   isDimmed?: boolean;
 }
 
-/** Гашение неактивных элементов шапки на экране открытия — числа из макета. */
+/**
+ * Гашение неактивных элементов шапки на экране открытия — числа из макета (40%), а не библиотечные 50%
+ * недоступной кнопки: это гашение **всей шапки**, а не признак недоступности отдельного элемента.
+ * Утилита лежит в слое `utilities` и перебивает `opacity` из `@layer components`, поэтому стоит рядом с
+ * `isDisabled`, а не вместо него.
+ */
 const DIMMED = 'pointer-events-none opacity-40';
 
 /**
- * Приглушение погашенной кнопки «Сохранить» — по причине, а не одним числом на все случаи.
+ * Ширина кнопки «Сохранить» — по самому длинному кадру («Сохраняем…» со спиннером): подпись меняется трижды
+ * за полторы секунды, и без фиксации кнопка дёргалась бы вместе с аватаром на каждом переходе. Внутри всё
+ * центрируется, поэтому короткие кадры не выглядят прижатыми.
  *
- * У `saving` приглушения нет намеренно. HeroUI различает два состояния кнопки: `isPending` — нажатие не
- * проходит, но кнопка **не помечена недоступной и прозрачностью не гасится**, и `isDisabled` — недоступна
- * и приглушена. «Идёт запись» — это первое: занятость уже сказана спиннером и подписью «Сохраняем…»,
- * гасить её сверху нечем и незачем. Прежние 55% съедали контраст ровно у спиннера — единственного, что в
- * этом кадре и нужно разглядеть. Кнопка на своём `<button>`, поэтому пропа `isPending` у неё нет и правило
- * держится здесь; сам `disabled` остаётся — второй запрос из кнопки не запустить (задача 0084).
- *
- * `saved` и `idle` — обе недоступность «нечего делать», и приглушение у них разное: под галочкой оно
- * слабее, чтобы подтверждение читалось.
+ * Число измерено на живой странице, а не взято на глаз: 12 (padding `.button--sm`) + 16 (`Spinner size="sm"`)
+ * + 8 (gap) + 91.2 («Сохраняем…» в Inter 14/500) + 12 = 139.2 → 140. Прежние 136px считались под шрифт 13px
+ * самописной кнопки; с библиотечным 14px этот кадр в них уже не влезает.
  */
-const SAVE_BUTTON_DIM: Record<SaveButtonPhase, string> = {
-  idle: 'disabled:opacity-40',
-  saving: '',
-  saved: 'disabled:opacity-[0.55]',
-};
+const SAVE_BUTTON_WIDTH = 'w-[140px]';
 
 /**
  * Шапка редактора (handoff `docs/ui/handoffs/planner/planner-editor-ui.md`, «Оболочка редактора (P1)» →
  * «Шапка», «Имя проекта»; прототип `Planner Editor Shell.dc.html`, кадры `s1`/`s2`).
  *
  * Ровно 48px по внешнему габариту (`h-12` при `box-sizing: border-box` — на платформе он глобальный), внутри
- * контейнер на всю высоту с боковым padding 12px и gap 16px. Слева направо: возврат «Проекты» со стрелкой 18px,
+ * контейнер на всю высоту с боковым padding 12px и gap 16px. Слева направо: возврат «Проекты» со стрелкой,
  * разделитель 1×20px, имя проекта, распор, справа группа с gap 12px — слот статуса, «Сохранить», аватар 32px.
  * Внутренний контейнер обязателен: на пороге в нём меняется gap.
+ *
+ * **Все интерактивные элементы — библиотечные** (задача 0097). Раньше шапка была написана сырой разметкой и
+ * молча вышла из-под темы: `rounded-lg` = 8px против 12px, которые `theme-uyutno.css` задаёт всем кнопкам
+ * «в шапке и формах». Заливка, радиус, кольцо фокуса, курсор и обе недоступности теперь приезжают из
+ * `.button` / `.avatar` / `.separator`, а не воспроизводятся руками.
  *
  * **Порог.** Handoff называет одно число — 1024px, ниже которого редактора нет вовсе, и «комфортную ширину от
  * 1280px». Плотная раскладка шапки (слово «Проекты» снято, gap 8px, имя 150px) поэтому живёт на всём участке
@@ -129,29 +120,41 @@ export const EditorHeader: React.FC<Props> = ({
     <>
       <header className='h-12 shrink-0 border-b border-[var(--separator)] bg-[var(--surface)]'>
         <div className='flex h-full items-center gap-2 px-3 xl:gap-4'>
+          {/*
+           * Возврат — ссылка, а не кнопка с обработчиком: у неё должен быть href, средний клик и «открыть в
+           * новой вкладке». Поэтому библиотечный вид приезжает BEM-классами `.button`, а не компонентом
+           * `Button` с пропом `render` — тот же приём, что уже стоит в `common/NotFoundScreen.tsx`.
+           */}
           <Link
             to={Route.Projects}
             aria-label='Проекты'
-            className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[13px] text-[color:var(--foreground)] no-underline hover:bg-[var(--surface-secondary)] ${FOCUS_RING}`}
+            className='button button--sm button--ghost shrink-0 no-underline'
           >
             <ChevronLeft size={18} aria-hidden='true' />
             {/* На пороге остаётся одна стрелка; `aria-label` выше держит имя ссылки в обоих состояниях. */}
             <span className='max-xl:hidden'>Проекты</span>
           </Link>
 
-          <span aria-hidden='true' className='h-5 w-px shrink-0 bg-[var(--border)]' />
+          <Separator orientation='vertical' className='h-5 shrink-0 self-center' />
 
           {project ? (
-            <button
-              type='button'
+            <Button
+              size='sm'
+              variant='ghost'
+              /*
+               * Нативного `title` у кнопки больше нет: `ButtonRootProps` его не принимает, и это правильно —
+               * подсказка по наведению мышью недоступна с клавиатуры, ровно та же болезнь, которую в этой
+               * задаче лечили у иконки ошибки автосейва. Имя действия несёт `aria-label`, а подпись кнопки —
+               * само имя проекта.
+               */
               aria-label='Переименовать проект'
-              title='Переименовать проект'
-              onClick={() => setIsRenameOpen(true)}
-              disabled={isDimmed}
-              className={`h-8 max-w-[150px] cursor-pointer truncate rounded-lg px-2 text-left text-[14px] font-medium text-[color:var(--foreground)] hover:bg-[var(--surface-secondary)] xl:max-w-[280px] ${FOCUS_RING} ${isDimmed ? DIMMED : ''}`}
+              onPress={() => setIsRenameOpen(true)}
+              isDisabled={isDimmed}
+              className={`max-w-[150px] xl:max-w-[280px] ${isDimmed ? DIMMED : ''}`}
             >
-              {project.name}
-            </button>
+              {/* `min-w-0` — иначе флекс-ребёнок не сжимается и многоточие не появляется. */}
+              <span className='min-w-0 truncate'>{project.name}</span>
+            </Button>
           ) : (
             /* Список ещё едет — держим место именем-скелетоном; проект не нашёлся (чужой или несуществующий id) —
                имени в шапке просто нет, выдумывать его каркасу нечем. */
@@ -162,21 +165,24 @@ export const EditorHeader: React.FC<Props> = ({
 
           <div className={`flex shrink-0 items-center gap-3 ${isDimmed ? DIMMED : ''}`}>
             {saveStatus}
-            <button
-              type='button'
-              onClick={onSave}
-              disabled={saveButton.disabled}
+            <Button
+              size='sm'
+              onPress={onSave}
               /*
-               * Ширина фиксирована по самому длинному кадру («Сохраняем…» со спиннером): подпись меняется
-               * трижды за полторы секунды, и без этого кнопка дёргалась бы вместе с аватаром на каждом
-               * переходе. Внутри всё центрируется, поэтому короткие кадры не выглядят прижатыми.
-               *
-               * Число измерено, а не взято на глаз: 12 + 16 (спиннер) + 8 (gap) + 84.7 («Сохраняем…» в
-               * Inter 13/500) + 12 = 132.7. Прежние 124px этот кадр не вмещали, и лишнее флекс отбирал у
-               * спиннера — тот сжимался с 14 до 7.3px и вращался эллипсом. С библиотечным `Spinner`
-               * (`flex-shrink: 0` внутри) сжималась бы уже подпись, поэтому ширина считается по кадру.
+               * Две причины «нажать нельзя» — два разных пропа, а не один `disabled` с таблицей приглушений.
+               * `isPending` оставляет кнопку в таб-обходе и объявляет её занятой, `isDisabled` ставит настоящий
+               * атрибут `disabled` (задача 0097; прежняя константа `SAVE_BUTTON_DIM` жила ровно на этой развилке).
                */
-              className={`inline-flex h-8 w-[136px] cursor-pointer items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-3 text-[13px] font-medium text-[color:var(--accent-foreground)] disabled:cursor-not-allowed ${SAVE_BUTTON_DIM[savePhase]} ${FOCUS_RING_ON_ACCENT}`}
+              isPending={saveButton.pending}
+              isDisabled={saveButton.disabled}
+              /*
+               * Единственное отступление от библиотеки — приглушение во время записи. React Aria ставит занятой
+               * кнопке `aria-disabled="true"`, а `.button[aria-disabled="true"]` гасит её до 50%; решение автора
+               * по задаче 0090 прямо обратное: «идёт запись — не гасим», потому что приглушение съедает контраст
+               * ровно у спиннера, единственного, что в этом кадре и нужно разглядеть. Возвращаем непрозрачность
+               * одним правилом на состояние, а не тремя числами на три фазы.
+               */
+              className={`${SAVE_BUTTON_WIDTH} shrink-0 data-[pending=true]:opacity-100`}
             >
               {saveButton.icon === 'spinner' && (
                 /*
@@ -194,14 +200,11 @@ export const EditorHeader: React.FC<Props> = ({
               )}
               {saveButton.icon === 'check' && <Check size={16} aria-hidden='true' />}
               {saveButton.label}
-            </button>
+            </Button>
             {/* Аватар рисуется, поведение не заводится: меню профиля в редакторе не заказывалось (задача 0088). */}
-            <span
-              aria-hidden='true'
-              className='inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-secondary)] text-[12px] font-semibold text-[color:var(--foreground)]'
-            >
-              {user ? initialsFromName(displayNameOrEmailFallback(user)) : ''}
-            </span>
+            <Avatar size='sm' aria-hidden='true' className='shrink-0'>
+              <Avatar.Fallback>{user ? initialsFromName(displayNameOrEmailFallback(user)) : ''}</Avatar.Fallback>
+            </Avatar>
           </div>
         </div>
       </header>

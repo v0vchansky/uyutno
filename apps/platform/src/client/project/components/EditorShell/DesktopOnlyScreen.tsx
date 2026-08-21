@@ -54,10 +54,16 @@ export const DesktopOnlyScreen: React.FC = () => {
           </p>
         </div>
 
+        {/*
+         * Ссылка одета классами кнопки, а не набором утилит (задача 0097): заливка, радиус, наведение,
+         * нажатие и кольцо фокуса приезжают из темы. Размер — `xl` (48px, радиус 14px, текст 16px), тот же,
+         * что у единственной кнопки на `common/NotFoundScreen.tsx`: экран такой же — сообщение по центру и
+         * один выход. Сенсорная цель при этом растёт с 44 до 48px, а не уменьшается.
+         */}
         <Link
           to={isAuthenticated ? Route.Projects : Route.Home}
-          /* Кнопка залита акцентом, поэтому кольцо фокуса — со смещением: акцент по акценту не виден. */
-          className='inline-flex h-11 items-center rounded-xl bg-[var(--accent)] px-6 text-[15px] font-medium text-[color:var(--accent-foreground)] no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)]'
+          data-size='xl'
+          className='button button--primary no-underline'
         >
           {isAuthenticated ? 'Мои проекты' : 'На главную'}
         </Link>

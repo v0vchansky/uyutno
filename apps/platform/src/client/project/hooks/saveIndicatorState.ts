@@ -89,6 +89,13 @@ export const saveIndicatorView = (
 export interface SaveButtonView {
   label: string;
   icon: 'none' | 'spinner' | 'check';
+  /**
+   * «Идёт запись» — состояние ожидания HeroUI (`isPending`, задача 0097), а не недоступность. Кнопка
+   * остаётся в таб-обходе и объявляется скринридеру занятой, нажатие при этом не проходит: React Aria
+   * снимает обработчики, а `.button[data-pending]` — указатель.
+   */
+  pending: boolean;
+  /** Настоящая недоступность (`isDisabled` → атрибут `disabled`): нечего сохранять или сохранять некуда. */
   disabled: boolean;
 }
 
@@ -101,6 +108,10 @@ export interface SaveButtonView {
  * этом состоянии оставалась активной, нажатие молча отбрасывал dirty-гейт внутри `persistence.save()`, и
  * читалось это как сломанная кнопка. После успешного сохранения кнопка гаснет именно по второй причине —
  * `dirty` снят, — а не залипает в «идёт запись».
+ *
+ * **Две причины — два разных признака у компонента** (задача 0097): занятость — `isPending`, недоступность —
+ * `isDisabled`. Раньше обе схлопывались в один `disabled`, и различать их приходилось таблицей приглушений
+ * в разметке шапки.
  *
  * **Отсутствие признака изменений — не «изменений нет».** `hasChanges` необязателен, и без него кнопка
  * активна: так живёт демо-роут, где нажатие не сохраняет, а поднимает гейт логина (спека 10, «Storage
@@ -115,11 +126,16 @@ export const saveButtonView = (
     hasChanges?: boolean;
   },
 ): SaveButtonView => {
-  if (phase === 'saving') return { label: 'Сохраняем…', icon: 'spinner', disabled: true };
+  if (phase === 'saving') return { label: 'Сохраняем…', icon: 'spinner', pending: true, disabled: false };
   // Галочка доживает своё на погашенной кнопке: `dirty` снят успехом, сохранять к этому моменту уже нечего.
-  if (phase === 'saved') return { label: 'Сохранено', icon: 'check', disabled: true };
+  if (phase === 'saved') return { label: 'Сохранено', icon: 'check', pending: false, disabled: true };
 
-  return { label: 'Сохранить', icon: 'none', disabled: !options.canSave || options.hasChanges === false };
+  return {
+    label: 'Сохранить',
+    icon: 'none',
+    pending: false,
+    disabled: !options.canSave || options.hasChanges === false,
+  };
 };
 
 /**

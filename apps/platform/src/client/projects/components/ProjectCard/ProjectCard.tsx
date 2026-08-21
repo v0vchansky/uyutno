@@ -1,3 +1,4 @@
+import { Button } from '@heroui/react';
 import type React from 'react';
 import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
@@ -29,13 +30,13 @@ export const ProjectCard: React.FC<Props> = ({ project, onRename, onDuplicate, o
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
 
-  const handleMenuClick = (event: React.MouseEvent<HTMLButtonElement>): void => {
-    // Никакой навигации по карточке — «…» отдельный интерактив, не должен всплывать
-    // до ссылок-детей и не должен считаться кликом по карточке.
-    event.preventDefault();
-    event.stopPropagation();
-    setIsMenuOpen(prev => !prev);
-  };
+  /**
+   * Никакой навигации по карточке — «…» отдельный интерактив, не должен считаться кликом по карточке.
+   * Раньше это держалось ручными `preventDefault`/`stopPropagation` на `onClick`; у `Button` HeroUI
+   * событие приходит через `onPress`, а тот по умолчанию всплытие уже гасит — продолжить его можно
+   * только явным `continuePropagation()` (задача 0097).
+   */
+  const toggleMenu = (): void => setIsMenuOpen(prev => !prev);
 
   const closeMenu = (): void => setIsMenuOpen(false);
 
@@ -62,21 +63,34 @@ export const ProjectCard: React.FC<Props> = ({ project, onRename, onDuplicate, o
           <span className='text-[13px] text-[color:var(--muted)]'>{updatedLabel}</span>
         </Link>
         <div className='relative flex-shrink-0'>
-          <button
+          {/*
+           * Триггер меню — библиотечный `Button` (задача 0097): заливка, радиус, наведение и кольцо фокуса
+           * приезжают из темы, а не воспроизводятся утилитами.
+           *
+           * **Сенсорная цель не отдаётся шкале.** У `.button--icon-only.button--sm` габарит 36px до 768px и
+           * 32px выше, а до 1024px нам нужны 44px — минимальная цель нажатия по `docs/ui/layout.md`. Поэтому
+           * `size="sm"` даёт десктопные 32px, а `max-lg:size-11` возвращает 44px ровно на том участке, где
+           * карточку трогают пальцем. Утилита лежит в слое `utilities` и перебивает `w-9 md:w-8` из
+           * `@layer components`, так что порядок классов роли не играет.
+           *
+           */}
+          <Button
             ref={triggerRef}
-            type='button'
-            onClick={handleMenuClick}
+            isIconOnly
+            size='sm'
+            variant='tertiary'
+            onPress={toggleMenu}
             aria-label='Действия с проектом'
             aria-haspopup='menu'
             aria-expanded={isMenuOpen}
-            className='inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--surface-secondary)] text-[color:var(--foreground)] transition-colors hover:bg-[var(--surface-tertiary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent)] max-lg:h-11 max-lg:w-11'
+            className='max-lg:size-11'
           >
             <svg width='16' height='16' viewBox='0 0 24 24' fill='currentColor' aria-hidden='true'>
               <circle cx='12' cy='5' r='1.6' />
               <circle cx='12' cy='12' r='1.6' />
               <circle cx='12' cy='19' r='1.6' />
             </svg>
-          </button>
+          </Button>
 
           <ProjectCardMenu
             project={project}

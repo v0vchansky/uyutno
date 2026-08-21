@@ -142,7 +142,7 @@ export const LoginPage: React.FC = () => {
                 {activeError ? (
                   <div
                     role='alert'
-                    className='rounded-xl bg-[color:oklch(96%_0.02_27)] px-3 py-2.5 text-[13px] leading-[1.5] text-[color:oklch(38%_0.16_27)]'
+                    className='rounded-xl bg-[var(--form-error-surface)] px-3 py-2.5 text-[13px] leading-[1.5] text-[color:var(--form-error)]'
                   >
                     {FORM_ERROR_MESSAGES[activeError]}
                   </div>
@@ -163,7 +163,14 @@ export const LoginPage: React.FC = () => {
 
                   <a
                     href={oauthStartUrl('yandex', from)}
-                    className='inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[var(--surface)] text-[14px] font-medium text-[color:var(--foreground)] no-underline transition-colors hover:bg-[color:oklch(98%_0_0)]'
+                    /*
+                     * Ссылка одета классами кнопки (задача 0097) — тем же способом, что и в
+                     * `common/NotFoundScreen.tsx`. Своего варианта под «белую плашку на серой карточке» в
+                     * библиотеке нет, поэтому заливка и наведение задаются её же переменными: механика
+                     * (радиус темы, кольцо фокуса, нажатие) остаётся библиотечной, а цвета берутся из токенов
+                     * `--segment` / `--segment-hover`, а не из литералов `oklch(...)` в разметке.
+                     */
+                    className='button h-11 w-full no-underline [--button-bg-hover:var(--segment-hover)] [--button-bg:var(--segment)]'
                   >
                     <span
                       aria-hidden='true'

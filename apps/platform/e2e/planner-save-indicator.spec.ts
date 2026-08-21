@@ -106,7 +106,13 @@ test.describe('индикатор сохранения в шапке', () => {
 
     const saving = page.getByRole('button', { name: 'Сохраняем…' });
     await expect(saving).toBeVisible();
-    await expect(saving).toBeDisabled();
+    /*
+     * «Идёт запись» — занятость, а не недоступность (задача 0097): у `Button` HeroUI это `isPending`, и
+     * атрибута `disabled` в этом кадре нет. Скринридеру занятость объявляется `aria-disabled`, а проверку
+     * «нажатие не проходит» несёт сценарий ниже, где запрос удерживается и считается.
+     */
+    await expect(saving).toHaveAttribute('aria-disabled', 'true');
+    await expect(saving).not.toHaveAttribute('disabled', /.*/);
 
     // Подтверждение доживает своё на погашенной кнопке: dirty снят успехом, сохранять уже нечего.
     const saved = page.getByRole('button', { name: 'Сохранено' });
@@ -134,19 +140,34 @@ test.describe('индикатор сохранения в шапке', () => {
     const held = new Promise<void>(resolve => {
       release = resolve;
     });
+    let writes = 0;
     await page.route(projectDocumentApiPath(projectId), async route => {
       if (route.request().method() !== 'PUT') return route.continue();
+      writes += 1;
       await held;
       return route.continue();
     });
 
     await page.getByRole('button', { name: 'Сохранить' }).click();
 
-    // Пока запрос в полёте — «идёт запись»: кнопка недоступна, второй запрос из неё не запустить.
+    // Пока запрос в полёте — «идёт запись»: кнопка занята, второй запрос из неё не запустить.
     const saving = page.getByRole('button', { name: 'Сохраняем…' });
     await expect(saving).toBeVisible();
-    await expect(saving).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Сохранить' })).toHaveCount(0);
+
+    /*
+     * Проверка по существу, а не по атрибуту (задача 0097). Раньше «второй запрос не запустить» держал
+     * `disabled`, и тест смотрел ровно на него. У `isPending` атрибута `disabled` нет: кнопка остаётся
+     * фокусируемой (иначе фокус улетал бы с неё на время записи, и объявить занятость было бы некому), а
+     * нажатие гасят React Aria и `pointer-events: none`. Значит и проверять надо нажатие: жмём занятую
+     * кнопку и мышью, и с клавиатуры — и считаем ушедшие запросы.
+     */
+    await saving.click({ force: true });
+    await saving.focus();
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Space');
+    await expect(saving).toBeVisible();
+    expect(writes, 'из занятой кнопки второй запрос не уходит').toBe(1);
 
     release();
     const status = statusOf(page);
@@ -196,10 +217,34 @@ test.describe('индикатор сохранения в шапке', () => {
 
     const icon = page.getByRole('img', { name: 'Не удалось сохранить на сервер' });
     await expect(icon).toBeVisible();
-    await expect(icon).toHaveAttribute('title', /^Не удалось сохранить на сервер, \d{2}:\d{2}$/);
     await expect(page.getByRole('dialog')).toHaveCount(0);
+
+    /*
+     * Подсказка — библиотечный `Tooltip`, а не нативный `title` (задача 0097). Проверяются оба входа:
+     * наведение мышью, которое умел и `title`, и **фокус с клавиатуры**, которого у `title` не было, — ради
+     * него компонент и взят. Обход, вписанный тогда в компонент (`role="img"` + `aria-label` вместо
+     * подсказки), с этого момента лишний.
+     */
+    const tooltip = page.getByRole('tooltip');
+
+    /*
+     * Указатель сначала ставится в стороне, а потом наводится: у свежей страницы позиция мыши ещё не
+     * определена, и первый же `hover()` в некоторых прогонах не рождает `pointerenter` — компонент такого
+     * события просто не видит. Это про инструмент, а не про подсказку.
+     */
+    await page.mouse.move(400, 500);
+    await icon.hover();
+    await expect(tooltip).toHaveText(/^Не удалось сохранить на сервер, \d{2}:\d{2}$/);
     // Обещания локальной копии нет: у обычного проекта её не существует (ADR 0021).
-    expect(await icon.getAttribute('title')).not.toMatch(/локальн/i);
+    await expect(tooltip).not.toContainText(/локальн/i);
+
+    // Увели указатель — подсказка ушла.
+    await page.mouse.move(0, 400);
+    await expect(tooltip).toHaveCount(0);
+
+    // Тот же текст достаётся с клавиатуры: иконка в таб-обходе, подсказка открывается по фокусу.
+    await icon.focus();
+    await expect(tooltip).toHaveText(/^Не удалось сохранить на сервер, \d{2}:\d{2}$/);
 
     // Первый успешный save иконку снимает.
     await page.unroute(projectDocumentApiPath(projectId));

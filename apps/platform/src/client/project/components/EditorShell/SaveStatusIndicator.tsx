@@ -1,3 +1,4 @@
+import { Tooltip } from '@heroui/react';
 import { Check, TriangleAlert, WifiOff } from 'lucide-react';
 import type React from 'react';
 
@@ -28,8 +29,11 @@ interface Props {
  * Область появляется вместе с текстом, а не висит пустой, — цена того же правила про `gap`.
  *
  * **Ошибка фонового сохранения — тихая иконка и ничего больше**: ни модалки, ни тоста (принцип «ручное
- * действие → модалка, фоновое → иконка или молчание»). У неё `role="img"` с `aria-label` в дополнение к
- * `title`: тултип по наведению недоступен с клавиатуры.
+ * действие → модалка, фоновое → иконка или молчание»). Подсказка у неё — библиотечный `Tooltip` (задача
+ * 0097): нативный `title` показывался только по наведению мышью, и обойти это приходилось руками — `role="img"`
+ * с `aria-label` дублировали текст для скринридера, а клавиатурному пользователю подсказка не доставалась
+ * вовсе. `Tooltip` открывается и по наведению, и по фокусу; роль и имя иконки остаются прежними — сам триггер
+ * ставит `role="button"`, но действия за ним нет, и объявлять его кнопкой было бы враньём.
  */
 export const SaveStatusIndicator: React.FC<Props> = ({ view }) => {
   if (view.kind === 'none') return null;
@@ -37,15 +41,17 @@ export const SaveStatusIndicator: React.FC<Props> = ({ view }) => {
   if (view.kind === 'error') {
     return (
       <span role='status' aria-live='polite' className='inline-flex shrink-0 items-center'>
-        <span
-          role='img'
-          aria-label={view.label}
-          title={view.tooltip}
-          className='inline-flex size-6 cursor-default items-center justify-center'
-          style={{ color: DANGER }}
-        >
-          <TriangleAlert size={16} aria-hidden='true' />
-        </span>
+        <Tooltip>
+          <Tooltip.Trigger
+            role='img'
+            aria-label={view.label}
+            className='inline-flex size-6 cursor-default items-center justify-center'
+            style={{ color: DANGER }}
+          >
+            <TriangleAlert size={16} aria-hidden='true' />
+          </Tooltip.Trigger>
+          <Tooltip.Content>{view.tooltip}</Tooltip.Content>
+        </Tooltip>
       </span>
     );
   }

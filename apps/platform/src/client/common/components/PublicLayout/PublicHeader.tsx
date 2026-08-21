@@ -18,6 +18,11 @@ interface Props {
 /**
  * Шапка на 4 состояния. Логотип во всех состояниях ведёт на `/`.
  *
+ * Три ссылки-действия («Войти», «Создать проект», «Мои проекты») одеты BEM-классами библиотеки, а не
+ * набором утилит (задача 0097): заливка, радиус, наведение, нажатие и кольцо фокуса приезжают из темы.
+ * Высота держится классом `h-10` поверх шкалы намеренно — `docs/ui/layout.md` задаёт содержимому шапки
+ * ровно 40px на десктопе, а `.button` даёт 40px только до 768px и 36px выше.
+ *
  * - `guest-landing`: логотип, навигация по секциям, «Войти» + «Создать проект».
  * - `auth-landing`: логотип, навигация, «Мои проекты» + меню профиля (аватар + шеврон).
  * - `app`: логотип, справа меню профиля (аватар + имя + шеврон); фон под шапкой серый.
@@ -63,16 +68,10 @@ export const PublicHeader: React.FC<Props> = ({ mode, user }) => {
             <div className='ml-auto flex items-center gap-2'>
               {mode === 'guest-landing' ? (
                 <>
-                  <Link
-                    to='/login'
-                    className='hidden h-10 items-center rounded-xl bg-[var(--default)] px-4 text-[14px] font-medium text-[color:var(--foreground)] no-underline transition-colors hover:bg-[color:var(--surface-secondary)] lg:inline-flex'
-                  >
+                  <Link to='/login' className='button button--tertiary hidden h-10 no-underline lg:inline-flex'>
                     Войти
                   </Link>
-                  <Link
-                    to='/register'
-                    className='inline-flex h-10 items-center rounded-xl bg-[var(--accent)] px-4 text-[14px] font-medium text-[color:var(--accent-foreground)] no-underline transition-colors hover:brightness-95'
-                  >
+                  <Link to='/register' className='button button--primary h-10 no-underline'>
                     <span className='lg:hidden'>Создать</span>
                     <span className='hidden lg:inline'>Создать проект</span>
                   </Link>
@@ -81,10 +80,7 @@ export const PublicHeader: React.FC<Props> = ({ mode, user }) => {
 
               {mode === 'auth-landing' && user ? (
                 <>
-                  <Link
-                    to='/projects'
-                    className='inline-flex h-10 items-center rounded-xl bg-[var(--accent)] px-4 text-[14px] font-medium text-[color:var(--accent-foreground)] no-underline transition-colors hover:brightness-95'
-                  >
+                  <Link to='/projects' className='button button--primary h-10 no-underline'>
                     <span className='lg:hidden'>Проекты</span>
                     <span className='hidden lg:inline'>Мои проекты</span>
                   </Link>

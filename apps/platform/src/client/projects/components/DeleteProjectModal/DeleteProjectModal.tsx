@@ -83,7 +83,7 @@ const DeleteBody: React.FC<DeleteFormProps> = ({ project, onClose }) => {
         </Button>
       </div>
 
-      {submitError ? <span className='text-[12px] text-[color:oklch(38%_0.16_27)]'>{submitError}</span> : null}
+      {submitError ? <span className='text-[12px] text-[color:var(--form-error)]'>{submitError}</span> : null}
     </div>
   );
 };
